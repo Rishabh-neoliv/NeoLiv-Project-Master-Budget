@@ -1,0 +1,53 @@
+// A project: header, action bar, summary and tabs. Row-level security means a person who isn't on the team gets "not found".
+import { notFound } from "next/navigation";
+import type { Model } from "@/lib/budget";
+import { activeMembers } from "@/lib/server/people";
+import { createClient } from "@/lib/supabase/server";
+import { ProjectView, type ProjectData } from "./project-view";
+
+export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
+  const { id } = await props.params;
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const uid = claims?.claims?.sub as string;
+
+  const { data: project } = await supabase.from("projects").select("*").eq("id", id).maybeSingle();
+  if (!project) notFound();
+  const [{ data: team }, { data: versions }, { data: activity }, { data: tpl }, { data: me }, { data: currentTpl }, { data: files, error: filesError }] = await Promise.all([
+    supabase.from("project_members").select("user_id, dept, profiles(name, email)").eq("project_id", id),
+    supabase.from("versions").select("rev, inputs, rates, master, calc, grand_total, reason, dept, template, xlsx_path, frozen_by, frozen_at").eq("project_id", id).order("rev"),
+    supabase.from("activity").select("id, at, by, dept, action, comment, rev, details").eq("project_id", id).order("at", { ascending: false }).limit(200),
+    supabase.from("templates").select("stamp, model, modified").eq("stamp", project.template).maybeSingle(),
+    supabase.from("profiles").select("is_admin").eq("id", uid).single(),
+    supabase.from("templates").select("stamp, modified").eq("is_current", true).maybeSingle(),
+    supabase.from("files").select("id, rev, name, size, content_type, kind, uploaded_by, uploaded_at, extraction_status, extraction, extraction_error").eq("project_id", id).order("uploaded_at", { ascending: false }),
+  ]);
+  if (!tpl) throw new Error(`Template ${project.template} isn't loaded. Run scripts/setup.mjs.`);
+
+  const ids = [...new Set([project.created_by, ...(activity ?? []).map((a) => a.by), ...(versions ?? []).map((v) => v.frozen_by), ...(files ?? []).map((f) => f.uploaded_by)].filter(Boolean))] as string[];
+  const { data: ppl } = ids.length ? await supabase.from("profiles").select("id, name").in("id", ids) : { data: [] };
+  const teamRows = (team ?? []).map((t) => {
+    const p = (Array.isArray(t.profiles) ? t.profiles[0] : t.profiles) as { name: string; email: string } | null;
+    return { user_id: t.user_id, dept: t.dept, name: p?.name ?? "", email: p?.email ?? "" };
+  });
+  // Base Line (and the admin) may change the team, so they get the list of onboarded members to pick from
+  const isBaseLine = teamRows.some((t) => t.user_id === uid && t.dept === "BD");
+
+  const data: ProjectData = {
+    project,
+    team: teamRows,
+    versions: versions ?? [],
+    activity: activity ?? [],
+    names: Object.fromEntries((ppl ?? []).map((p) => [p.id, p.name])),
+    model: { ...(tpl.model as Model), stamp: tpl.stamp },
+    templateDate: tpl.modified || tpl.stamp,
+    meId: uid,
+    isAdmin: !!me?.is_admin,
+    people: isBaseLine || me?.is_admin ? await activeMembers() : [],
+    files: files ?? [],
+    filesReady: !filesError, // false until supabase/migrations/0002_files_history.sql has been run
+    currentTemplate: currentTpl ? { stamp: currentTpl.stamp, date: currentTpl.modified || currentTpl.stamp } : null,
+  };
+  // key: a fresh screen per project, so nothing typed on one project carries over to another
+  return <ProjectView key={project.id} data={data} />;
+}

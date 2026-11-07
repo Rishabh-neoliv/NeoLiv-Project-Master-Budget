@@ -1,0 +1,153 @@
+﻿@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* Dark mode follows the Windows / browser setting (like the original app). */
+@custom-variant dark (@media (prefers-color-scheme: dark));
+
+/* App colours as Tailwind names: bg-paper, bg-sheet, text-ink, border-line, bg-well, text-accent ... */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-sheet: var(--sheet);
+  --color-ink: var(--ink);
+  --color-soft: var(--soft);
+  --color-line: var(--line);
+  --color-well: var(--well);
+  --color-tint: var(--tint);
+  --color-accent-ink: var(--accent-ink);
+  --color-brand: var(--brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-amber: var(--amber);
+  --color-amber-soft: var(--amber-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-mb-head: var(--mb-head);
+  --color-mb-row: var(--mb-row);
+  --color-mb-row-hover: var(--mb-row-hover);
+  --color-mb-band: var(--mb-band);
+  --color-mb-grand: var(--mb-grand);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  /* light: cool drafting paper, deep teal accent */
+  --paper: #eef1ee;
+  --sheet: #fbfcfa;
+  --ink: #111a17;
+  --soft: #4b5954;        /* secondary text: darker than before, easier to read */
+  --line: #cfd8d4;
+  --well: #e3e9e5;
+  --tint: #f3f6f4;
+  --brand: #0d6a5b;
+  --brand-soft: #d6ebe5;
+  --accent-ink: #ffffff;
+  --amber: #7a4f00;
+  --amber-soft: #fbedc8;
+  --bad: #a3271b;
+  --bad-soft: #fbe3df;
+  --good: #1f6b35;
+  --good-soft: #def0e1;
+  --info: #24527a;
+  --info-soft: #e1ebf3;
+  --mb-head: #4f5559;
+  --mb-row: #dce5f0;
+  --mb-row-hover: #cfdbe9;
+  --mb-band: #3b3f42;
+  --mb-grand: #0d6a5b;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: var(--sheet);
+  --card-foreground: var(--ink);
+  --popover: var(--sheet);
+  --popover-foreground: var(--ink);
+  --primary: var(--brand);
+  --primary-foreground: var(--accent-ink);
+  --secondary: var(--well);
+  --secondary-foreground: var(--ink);
+  --muted: var(--well);
+  --muted-foreground: var(--soft);
+  --accent: var(--well);
+  --accent-foreground: var(--ink);
+  --destructive: var(--bad);
+  --border: var(--line);
+  --input: #b9c4bf;
+  --ring: var(--brand);
+  --radius: 0.625rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #141a18;
+    --sheet: #1b2320;
+    --ink: #eef3f1;
+    --soft: #a9b7b2;
+    --line: #2f3b37;
+    --well: #24302c;
+    --tint: #1f2926;
+    --brand: #3fbfa6;
+    --brand-soft: #173d36;
+    --accent-ink: #0c1a17;
+    --amber: #f2c46b;
+    --amber-soft: #3b2e12;
+    --bad: #ff8a7a;
+    --bad-soft: #3d1b17;
+    --good: #7fd69a;
+    --good-soft: #17331f;
+    --info: #8cc2f0;
+    --info-soft: #172a3a;
+    --mb-head: #2c3437;
+    --mb-row: #22303d;
+    --mb-row-hover: #2a3a4a;
+    --mb-band: #0d1110;
+    --mb-grand: #0d6a5b;
+    --input: #3d4b46;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans;
+    color-scheme: light dark;
+  }
+  body {
+    @apply bg-background text-foreground text-[15px] leading-relaxed;
+  }
+  /* numbers line up in columns everywhere */
+  td, output, .num { font-variant-numeric: tabular-nums; }
+}

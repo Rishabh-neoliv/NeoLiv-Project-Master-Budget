@@ -1,0 +1,120 @@
+# NeoLiv Master Budget (web app, dummy data)
+
+The NeoLiv Master Budget app rebuilt as a sign-in web app: Next.js + React on Vercel, Supabase for login,
+database and files, Resend for the workflow emails. People sign in and see only the projects they're on;
+nobody needs the OneDrive folder.
+
+The live OneDrive app (`NeoLiv Project Master Budget\NeoLiv Master Budget.html`) is untouched and keeps working.
+
+## Tech stack
+
+| Tech | Use |
+|---|---|
+| Next.js 16, React 19, TypeScript | Pages, routing, sign-in protection (`proxy.ts`), API routes |
+| Tailwind CSS, shadcn/ui | Styling and components |
+| `lib/engine/budget-engine.js` | The original formula engine, unchanged: runs the master Excel's formulas |
+| `lib/engine/workbook.js` + JSZip | The original Excel builder, unchanged: makes each frozen `Master Budget Rn.xlsx` |
+| Node.js API routes (`app/api`) | The only place a project changes: workflow, freezing, emails, admin |
+| Supabase Auth / Postgres / Storage / Realtime | Login, data with row-level security, files, live updates |
+| Resend | Workflow emails |
+| Vercel, GitHub | Hosting and deploys |
+
+## People and access
+
+- **One admin** (`admin@neoliv.test` in the dummy setup) signs in to the **Admin panel** (`/admin`, its own
+  layout): an Overview of every project and who has access, **Team members** (add someone and send them the
+  sign-up link, make a new link, remove or restore them) and **All projects**.
+- **The admin can also do everything a team member can**: create projects, edit drafts, take any workflow step
+  in any department, and change any project's team, whether or not they are on it. The history records these
+  as "Admin".
+- **Roles are per project.** Whoever creates a project picks who is Base Line, Design, Operations and Management
+  on it (one person may cover several). Base Line (or the admin) can change the team later on the Team tab.
+- Team members see only the projects they're on. The admin sees all of them.
+
+## Workflow (same rules as the original app)
+
+- Base Line → Design → Operations → Management.
+- R0 freezes when Base Line submits it. R1 onwards freezes only when Management approves it; a new version
+  can start only after that.
+- Delta is always against R0 and isn't shown at R0.
+- Each step emails the next department's people (never the person who took the step).
+
+## Folders
+
+```
+app/
+  login/, set-password/, auth/confirm/     sign-in, invite and password-reset links
+  (app)/projects/                          project list, new project, project page (tabs)
+  (app)/admin/                             invite users, admin flag
+  api/projects/...                         create, save/submit draft, workflow actions, Excel download
+  api/admin/users                          invite / update users (admins only)
+components/                                budget table, assumptions form, badges
+lib/
+  engine/                                  original engine + Excel builder (do not edit casually)
+  budget.ts                                snapshot, rowKind, marks... (shared by browser and server)
+  workflow.ts                              statuses, who can do what, email rules
+  server/                                  server-only: data access, freeze, workbook, email
+  supabase/                                browser, server and admin clients
+supabase/migrations/0001_init.sql          tables, access rules, storage buckets
+scripts/setup.mjs                          load templates, create dummy users, import old test projects
+scripts/check-engine.mjs                   recalculates the old app's frozen versions and compares
+_legacy/                                   extracted from the old app's HTML (git-ignored: real rates)
+```
+
+## Setup
+
+1. **Supabase**: in your project, open the **SQL Editor**, paste `supabase/migrations/0001_init.sql` and run it.
+2. **Keys**: copy `.env.example` to `.env.local` and fill in the Supabase URL, publishable key and secret key
+   (Project Settings → API Keys), plus `SEED_PASSWORD` for the dummy users.
+3. **Load templates, users and the old test projects**:
+   ```bash
+   node --env-file=.env.local scripts/setup.mjs "D:\OneDrive - NeoLiv\Rishabh\Project\NeoLiv Project Master Budget"
+   ```
+   This creates the admin login `admin@neoliv.test` (password = `SEED_PASSWORD`). Imported projects have no team.
+4. **Supabase Auth settings** (Authentication):
+   - Sign In / Providers → Email: turn **off** "Allow new users to sign up" (only admins invite).
+   - URL Configuration: Site URL = your app URL (`http://localhost:3000` locally, the Vercel URL later), and add both to Redirect URLs.
+   - Emails → **Invite user** link: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/set-password`
+   - Emails → **Reset password** link: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/set-password`
+5. **Run it**: `npm run dev` and open http://localhost:3000.
+
+### Deploy to Vercel
+
+Push to the private GitHub repo, import it in Vercel, and add the same environment variables there
+(`APP_URL` = the Vercel URL; leave out `SEED_PASSWORD`). Then set Supabase's Site URL to the Vercel URL.
+
+## Checks
+
+- `npx tsc --noEmit`, `npx eslint .`, `npm run build`
+- `node scripts/check-engine.mjs "<old app folder>"`: every frozen version of the old app recalculates to the same
+  Master Budget, line by line.
+- `node --env-file=.env.local scripts/check-db.mjs`: the schema's tables and buckets exist.
+- `node --env-file=.env.local scripts/check-access.mjs`: only the team (and the admin) see a project; nothing is
+  writable from the browser; nobody can make themselves admin.
+- `node --env-file=.env.local scripts/delete-user.mjs <email>`: deletes a test account completely.
+
+## Project tabs
+
+| Tab | What it does |
+|---|---|
+| Assumptions | The inputs, with step guidance for whoever's turn it is, a summary and Save / Submit beside them |
+| Master Budget | The budget lines with Delta vs R0; download the draft (as saved) or a frozen revision as Excel |
+| Rates | Project rates against the master rates. Base Line while preparing R0, Operations when the draft is with them |
+| Rate analysis | Compare any two of: master template, R0..Rn, the draft. Splits each change into quantity and rate parts |
+| Files | Upload documents. A Master Budget workbook is read exactly; others are read by Claude on request. Values are suggestions: tick, apply to the draft, then save |
+| Revisions | Frozen revisions; click a row to open it, Compare with R0, download Excel |
+| Team / Activity | Who works on it; every step, with the fields each save changed (Field history) |
+
+A draft on an older master template shows "Move to the new template", which carries inputs by field name and
+project rates by item, as the original app did.
+
+## Settings that turn features on
+
+- `ANTHROPIC_API_KEY`: "Read with AI" on the Files tab (Claude Opus 5.5; documents are sent to Anthropic's API to be read).
+- `RESEND_API_KEY` (+ `EMAIL_FROM` on a verified domain): workflow and sign-up emails. Without it they're logged as skipped.
+- Database update `supabase/migrations/0002_files_history.sql` (files table and bucket, field history) must be run once.
+
+## Not built yet
+
+Spreading a typed road total over the road lines (the original app's Road Length shortcut). Imported old
+versions have no Excel file; new freezes make one.
