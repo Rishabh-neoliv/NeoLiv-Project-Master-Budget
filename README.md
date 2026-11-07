@@ -45,9 +45,9 @@ The live OneDrive app (`NeoLiv Project Master Budget\NeoLiv Master Budget.html`)
 app/
   login/, set-password/, auth/confirm/     sign-in, invite and password-reset links
   (app)/projects/                          project list, new project, project page (tabs)
-  (app)/admin/                             invite users, admin flag
-  api/projects/...                         create, save/submit draft, workflow actions, Excel download
-  api/admin/users                          invite / update users (admins only)
+  (admin)/admin/                           admin panel: overview, members (invite, remove), all projects
+  api/projects/...                         create, save/submit draft, workflow actions, team, rates, files, Excel
+  api/admin/users                          invite / update users (admin only)
 components/                                budget table, assumptions form, badges
 lib/
   engine/                                  original engine + Excel builder (do not edit casually)
@@ -56,6 +56,8 @@ lib/
   server/                                  server-only: data access, freeze, workbook, email
   supabase/                                browser, server and admin clients
 supabase/migrations/0001_init.sql          tables, access rules, storage buckets
+supabase/migrations/0002_files_history.sql files, field history, email outbox
+docs/                                      email guides, WORKLOG.md (what's built and open)
 scripts/setup.mjs                          load templates, create dummy users, import old test projects
 scripts/check-engine.mjs                   recalculates the old app's frozen versions and compares
 _legacy/                                   extracted from the old app's HTML (git-ignored: real rates)
@@ -111,7 +113,9 @@ project rates by item, as the original app did.
 ## Settings that turn features on
 
 - `ANTHROPIC_API_KEY`: "Read with AI" on the Files tab (Claude Opus 5.5; documents are sent to Anthropic's API to be read).
-- `RESEND_API_KEY` (+ `EMAIL_FROM` on a verified domain): workflow and sign-up emails. Without it they're logged as skipped.
+- Email, first one configured wins: Microsoft 365 (`MS_TENANT_ID`, `MS_CLIENT_ID`, `MS_CLIENT_SECRET`, `MAIL_FROM`),
+  Power Automate (`POWER_AUTOMATE_FEED_TOKEN`, see `docs/Email via Power Automate.md`), or Resend
+  (`RESEND_API_KEY` + `EMAIL_FROM`). Without any, emails are logged as skipped.
 - Database update `supabase/migrations/0002_files_history.sql` (files table and bucket, field history) must be run once.
 
 ## Not built yet
