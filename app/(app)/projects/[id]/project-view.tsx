@@ -4,7 +4,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { AssumptionsForm } from "@/components/assumptions-form";
+import { AssumptionsForm, type Baseline } from "@/components/assumptions-form";
 import { BudgetTable } from "@/components/budget-table";
 import { ActivityTab, type ActivityRow } from "@/components/activity-tab";
 import { FilesTab, type ProjectFile } from "@/components/files-tab";
@@ -102,6 +102,10 @@ export function ProjectView({ data }: { data: ProjectData }) {
   // inputs still empty on the working draft: until they're filled the Excel formulas can't give a budget
   const missing = useMemo(() => (shownVersion ? [] : missingInputs(m, draft)), [shownVersion, m, draft]);
   const baseline = r0 && shownRev !== 0 ? r0.master : null;
+  // what the Assumptions form compares against: R0's frozen inputs, calculated values and budget lines
+  const shownTemplate = shownVersion ? shownVersion.template : p.template;
+  const formBase: Baseline | null = useMemo(() => (r0 && shownRev !== 0
+    ? { inputs: r0.inputs as Record<string, CellValue>, calc: r0.calc ?? {}, master: r0.master ?? [], sameTemplate: r0.template === shownTemplate } : null), [r0, shownRev, shownTemplate]);
   const canChangeTeam = myDepts.includes("BD");
 
   async function call(url: string, method: string, body: unknown) {
@@ -153,6 +157,19 @@ export function ProjectView({ data }: { data: ProjectData }) {
     }
   }
 
+  // a frozen revision costed on an older master template: Base Line can recalculate it with the current one
+  const [rebaseWhy, setRebaseWhy] = useState("");
+  const [rebaseArmed, setRebaseArmed] = useState(false);
+  async function rebase(r: number) {
+    if (!rebaseWhy.trim()) return void toast.error("Please give a reason first.");
+    if (!rebaseArmed) return setRebaseArmed(true);
+    setRebaseArmed(false);
+    const out = await call(`/api/projects/${p.id}/versions/${r}/recalculate`, "POST", { reason: rebaseWhy });
+    if (out) { toast.success(`R${r} recalculated: ${crore(out.fromTotal)} → ${crore(out.toTotal)}.`); setRebaseWhy(""); router.refresh(); }
+  }
+  const olderTemplate = !!shownVersion && !!data.currentTemplate && shownVersion.template !== data.currentTemplate.stamp;
+  const recalcs = shownVersion ? activity.filter((a) => a.rev === shownVersion.rev && a.details?.kind === "recalc") : [];
+
   async function saveTeam() {
     if (!teamEdit) return;
     const out = await call(`/api/projects/${p.id}/team`, "PUT", { team: teamToRows(teamEdit) });
@@ -173,6 +190,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
     <b>R{shownVersion.rev}{shownVersion.rev === 0 ? " – Base Line" : ""}</b>, frozen on {fmtDate(shownVersion.frozen_at)}{shownVersion.frozen_by && names[shownVersion.frozen_by] ? ` by ${names[shownVersion.frozen_by]}` : ""}{shownVersion.reason ? ` (${shownVersion.reason})` : ""}. Frozen: these values can&apos;t change.
     {shownVersion.rev > 0 && " Changes against the Base Line (R0) are highlighted."}
     {!draftOpen && shownVersion.rev === p.last_rev && <> Base Line, Design or Operations can press <b>Create new version R{rev}</b> when the drawings change.</>}
+    {recalcs.map((a) => <span key={a.id} className="block text-sm text-soft">{a.action} on {fmtDate(a.at)}{a.by && names[a.by] ? ` by ${names[a.by]}` : ""}: {a.comment}</span>)}
   </>;
   else if (!editable && holder) notice = p.status === "WITH_MGMT"
     ? <><b>The R{rev} draft is with Management</b>{holderNames && ` (${holderNames})`}; the assumptions can&apos;t be changed at this step. It is frozen when Management approves it.</>
@@ -182,7 +200,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
 
   // what to do now, for whoever's turn it is (as in the original app)
   const guide: React.ReactNode = editable && !shownVersion ? {
-    BD: <><b>Base Line:</b> fill in the General parameters and the sections below (a new project starts empty). Design can refine them after R0 is submitted.</>,
+    BD: <><b>Base Line:</b> fill in the General parameters and the sections below (a new project starts with the master template&apos;s sample values: change what differs for this site). Design can refine them after R0 is submitted.</>,
     Design: <><b>Design:</b> refine any of the assumptions, then submit R{rev} to Operations. R0 stays frozen as the Base Line; every change against it is highlighted.</>,
     Operations: <><b>Operations:</b> finalise the budget by changing any assumption here, then submit R{rev} to Management for approval. It is frozen when Management approves it.</>,
     Management: null,
@@ -264,6 +282,18 @@ export function ProjectView({ data }: { data: ProjectData }) {
               </div>
             )}
             {notice && <div className={`rounded-lg border px-4 py-3 ${shownVersion ? "border-line bg-tint text-ink" : "border-amber/30 bg-amber-soft text-amber"}`}>{shownVersion ? "🔒 " : ""}{notice}</div>}
+            {shownVersion && olderTemplate && (
+              <div className="grid gap-2 rounded-lg border border-amber/30 bg-amber-soft px-4 py-3 text-amber">
+                <span><b>R{shownVersion.rev} was calculated on an older master template.</b> The current one is from {data.currentTemplate!.date} and may have changed rules or rates.</span>
+                {myDepts.includes("BD") ? <>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input className="h-9 min-w-64 flex-1 bg-sheet text-ink" value={rebaseWhy} onChange={(e) => { setRebaseWhy(e.target.value); setRebaseArmed(false); }} placeholder={`Reason for recalculating R${shownVersion.rev} (required)`} />
+                    <Button variant="outline" disabled={busy} onClick={() => rebase(shownVersion.rev)}>{rebaseArmed ? `Confirm: recalculate R${shownVersion.rev}` : `Recalculate R${shownVersion.rev} with the current template`}</Button>
+                  </div>
+                  <small className="text-amber/90">Keeps R{shownVersion.rev}&apos;s own inputs and project rates; only the calculation rules change. The old total is kept in the Activity log{shownVersion.rev === 0 ? ", and every Delta vs R0 follows the new total" : ""}.</small>
+                </> : <span className="text-sm">Until it is recalculated it shows the old template&apos;s rules. Only Base Line ({peopleIn("BD").join(", ") || "nobody yet"}) can recalculate it.</span>}
+              </div>
+            )}
             {missing.length > 0 && (
               <div className="rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-info">
                 <b>{missing.length} input(s) still to fill in</b> before the budget can be worked out and R{rev} submitted: {missing.slice(0, 8).map((f) => f.label).join(", ")}{missing.length > 8 ? `, and ${missing.length - 8} more` : ""}.
@@ -277,7 +307,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
               </div>
             )}
             <AssumptionsForm model={m} draft={shownInputs} snap={snap} editable={editable && !shownVersion}
-              base={r0 && shownRev !== 0 ? r0.inputs : null} onChange={(d) => { setDraft(d); setDirty(true); }} />
+              base={formBase} onChange={(d) => { setDraft(d); setDirty(true); }} />
           </div>
           <div className="grid gap-4 lg:sticky lg:top-4">
             <Summary snap={snap} r0={shownRev !== 0 ? r0?.grand_total ?? null : null} label={shownVersion ? `R${shownRev}` : `R${rev} draft`} templateDate={data.templateDate} live={editable && !shownVersion} incomplete={missing.length} />

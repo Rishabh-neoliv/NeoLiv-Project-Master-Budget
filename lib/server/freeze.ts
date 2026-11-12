@@ -22,17 +22,24 @@ export async function freezeVersion(db: Db, args: {
   // the working draft's files now belong to this revision (as the original app moved them into its folder)
   await db.from("files").update({ rev }).eq("project_id", project.id).is("rev", null);
 
-  // the Excel is a convenience: a failure here must not undo the freeze, so it is reported, not thrown
-  let workbookError: string | null = null;
+  const workbookError = await rebuildWorkbook(db, project, version as VersionRow);
+  return { version: version as VersionRow, workbookError };
+}
+
+/**
+ * (Re)builds a frozen revision's Excel file. It is a convenience: a failure must not undo the freeze or a
+ * recalculation, so it is returned as a message, not thrown.
+ */
+export async function rebuildWorkbook(db: Db, project: ProjectRow, version: VersionRow): Promise<string | null> {
   try {
     const { data: all } = await db.from("versions").select("*").eq("project_id", project.id);
     const ids = [...new Set((all ?? []).map((v) => v.frozen_by).filter(Boolean))];
     const { data: ppl } = ids.length ? await db.from("profiles").select("id, name").in("id", ids) : { data: [] };
     const names = Object.fromEntries((ppl ?? []).map((p) => [p.id, p.name]));
-    await buildFrozenWorkbook(project, version as VersionRow, (all ?? []) as VersionRow[], names);
+    await buildFrozenWorkbook(project, version, (all ?? []) as VersionRow[], names);
+    return null;
   } catch (e) {
-    workbookError = e instanceof Error ? e.message : String(e);
-    console.error("workbook for", project.id, "R" + rev, e);
+    console.error("workbook for", project.id, "R" + version.rev, e);
+    return e instanceof Error ? e.message : String(e);
   }
-  return { version: version as VersionRow, workbookError };
 }

@@ -20,7 +20,8 @@ command or structure below changes.
   `.env.example` holds names only.
 - **Uploads/tests with real documents only in a throwaway project**, with the user's OK, and delete it afterwards
   (project, storage copies, any local copies).
-- **New projects start blank** (`blankInputs`), never with the template's sample values.
+- **New projects start with the master template's sample values** (`startInputs`, as v37/v58 did; the user
+  chose this on 2026-11-12, reversing the earlier "start blank"). The rates location comes from the region.
 - **Don't edit `lib/engine/` casually.** It is the old app's `BudgetEngine` and Excel builder, verified line by
   line against the 10 legacy frozen versions (`scripts/check-engine.mjs`). Rerun that check after touching it.
 - Never force-push. Commit only when the user asks.

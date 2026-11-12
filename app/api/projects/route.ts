@@ -1,6 +1,6 @@
 // POST /api/projects: create a project (Base Line draft R0) with its team.
 import { z } from "zod";
-import { blankInputs } from "@/lib/budget";
+import { isNum, snapshot, startInputs } from "@/lib/budget";
 import { errorResponse, HttpError, loadModel, requireUser } from "@/lib/server/data";
 import { assertActiveMembers } from "@/lib/server/people";
 import { notify } from "@/lib/server/email";
@@ -26,12 +26,13 @@ export async function POST(req: Request) {
     if (dupe) throw new HttpError(409, `A project called “${body.name}” already exists.`);
 
     const m = await loadModel();
-    // a new project starts empty (not with the master workbook's sample values); only the rates location
-    // is taken from the region
-    const inputs = blankInputs(m, body.region);
+    // a new project starts from the master template's sample values, like the original app; the rates
+    // location comes from the region
+    const inputs = startInputs(m, body.region);
+    const snap = snapshot(m, inputs);
     const { data: project, error } = await db.from("projects").insert({
       name: body.name, region: body.region, status: "DRAFT", template: m.stamp, inputs, rates: {}, rates_template: m.stamp,
-      grand_total: null, location: (inputs.C8 as string) ?? null, acre: null, created_by: me.id, updated_by: me.id,
+      grand_total: snap.grandTotal, location: (inputs.C8 as string) ?? null, acre: isNum(inputs.C9) ? inputs.C9 : null, created_by: me.id, updated_by: me.id,
     }).select("*").single();
     if (error) throw new HttpError(400, error.message);
 

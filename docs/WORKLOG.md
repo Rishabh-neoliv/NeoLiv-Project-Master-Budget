@@ -14,7 +14,25 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   (09-09-2026) MOM xlsx and the Guidelines PDF (partly scanned). `6071422233.PDF` is an SAP invoice, not a project doc.
 - Imported NCR projects (9) have no team; assign when needed. Test projects still present: "UI Check Project",
   "Workflow Test 05526" (orphaned), and the user's "test12".
-- Not built: spreading a typed road total over the road lines (old app's Road Length shortcut).
+- Next, as the user asked: email automation, then hosting on free services.
+
+## 2026-11-12
+
+- Reviewed the claude.ai artifact "NeoLiv Master Budget" (v37, an older build of the same app, with 4 master
+  templates and real rates inside; it is private). Compared it and v58 with this app.
+- New projects start with the master template's sample values again (user's decision; v37 and v58 do this).
+- Road Length shortcut: typing a total spreads it over the road lines in proportion; editing a line updates the
+  total; a line with no length hides its other measurements.
+- Recalculate a frozen revision on the current master template (Base Line or admin, reason required, two-click
+  confirm). Updates base/grand totals, rebuilds the revision's Excel, logs old → new total in Activity.
+  Tested on a throwaway project (deleted afterwards).
+- "Δ vs R0" as in v58: a line under every input (and calculated value) that differs from R0, e.g.
+  "Δ +500 vs R0 (R0: 1,925.60)", and a "Delta vs Base Line (R0)" column on the road table with each road's cost
+  change and what changed (type, width, length…). Checked on NCR Test 1 (view only).
+- Email automation: set POWER_AUTOMATE_FEED_TOKEN in .env.local and tested the chain locally (Forgot password
+  → outbox → private RSS feed → decoded email with the link; wrong key → 404). Test email removed. What's left
+  needs a public address: deploy, set the same kind of token in Vercel, then the user builds the 10-minute flow
+  from docs/Email via Power Automate.md.
 
 ## 2026-11-07
 
@@ -28,7 +46,7 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   identical in size.
 - Files tab shows a clear note until migration `0002` is run; user ran it (files, history, outbox, bucket ok).
 - Fixed: new projects were filled with the template's sample data. They now start blank, list the missing inputs,
-  and Submit is blocked until they're filled.
+  and Submit is blocked until they're filled. (Reversed on 2026-11-12 at the user's request.)
 
 ## 2026-11-06
 

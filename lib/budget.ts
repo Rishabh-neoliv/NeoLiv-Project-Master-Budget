@@ -276,6 +276,18 @@ export function blankInputs(m: Model, location?: string | null): Record<string, 
   return out;
 }
 
+/**
+ * A new project's inputs: the master template's sample values (as the original app did), with the rates
+ * location set from the project's region. Base Line then overwrites what differs.
+ */
+export function startInputs(m: Model, location?: string | null): Record<string, CellValue> {
+  const out = blankInputs(m, location);
+  for (const cell of Object.keys(out)) if (cell !== "C8" || !location) out[cell] = m.defaults[cell] ?? out[cell];
+  const loc = m.sections.flatMap((s) => s.fields).find((f) => f.cell === "C8");
+  if (location && !loc?.options?.map(String).some((o) => o.toUpperCase() === String(location).toUpperCase())) out.C8 = m.defaults.C8 ?? null;
+  return out;
+}
+
 /** Input fields that still need a value before the draft can be submitted. */
 export const missingInputs = (m: Model, inputs: Record<string, unknown>) =>
   m.sections.flatMap((s) => s.fields).filter((f) => f.kind !== "calc" && !f.optional && f.group !== "roadcol" && f.group !== "roadwidth"

@@ -4,13 +4,29 @@
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import engineApi from "@/lib/engine/budget-engine";
-import { fmtCalc, fmtInput, isNum, parseInput, type CellValue, type Field, type Model, type Snapshot } from "@/lib/budget";
+import { fmtCalc, fmtInput, inr, isNum, lineKey, parseInput, type CellValue, type Field, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
 
 type Inputs = Record<string, CellValue>;
+export interface Baseline { inputs: Inputs; calc: Record<string, unknown>; master: MasterRow[]; sameTemplate: boolean }
+
+// "Δ +200 vs R0 (R0: 1,967)" under a field whose value differs from the Base Line (as in the original app)
+const num0 = (v: unknown) => (isNum(v) ? v : 0);
+const blank = (v: unknown) => v === null || v === undefined || v === "";
+function deltaText(f: Field, now: unknown, was: unknown): { up: boolean | null; head: string; tail: string } | null {
+  const pct = f.kind === "percent" || f.fmt === "percent";
+  if ((isNum(now) || blank(now)) && (isNum(was) || blank(was))) {
+    const d = num0(now) - num0(was);
+    if (Math.abs(d) < 1e-9) return null;
+    const show = (x: number) => (pct ? `${+(x * 100).toFixed(2)}%` : inr(x, Number.isInteger(x) ? 0 : 2));
+    return { up: d > 0, head: `Δ ${d > 0 ? "+" : "−"}${show(Math.abs(d))}`, tail: ` vs R0 (R0: ${show(num0(was))})` };
+  }
+  return String(now ?? "") === String(was ?? "") ? null : { up: null, head: "Changed", tail: ` vs R0 (R0: ${blank(was) ? "–" : String(was)})` };
+}
 const shortRef = (cell: string) => cell.replace(/^Additional Inputs!/, "AI ");
 const numericChoices = (f: Field) => Array.isArray(f.options) && f.options.length > 0 && f.options.every((o) => /^\d+$/.test(String(o).trim()));
 const inputCls = "h-9 w-full rounded-md border border-input bg-sheet px-2.5 tabular-nums text-ink focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30";
 const changedCls = "bg-amber-soft/60";
+const round2 = (n: number) => Math.round(n * 100) / 100;
 
 // Which road types the master Excel can cost (> ₹ 0) for each road line, given location and that line's measurements.
 const availCache = new Map<string, Set<string>>();
@@ -50,16 +66,69 @@ interface Props {
   draft: Inputs;
   snap: Snapshot;
   editable: boolean;
-  /** R0's values, to mark what changed since the Base Line (null at R0) */
-  base: Inputs | null;
+  /** R0 (the Base Line), to show what changed since it was frozen (null at R0 itself) */
+  base: Baseline | null;
   onChange: (next: Inputs) => void;
 }
 
 export function AssumptionsForm({ model: m, draft, snap, editable, base, onChange }: Props) {
   const all = useMemo(() => m.sections.flatMap((s) => s.fields), [m]);
   const [shown, setShown] = useState<Set<string>>(new Set());
-  const set = (cell: string, v: CellValue) => onChange({ ...draft, [cell]: v });
-  const changed = (cell: string) => !!base && String(base[cell] ?? "") !== String(draft[cell] ?? "");
+  const lengths = useMemo(() => all.filter((x) => x.group === "roadcol" && x.col === "len"), [all]);
+  const totalField = useMemo(() => all.find((x) => x.road_total), [all]);
+  const set = (cell: string, v: CellValue) => {
+    const next: Inputs = { ...draft, [cell]: v };
+    const f = all.find((x) => x.cell === cell);
+    if (f?.road_total) spreadRoadTotal(next, v);
+    else if (f?.group === "roadcol" && f.col === "len" && totalField) next[totalField.cell] = round2(lengths.reduce((a, x) => a + (isNum(next[x.cell]) ? (next[x.cell] as number) : 0), 0));
+    onChange(next);
+  };
+  // Road Length is the total of the per-line lengths (the original app's shortcut): typing a total spreads it
+  // over the lines in proportion to their lengths, or puts it all on the first line in use when none has one yet.
+  function spreadRoadTotal(next: Inputs, total: CellValue) {
+    if (!lengths.length || !isNum(total) || total < 0) return;
+    const cur = lengths.map((x) => (isNum(next[x.cell]) ? (next[x.cell] as number) : 0)), sum = cur.reduce((a, b) => a + b, 0);
+    let out: number[];
+    if (sum > 0) {
+      out = cur.map((v) => round2((v * total) / sum));
+      const big = out.indexOf(Math.max(...out)); // keep the total exact after rounding
+      out[big] = round2(out[big] + total - out.reduce((a, b) => a + b, 0));
+    } else {
+      const i = Math.max(0, lengths.findIndex((x) => String(next[x.road as string] ?? "No") !== "No"));
+      out = lengths.map((_, j) => (j === i ? total : 0));
+    }
+    lengths.forEach((x, j) => { next[x.cell] = out[j] === 0 && !isNum(next[x.cell]) ? null : out[j]; });
+  }
+  const changed = (cell: string) => !!base && String(base.inputs[cell] ?? "") !== String(draft[cell] ?? "");
+  const fieldDelta = (f: Field) => {
+    if (!base) return null;
+    const t = f.kind === "calc" ? deltaText(f, snap.calc[f.cell], base.calc[f.cell]) : deltaText(f, draft[f.cell], base.inputs[f.cell]);
+    return t && <small className="block text-right text-xs text-soft"><b className={t.up === null ? "text-ink" : t.up ? "text-bad" : "text-good"}>{t.head}</b>{t.tail}</small>;
+  };
+  // each road line's cost now against R0 (its Master Budget line), matched by row or, across templates, by description
+  const baseTotalOf = useMemo(() => {
+    if (!base) return null;
+    if (base.sameTemplate) { const byRow = new Map(base.master.map((r) => [r.row, r.c[5]])); return (row: number) => byRow.get(row); }
+    const bKey = lineKey(base.master), mKey = lineKey(snap.master);
+    const byKey = new Map(base.master.map((r) => [bKey[r.row], r.c[5]]));
+    return (row: number) => byKey.get(mKey[row]);
+  }, [base, snap.master]);
+  function roadDelta(f: Field) {
+    if (!base || !baseTotalOf) return null;
+    const parts: string[] = [];
+    if (String(draft[f.cell] ?? "") !== String(base.inputs[f.cell] ?? "")) parts.push(`Type: ${String(base.inputs[f.cell] ?? "–")} → ${String(draft[f.cell] ?? "–")}`);
+    for (const c of all.filter((x) => (x.group === "roadcol" || x.group === "roadwidth") && x.road === f.cell)) {
+      const d = c.kind === "calc" ? num0(snap.calc[c.cell]) - num0(base.calc[c.cell] ?? base.inputs[c.cell]) : num0(draft[c.cell]) - num0(base.inputs[c.cell]);
+      if (Math.abs(d) > 1e-9) parts.push(`${c.label.split(" – ").pop()!.replace(/\s*\(.*\)$/, "")} ${d > 0 ? "+" : "−"}${inr(Math.abs(d), Number.isInteger(d) ? 0 : 2)}`);
+    }
+    const row = roadLineRow(m, f);
+    const d = row ? num0(snap.master.find((r) => r.row === +row)?.c[5]) - num0(baseTotalOf(+row)) : 0;
+    if (Math.abs(d) < 0.5 && !parts.length) return <span className="text-soft">–</span>;
+    return <>
+      {Math.abs(d) >= 0.5 && <b className={d > 0 ? "text-bad" : "text-good"}>{d > 0 ? "+" : "−"}₹ {inr(Math.abs(d))}</b>}
+      {parts.length > 0 && <small className="block text-xs leading-snug text-soft">{parts.map((x) => <span key={x} className="block">{x}</span>)}</small>}
+    </>;
+  }
 
   const roads = all.filter((f) => f.group === "roads");
   const lenOf = (f: Field) => all.find((x) => x.group === "roadcol" && x.road === f.cell && x.col === "len");
@@ -123,10 +192,9 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, onChang
         <label htmlFor={"in-" + f.cell.replace(/[^A-Za-z0-9]/g, "_")}>
           <span className="font-medium">{lbl}</span> <span className="ml-1 font-mono text-xs text-soft">{shortRef(f.cell)}</span>
           {f.kind === "calc" && <span className="ml-2 text-xs text-soft">calculated</span>}
-          {f.note && <small className="block text-sm text-soft">{f.note}</small>}
-          {typeof f.detail === "string" && <small className="block text-sm text-soft">{fmtCalc({} as Field, snap.calc[f.detail])}</small>}
+          {f.note && <small className="block text-sm text-soft">{f.note}</small>}          {typeof f.detail === "string" && <small className="block text-sm text-soft">{fmtCalc({} as Field, snap.calc[f.detail])}</small>}
         </label>
-        <div>{control(f)}</div>
+        <div>{control(f)}{fieldDelta(f)}</div>
       </div>
     );
   }
@@ -142,10 +210,10 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, onChang
           <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-well text-xs uppercase tracking-wide text-soft">
               <tr><th className="px-2 py-1.5 text-right">Width{typed ? " (m)" : ""}</th><th className="px-2 py-1.5 text-left">Road type and specification</th>
-                {heads.map(([k, h]) => <th key={k} className="px-2 py-1.5 text-right">{h}</th>)}{typed && <th />}</tr>
+                {heads.map(([k, h]) => <th key={k} className="px-2 py-1.5 text-right">{h}</th>)}{base && <th className="min-w-36 px-2 py-1.5 text-right">Delta vs Base Line (R0)</th>}{typed && <th />}</tr>
             </thead>
             <tbody>
-              {!lines.length && <tr><td colSpan={heads.length + 3} className="px-2 py-3 text-soft">No roads yet. Press “Add road”.</td></tr>}
+              {!lines.length && <tr><td colSpan={heads.length + 4} className="px-2 py-3 text-soft">No roads yet. Press “Add road”.</td></tr>}
               {lines.map((f) => {
                 const v = String(draft[f.cell] ?? "No"), ok = avail[f.cell] ?? new Set((f.options || []).map(String));
                 const opts = (f.options || []).map(String).filter((o) => ok.has(o) || o === v);
@@ -164,10 +232,14 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, onChang
                     {heads.map(([key]) => {
                       const c = all.find((x) => x.group === "roadcol" && x.road === f.cell && x.col === key);
                       if (!c) return <td key={key} />;
+                      // a road line with no length costs nothing, so its other measurements stay hidden
+                      const lf = lenOf(f);
+                      if (key !== "len" && lf && !(isNum(draft[lf.cell]) && (draft[lf.cell] as number) > 0)) return <td key={key} className="px-2 py-1 text-right text-soft">–</td>;
                       if (c.kind === "calc") return <td key={key} className="px-2 py-1 text-right tabular-nums text-soft">{fmtCalc(c, snap.calc[c.cell])}</td>;
                       if (!editable) return <td key={key} className={`px-2 py-2 text-right font-medium ${changed(c.cell) ? "bg-amber-soft" : ""}`}>{fmtInput(c, draft[c.cell]) || "–"}</td>;
                       return <td key={key} className="w-24 px-2 py-1"><input type="number" step="any" min={0} className={`${inputCls} ${changed(c.cell) ? changedCls : ""}`} aria-label={c.label} value={fmtInput(c, draft[c.cell])} onChange={(e) => set(c.cell, parseInput(c, e.target.value))} /></td>;
                     })}
+                    {base && <td className="min-w-36 px-2 py-1 text-right tabular-nums">{roadDelta(f)}</td>}
                     {typed && <td className="whitespace-nowrap px-1">{editable && <>
                       <Button variant="ghost" size="icon-sm" title="Add another road type for this width" onClick={() => addRoad(f)}>+</Button>
                       <Button variant="ghost" size="icon-sm" title="Remove this road line" onClick={() => removeRoad(f)}>×</Button></>}</td>}

@@ -108,7 +108,14 @@ Push to the private GitHub repo, import it in Vercel, and add the same environme
 | Team / Activity | Who works on it; every step, with the fields each save changed (Field history) |
 
 A draft on an older master template shows "Move to the new template", which carries inputs by field name and
-project rates by item, as the original app did.
+project rates by item, as the original app did. A frozen revision on an older template shows "Recalculate R<n>
+with the current template" to Base Line (reason required; the old total stays in Activity).
+
+From R1 on, every input that differs from R0 shows "Δ +x vs R0 (R0: y)" under it, and the road table has a
+Delta vs Base Line (R0) column with each road's cost change.
+
+New projects start with the master template's sample values. Typing a Road Length total spreads it over the
+road lines in proportion; editing a line's length updates the total.
 
 ## Settings that turn features on
 
@@ -120,5 +127,4 @@ project rates by item, as the original app did.
 
 ## Not built yet
 
-Spreading a typed road total over the road lines (the original app's Road Length shortcut). Imported old
-versions have no Excel file; new freezes make one.
+Imported old versions have no Excel file; new freezes make one.
