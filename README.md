@@ -21,9 +21,15 @@ The live OneDrive app (`NeoLiv Project Master Budget\NeoLiv Master Budget.html`)
 
 ## People and access
 
-- **One admin** (`admin@neoliv.test` in the dummy setup) signs in to the **Admin panel** (`/admin`, its own
-  layout): an Overview of every project and who has access, **Team members** (add someone and send them the
-  sign-up link, make a new link, remove or restore them) and **All projects**.
+- **One admin** (now Rishabh.soni.ext@neoliv.in) signs in to the **Admin panel** (`/admin`, its own layout):
+  - **Overview:** every project and who has access, plus **Security and setup** (open sign-up off? Microsoft
+    sign-in on? how emails go out, app address, AI reading), each red item with its fix.
+  - **Team members:** add someone (with Microsoft sign-in on they can sign in straight away; the link is a
+    password fallback), new link, remove or restore, see how each person signs in (Microsoft / Password), and
+    **Make admin** to hand the admin role to someone else.
+  - **All projects.**
+- **Sign-in:** email + password, and "Sign in with Microsoft" with a NeoLiv account once set up
+  (docs/Microsoft sign-in.md). Only people the admin added can get in.
 - **The admin can also do everything a team member can**: create projects, edit drafts, take any workflow step
   in any department, and change any project's team, whether or not they are on it. The history records these
   as "Admin".
@@ -46,7 +52,7 @@ app/
   login/, set-password/, auth/confirm/     sign-in, invite and password-reset links
   auth/callback/                           end of "Sign in with Microsoft" (docs/Microsoft sign-in.md)
   (app)/projects/                          project list, new project, project page (tabs)
-  (admin)/admin/                           admin panel: overview, members (invite, remove), all projects
+  (admin)/admin/                           admin panel: overview + setup status, members, all projects
   api/projects/...                         create, save/submit draft, workflow actions, team, rates, files, Excel
   api/admin/users                          invite / update users (admin only)
 components/                                budget table, assumptions form, badges

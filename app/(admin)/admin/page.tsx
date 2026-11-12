@@ -9,18 +9,24 @@ import { adminOrRedirect } from "@/lib/server/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEPTS, dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 import { fmtShortDateTime } from "@/lib/dates";
+import { setupStatus, type Level } from "@/lib/server/setup-status";
+
+const LEVEL: Record<Level, [string, string]> = {
+  good: ["✓", "bg-good-soft text-good"], bad: ["!", "bg-bad-soft text-bad"], warn: ["!", "bg-amber-soft text-amber"], info: ["i", "bg-info-soft text-info"],
+};
 
 const fmtDate = fmtShortDateTime;
 
 export default async function AdminOverview() {
   await adminOrRedirect();
   const db = createAdminClient();
-  const [{ data: projects }, { data: people }, { data: auth }, { data: activity }, { data: teams }] = await Promise.all([
+  const [{ data: projects }, { data: people }, { data: auth }, { data: activity }, { data: teams }, checks] = await Promise.all([
     db.from("projects").select("id, name, status, last_rev, grand_total, updated_at").order("updated_at", { ascending: false }),
     db.from("profiles").select("id, name"),
     db.auth.admin.listUsers({ perPage: 1000 }),
     db.from("activity").select("id, at, by, dept, action, comment, project_id").order("at", { ascending: false }).limit(15),
     db.from("project_members").select("project_id"),
+    setupStatus(),
   ]);
   const rows = (projects ?? []) as { id: string; name: string; status: Status; last_rev: number | null; grand_total: number | null; updated_at: string }[];
   const users = auth?.users ?? [];
@@ -70,6 +76,25 @@ export default async function AdminOverview() {
             {DEPTS.map((d) => <div key={d} className="flex justify-between"><dt>{dn(d)}</dt><dd className="font-semibold">{waitingOn[d].length}</dd></div>)}
           </dl>
         </div>
+      </section>
+
+      <section className="grid gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-soft">
+          Security and setup{checks.some((c) => c.level === "bad") && <span className="ml-2 rounded bg-bad-soft px-1.5 py-0.5 text-xs normal-case tracking-normal text-bad">needs attention</span>}
+        </h2>
+        <ul className="grid gap-px overflow-hidden rounded-xl border border-line bg-line">
+          {checks.map((c) => (
+            <li key={c.label} className="flex gap-3 bg-sheet px-4 py-3">
+              <span className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ${LEVEL[c.level][1]}`} aria-hidden>{LEVEL[c.level][0]}</span>
+              <div className="min-w-0">
+                <div className="font-medium">{c.label}</div>
+                <div className="text-sm text-soft">{c.detail}</div>
+                {c.fix && c.level !== "good" && <div className="mt-0.5 text-sm">{c.level === "info" ? "To turn on: " : "Fix: "}{c.fix}</div>}
+                {c.fix && c.level === "good" && <div className="mt-0.5 text-sm text-soft">{c.fix}</div>}
+              </div>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section className="grid gap-2">

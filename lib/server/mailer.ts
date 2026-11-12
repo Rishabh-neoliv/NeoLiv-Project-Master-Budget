@@ -1,7 +1,7 @@
 // Sending one email. Every email the app sends (sign-up links, password links, workflow steps) goes through here.
 //
 // Power Automate (like the original app, no IT needed): the app writes each email to the email_outbox table; a
-// flow in the owner's Power Automate reads the private feed /api/email-feed/<token> every few minutes and sends
+// flow in the owner's Power Automate reads the private feed /api/email-feed/<token> every 2 minutes (time window) and sends
 // it from their Outlook (docs/Email via Power Automate.md). Settings: POWER_AUTOMATE_FEED_TOKEN.
 // Microsoft 365 Graph (for later, needs IT): the app signs in as its own Entra ID app registration (client credentials) and sends
 // through Microsoft Graph from one mailbox, e.g. budget@neoliv.in. Exchange limits the app to that mailbox

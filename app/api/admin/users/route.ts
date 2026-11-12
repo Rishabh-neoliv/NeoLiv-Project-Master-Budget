@@ -9,6 +9,8 @@ import { requireAdmin } from "@/lib/server/admin";
 import { errorResponse, HttpError } from "@/lib/server/data";
 import { sendInvite } from "@/lib/server/email";
 import { appUrlFor, linkFor } from "@/lib/server/links";
+import { mailProvider } from "@/lib/server/mailer";
+import { authSettings, microsoftReady } from "@/lib/server/setup-status";
 
 const Invite = z.object({
   name: z.string().trim().min(1, "Enter their name.").max(80),
@@ -22,13 +24,28 @@ export async function POST(req: Request) {
     const { data: existing } = await db.from("profiles").select("id").eq("email", body.email).maybeSingle();
     if (existing) throw new HttpError(409, `${body.email} is already a member. Use “New link” on their row to send another sign-up link.`);
 
-    const { data, error } = await db.auth.admin.generateLink({ type: "invite", email: body.email, options: { data: { name: body.name } } });
-    if (error) throw new HttpError(400, error.message);
-    await db.from("profiles").upsert({ id: data.user.id, name: body.name, email: body.email, is_admin: false });
+    // With Microsoft sign-in on, the account is created with its (company) email already confirmed, so their
+    // NeoLiv Microsoft account joins it on first sign-in; the link is only a fallback to set a password.
+    // Otherwise it's a normal invite: they confirm by opening the link and setting a password.
+    const microsoft = microsoftReady(await authSettings());
+    let userId: string, link: string;
+    if (microsoft) {
+      const { data: made, error } = await db.auth.admin.createUser({ email: body.email, email_confirm: true, user_metadata: { name: body.name } });
+      if (error) throw new HttpError(400, error.message);
+      userId = made.user.id;
+      const { data, error: linkErr } = await db.auth.admin.generateLink({ type: "recovery", email: body.email });
+      if (linkErr) throw new HttpError(400, linkErr.message);
+      link = linkFor(appUrlFor(req), data.properties.hashed_token, "recovery");
+    } else {
+      const { data, error } = await db.auth.admin.generateLink({ type: "invite", email: body.email, options: { data: { name: body.name } } });
+      if (error) throw new HttpError(400, error.message);
+      userId = data.user.id;
+      link = linkFor(appUrlFor(req), data.properties.hashed_token, "invite");
+    }
+    await db.from("profiles").upsert({ id: userId, name: body.name, email: body.email, is_admin: false });
 
-    const link = linkFor(appUrlFor(req), data.properties.hashed_token, "invite");
-    const emailed = await sendInvite({ to: body.email, name: body.name, from: me.name, link });
-    return Response.json({ id: data.user.id, link, emailed });
+    const emailed = await sendInvite({ to: body.email, name: body.name, from: me.name, link, microsoft, appUrl: appUrlFor(req) });
+    return Response.json({ id: userId, link, emailed, via: mailProvider(), microsoft });
   } catch (err) {
     if (err instanceof z.ZodError) return Response.json({ error: err.issues[0]?.message ?? "Invalid request" }, { status: 400 });
     return errorResponse(err);

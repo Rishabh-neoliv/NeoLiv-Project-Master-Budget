@@ -14,8 +14,19 @@ const page = (lines: string[], action?: { href: string; label: string }) =>
   + `<p style="color:#4b5954;font-size:13px">NeoLiv Master Budget</p></div>`;
 
 /** A sign-up or password link. Returns false when email isn't set up or fails (the admin then shares the link). */
-export async function sendInvite({ to, name, from, link, again = false }: { to: string; name: string; from: string; link: string; again?: boolean }) {
+export async function sendInvite({ to, name, from, link, again = false, microsoft = false, appUrl }: { to: string; name: string; from: string; link: string; again?: boolean; microsoft?: boolean; appUrl?: string }) {
   const subject = again ? "Your link to set your NeoLiv Master Budget password" : "You're invited to NeoLiv Master Budget";
+  if (microsoft && !again && appUrl) {
+    // Microsoft sign-in: no password needed, so the button goes to the login page
+    const lines = [
+      `Hello ${name},`, "",
+      `${from || "The admin"} has added you to NeoLiv Master Budget.`, "",
+      `Open the app and press “Sign in with Microsoft”, using your NeoLiv account (${to}).`, "",
+      "Prefer a password? This link lets you set one; it works once and expires after an hour:", link,
+    ];
+    const r = await sendMail({ to, subject, text: [...lines, "", appUrl].join("\n"), html: page(lines, { href: `${appUrl}/login`, label: "Open NeoLiv Master Budget" }) });
+    return r.ok;
+  }
   const lines = [
     `Hello ${name},`, "",
     again ? `${from || "The admin"} has sent you a link to set your password for NeoLiv Master Budget.`

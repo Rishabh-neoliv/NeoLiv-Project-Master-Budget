@@ -1,5 +1,6 @@
 // Admin panel → Team members: onboard people, send sign-up links, remove or restore access.
 import { adminOrRedirect } from "@/lib/server/admin-guard";
+import { authSettings, microsoftReady } from "@/lib/server/setup-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { UsersAdmin, type Member } from "./users-admin";
 
@@ -7,10 +8,11 @@ export default async function MembersPage() {
   await adminOrRedirect();
   // sign-in status lives in Supabase Auth, readable only with the secret key (this page is admin-only)
   const db = createAdminClient();
-  const [{ data: people }, { data: auth }, { data: teams }] = await Promise.all([
+  const [{ data: people }, { data: auth }, { data: teams }, settings] = await Promise.all([
     db.from("profiles").select("id, name, email, is_admin").order("name"),
     db.auth.admin.listUsers({ perPage: 1000 }),
     db.from("project_members").select("user_id, project_id"),
+    authSettings(),
   ]);
   const authById = new Map((auth?.users ?? []).map((u) => [u.id, u]));
   const projects = new Map<string, Set<string>>();
@@ -24,6 +26,8 @@ export default async function MembersPage() {
       status: removed ? "removed" : a?.last_sign_in_at ? "active" : "invited",
       lastSignIn: a?.last_sign_in_at ?? null,
       projects: projects.get(p.id)?.size ?? 0,
+      // how they have signed in so far: "azure" once they've used their Microsoft account; "email" = password / links
+      microsoft: ((a?.app_metadata?.providers as string[] | undefined) ?? []).includes("azure") || (a?.identities ?? []).some((i) => i.provider === "azure"),
     };
   });
 
@@ -33,7 +37,7 @@ export default async function MembersPage() {
         <h1 className="text-3xl font-semibold tracking-tight">Team members</h1>
         <p className="text-soft">Onboard people here. Who works on which project, and in which department, is set on each project&apos;s Team tab.</p>
       </div>
-      <UsersAdmin members={members} />
+      <UsersAdmin members={members} microsoft={microsoftReady(settings)} />
     </div>
   );
 }

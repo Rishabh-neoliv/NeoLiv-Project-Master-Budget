@@ -42,7 +42,7 @@ node scripts/check-engine.mjs "D:\OneDrive - NeoLiv\Rishabh\Project\NeoLiv Proje
 node --env-file=.env.local scripts/check-db.mjs       # tables and buckets exist
 node --env-file=.env.local scripts/check-access.mjs   # RLS + sign-ups off: 11 checks must pass
 node --env-file=.env.local scripts/delete-user.mjs <email>
-node --env-file=.env.local scripts/make-admin.mjs <email> --only  # change who the admin is
+node --env-file=.env.local scripts/make-admin.mjs <email> --only  # change who the admin is (also: Admin panel → Make admin)
 node --env-file=.env.local scripts/test-email.mjs
 ```
 

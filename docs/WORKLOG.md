@@ -6,8 +6,7 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 ## Open items
 
 - **Switch off "Allow new users to sign up" in Supabase** (found ON on 2026-11-12; check-access.mjs fails until it is).
-- **Real admin**: invite Rishabh.soni.ext@neoliv.in on the live site, then `make-admin.mjs … --only`, then delete
-  the dummy accounts (admin@neoliv.test, test.member@neoliv.test).
+- Delete the dummy accounts (admin@neoliv.test, test.member@neoliv.test) when the user agrees.
 - **Microsoft sign-in**: Entra app registration + Supabase Azure provider + `NEXT_PUBLIC_MICROSOFT_SIGNIN=on` in
   Vercel (docs/Microsoft sign-in.md). Needs this code pushed first.
 - **Email**: build the Power Automate flow against the live feed address (`docs/Email via Power Automate.md`),
@@ -26,6 +25,33 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   setup guide docs/Microsoft sign-in.md. Not live until the Entra app and the Supabase provider exist.
 - Added scripts/make-admin.mjs to hand the admin role to a real account.
 - Found Supabase sign-ups still open (disable_signup false). Added that check to check-access.mjs.
+- Rishabh.soni.ext@neoliv.in is now the only admin (`make-admin.mjs --only`); admin@neoliv.test is a normal account.
+- Admin panel: "Make admin" on Team members (hands the role over, two-click, only to someone who has signed in;
+  you become a normal member); a "Signs in with" column (Microsoft / Password); adding a member creates a
+  confirmed account when Microsoft sign-in is on, so they can use Microsoft straight away (link = password
+  fallback, email text changes too); Overview has a "Security and setup" card (open sign-up, Microsoft sign-in,
+  email route and outbox count, app address, AI reading) with the fix for anything red. The user checked it on
+  screen locally: looks good.
+- Team members no longer says "emailed" when Power Automate only queued the email: it says "queued for your
+  Power Automate flow" and asks the admin to send the link themselves until the flow runs. Gave the user the
+  steps to build the flow (docs/Email via Power Automate.md).
+- Live site: https://neo-liv-project-master-budget.vercel.app. Its email feed works. The feed key was shown in
+  a screenshot, so a new one was made in .env.local / .env.vercel; the user puts it in Vercel and redeploys.
+  APP_URL was missing in Vercel (feed showed example.invalid). User put the new key and APP_URL in Vercel and
+  redeployed: the new feed address works.
+- User built and saved the Power Automate flow "NeoLiv Budget emails" (RSS trigger on the feed, PublishDate →
+  Parse JSON with a typed schema → Send an email (V2) with Body to / subject / html). Notes for next time: in
+  the new designer RSS is found from "Automated cloud flow" (the add-trigger panel's search missed it); the
+  schema must be generated, not the sample pasted; Content must be an fx expression, not typed text.
+  First live test (Forgot password) pending.
+- Test mode spun 10+ minutes: Microsoft's RSS trigger polls at most every 30 minutes (documented minimum polling
+  interval 1800 s). Guide and app wording corrected from "a few minutes" to "about 30 minutes". The app queued
+  every test email correctly. Instant email = Microsoft 365 route via IT.
+- v58 was fast because it used OneDrive's file trigger. To match it without IT: the feed now takes
+  `?after=&until=` (created_at in (after, until], max a day; tested locally incl. Power Automate's +05:30 dates),
+  and the flow is rebuilt as Schedule every 2 min → RSS "List all RSS feed items" for the 2 minutes before its
+  scheduled time → Apply to each → Parse JSON → Send email. Guide rewritten; app wording now "about 2 minutes".
+  Needs this code pushed, then the user rebuilds the flow and turns the RSS-trigger version off.
 - Hosting decision: Vercel + Supabase on free plans while testing with dummy data; Pro plans before real data.
   NeoLiv probably has Azure: Microsoft sign-in (Entra ID), shared-mailbox email and Claude via Foundry are the
   next Azure-side steps (need IT).

@@ -2,72 +2,92 @@
 
 Like the original app: the app puts each email (sign-up links, Forgot password, workflow steps) in an
 **outbox**, and **one flow in your own Power Automate** sends them from **your Outlook**
-(Rishabh.soni.ext@neoliv.in), with a copy in your Sent Items.
+(Rishabh.soni.ext@neoliv.in), with a copy in your Sent Items. Emails arrive **within about 2 minutes**.
 
-The original app wrote a file into OneDrive for the flow. The web app can't write into your OneDrive without
-IT, so instead it publishes the outbox as a **private feed** (a web address only you and the app know). The
-flow checks it every few minutes with the **RSS** connector. RSS and Outlook are standard connectors, so no
-premium licence is needed.
+The original app (v58) wrote a file into OneDrive and the flow used OneDrive's "When a file is created" trigger.
+The web app can't write into your OneDrive without IT, so it publishes the outbox as a **private feed** (a web
+address only you and the app know). The flow runs **every 2 minutes** and asks the feed for the emails queued in
+exactly the 2 minutes before that run, so each email is sent once. All connectors used (Schedule, RSS, Data
+Operation, Office 365 Outlook) are standard: no premium licence.
 
-**Before you start:** the app must be online (deployed to Vercel). Power Automate runs in Microsoft's cloud and
-can't reach `localhost`. Claude sets `POWER_AUTOMATE_FEED_TOKEN` in Vercel when deploying and gives you the
-**feed address**:
+> Why not the RSS trigger ("When a feed item is published")? Microsoft limits it to one check every **30
+> minutes** (documented minimum polling interval 1800 s). The RSS *action* used below has no such limit.
 
-    https://<app address>/api/email-feed/<secret>
+**Before you start:** the app must be online (Vercel), with `POWER_AUTOMATE_FEED_TOKEN` set there. Your **feed
+address** is:
 
-Treat the feed address like a password: anyone with it can read the emails in the outbox (they include sign-up
-links, which expire after an hour). Don't share it or paste it in chat.
+    https://neo-liv-project-master-budget.vercel.app/api/email-feed/<secret>
+
+where `<secret>` is the `POWER_AUTOMATE_FEED_TOKEN` value (in `.env.local`). Treat it like a password: anyone with
+it can read the emails in the outbox (they include sign-up links). Don't share it, screenshot it or paste it in chat.
 
 ---
 
-Build it at **make.powerautomate.com**, signed in as Rishabh.soni.ext@neoliv.in (about 10 minutes).
+Build it at **make.powerautomate.com**, signed in as Rishabh.soni.ext@neoliv.in (about 15 minutes).
 
 ## 1. Create the flow
-**+ Create → Automated cloud flow**
+**+ Create → Scheduled cloud flow**
 - Flow name: `NeoLiv Budget emails`
-- Trigger: search **RSS** and pick **When a feed item is published (RSS)**
+- **Repeat every:** `2` **Minute**
 - **Create**
 
-## 2. Trigger: When a feed item is published
-- **The RSS feed URL:** paste the feed address.
-- **Chosen property will be used to determine which items are new:** `PublishDate`.
+## 2. List the emails from the last 2 minutes (RSS → List all RSS feed items)
+**+ → Add an action →** search **List all RSS feed items** (RSS) → pick it.
+- **The RSS feed URL:** click in the box → **fx** → paste the expression below, with your secret in place of
+  `PASTE-SECRET-HERE` (keep the quotes) → **Add**. It must show as a purple fx chip.
 
-## 3. Parse JSON (Data Operation)
-**+ → Add an action → Parse JSON**
-- **Content:** click **fx** (expression), paste this and press **Add**:
-  `json(base64ToString(triggerBody()?['summary']))`
-- **Schema:** **Use sample payload to generate schema**, paste the following and press **Done**:
-
-  ```json
-  {"to":"name@neoliv.in","subject":"x","html":"<p>x</p>"}
   ```
-- Keep the step's name exactly **Parse JSON**.
+  concat('https://neo-liv-project-master-budget.vercel.app/api/email-feed/PASTE-SECRET-HERE?after=', encodeUriComponent(addMinutes(coalesce(trigger()?['scheduledTime'], utcNow()), -2)), '&until=', encodeUriComponent(coalesce(trigger()?['scheduledTime'], utcNow())))
+  ```
+- Leave the other fields (Since, Chosen property) empty.
 
-## 4. Send an email (V2) (Office 365 Outlook)
-**+ → Add an action → Send an email (V2)**
-- **To:** lightning icon (dynamic content) → under Parse JSON → **to**
-- **Subject:** lightning icon → under Parse JSON → **subject**
-- **Body:** lightning icon → under Parse JSON → **html**, and nothing else.
-- If it says "Not connected", use **Change connection → Add new → Sign in** with your NeoLiv account.
+## 3. For each email (Apply to each)
+**+ → Add an action → Apply to each** (Control).
+- **Select an output from previous steps:** lightning icon → under *List all RSS feed items* → **Body**.
 
-## 5. Save and test
-- **Save** (top). A red mark on a step names the missing field.
-- In the app, as the admin: **Team members → New link** on any member, or **Forgot password** on the sign-in
-  page with your own email. Within about 5 minutes the email should arrive, and **My flows → NeoLiv Budget
-  emails → Run history** shows a run marked Succeeded.
+Inside **Apply to each** (click the **+ inside the loop**):
+
+**3a. Parse JSON**
+- **Content:** click in the box → **fx** → paste, then **Add** (purple chip):
+  `json(base64ToString(items('Apply_to_each')?['summary']))`
+- **Schema:** paste this (the schema itself, not a sample):
+  ```json
+  {"type":"object","properties":{"to":{"type":"string"},"subject":{"type":"string"},"html":{"type":"string"}}}
+  ```
+
+**3b. Send an email (V2)** (Office 365 Outlook), still inside the loop
+- **To:** lightning → under Parse JSON → **Body to**
+- **Subject:** lightning → **Body subject**
+- **Body:** click **`</>`** first, then lightning → **Body html**
+- If it asks to sign in, use your NeoLiv account.
+
+## 4. Save, and turn off any older version
+- **Save.**
+- If you built the earlier version with the RSS **trigger** ("When a feed item is published"), **turn it off**
+  (My flows → ⋯ → Turn off) so emails aren't sent twice.
+
+## 5. Test
+- On the live site (private window): type your own email → **Forgot password?**
+- Within about 2 minutes the email arrives from your Outlook, and **My flows → NeoLiv Budget emails → Run history**
+  shows runs every 2 minutes (most do nothing, because nothing was queued in their window; that's normal).
 
 ## If something is red
 
 | What you see | Fix |
 |---|---|
-| Trigger fails with 404 | The feed address is wrong (check the secret part), or the app isn't deployed yet |
-| `summary` is empty / Parse JSON fails | Content must be the expression in step 3, exactly |
-| "Invalid parameters" on Send an email (V2) | To, Subject or Body is empty, or the Outlook connection isn't signed in (step 4) |
-| No runs at all | The flow is turned off (My flows → … → Turn on), or nothing has been sent since you saved it |
+| List all RSS feed items fails with 404 | The secret in the expression is wrong (or has spaces) |
+| It fails with 400 "after/until…" | The expression was changed: paste it again exactly |
+| Parse JSON fails | Content must be the fx expression in 3a, exactly; the step must be named "Apply to each" |
+| "Invalid parameters" on Send an email | To, Subject or Body empty, or Outlook not signed in |
+| Runs are Succeeded but no email | The loop shows 0 items: the email was queued before the flow was saved, or in a window when the flow was off |
 
 ## Good to know
-- Emails go out within a few minutes, not instantly: the flow checks the feed on a timer.
-- Each email is sent once. The outbox keeps emails for 3 days, then they drop off the feed.
-- The flow sends as you, so replies come to your inbox. For the live app a shared mailbox avoids depending on
-  one person's account: then this same flow is rebuilt by whoever owns that mailbox, or IT sets up Microsoft
-  365 sending (docs/IT request - Microsoft 365 email.md).
+- **Each email is sent once.** Each run covers exactly the 2 minutes before its scheduled time, and the windows
+  touch without overlapping. Emails queued while the flow is **off** (or during a skipped run) aren't sent later:
+  use **Copy link** on Team members for those.
+- About 720 small runs a day; within the normal Office 365 Power Automate limits.
+- The flow sends as you, so replies come to your inbox. For the live app, IT's Microsoft 365 route sends straight
+  away from a shared mailbox with no flow (docs/IT request - Microsoft 365 email.md); when those settings are in
+  Vercel the app uses it automatically and this flow can be turned off.
+- New designer tips: an **fx** expression shows as a purple chip; typed text that looks like an expression is
+  just text and won't work.
