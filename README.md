@@ -44,6 +44,7 @@ The live OneDrive app (`NeoLiv Project Master Budget\NeoLiv Master Budget.html`)
 ```
 app/
   login/, set-password/, auth/confirm/     sign-in, invite and password-reset links
+  auth/callback/                           end of "Sign in with Microsoft" (docs/Microsoft sign-in.md)
   (app)/projects/                          project list, new project, project page (tabs)
   (admin)/admin/                           admin panel: overview, members (invite, remove), all projects
   api/projects/...                         create, save/submit draft, workflow actions, team, rates, files, Excel
@@ -94,6 +95,8 @@ Push to the private GitHub repo, import it in Vercel, and add the same environme
 - `node --env-file=.env.local scripts/check-access.mjs`: only the team (and the admin) see a project; nothing is
   writable from the browser; nobody can make themselves admin.
 - `node --env-file=.env.local scripts/delete-user.mjs <email>`: deletes a test account completely.
+- `node --env-file=.env.local scripts/make-admin.mjs <email> [--only]`: makes an existing person the admin
+  (`--only` removes admin from everyone else).
 
 ## Project tabs
 

@@ -30,7 +30,7 @@ command or structure below changes.
 
 Next.js 16 (App Router, Turbopack, `cacheComponents`), React 19, TypeScript, Tailwind v4, shadcn/ui (base-ui).
 Supabase: Auth (email/password, invite and recovery links), Postgres with RLS, Storage, Realtime. Hosting: Vercel
-(not deployed yet). AI reading: `@anthropic-ai/sdk`, model `claude-opus-5-5`.
+(deployed from GitHub `main`; settings in Vercel's Environment Variables). AI reading: `@anthropic-ai/sdk`, model `claude-opus-5-5`.
 
 ## Commands
 
@@ -40,8 +40,9 @@ npx tsc --noEmit; npx eslint .; npm run build # checks before committing
 npx next typegen                              # after adding or renaming routes
 node scripts/check-engine.mjs "D:\OneDrive - NeoLiv\Rishabh\Project\NeoLiv Project Master Budget"
 node --env-file=.env.local scripts/check-db.mjs       # tables and buckets exist
-node --env-file=.env.local scripts/check-access.mjs   # RLS: 10 checks must pass
+node --env-file=.env.local scripts/check-access.mjs   # RLS + sign-ups off: 11 checks must pass
 node --env-file=.env.local scripts/delete-user.mjs <email>
+node --env-file=.env.local scripts/make-admin.mjs <email> --only  # change who the admin is
 node --env-file=.env.local scripts/test-email.mjs
 ```
 
@@ -50,6 +51,9 @@ node --env-file=.env.local scripts/test-email.mjs
 - **One admin** (`profiles.is_admin`), with a separate **Admin panel** (`app/(admin)/admin/`: Overview, Members,
   All projects). The admin onboards members (invite link / email) and can do everything a member can, in any
   department (acts as "Admin" when not on the team).
+- **Sign-in:** email + password, and "Sign in with Microsoft" (Supabase Azure provider, single-tenant NeoLiv,
+  shown when `NEXT_PUBLIC_MICROSOFT_SIGNIN=on`; docs/Microsoft sign-in.md). Only people the admin added can get
+  in: Supabase's "Allow new users to sign up" must stay **off** (check-access.mjs checks it).
 - **No global roles.** Roles are per project (`project_members.dept`), set by Base Line or the admin.
 - Workflow: **Base Line → Design → Operations → Management**. R0 freezes when Base Line submits; R1+ freeze on
   Management approval; Delta is always against R0. Rules live in `lib/workflow.ts`.

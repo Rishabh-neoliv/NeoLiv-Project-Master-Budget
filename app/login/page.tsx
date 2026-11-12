@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { createClient } from "@/lib/supabase/client";
 
+const MICROSOFT = process.env.NEXT_PUBLIC_MICROSOFT_SIGNIN === "on";
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
@@ -28,6 +30,16 @@ function LoginForm() {
     router.refresh();
   }
 
+  // NeoLiv accounts through Microsoft Entra ID (turned on with NEXT_PUBLIC_MICROSOFT_SIGNIN=on once the
+  // Azure provider is set up in Supabase: docs/Microsoft sign-in.md)
+  async function microsoft() {
+    setBusy(true); setError(""); setInfo("");
+    const next = params.get("next");
+    const back = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next?.startsWith("/") && next !== "/projects" ? next : "/")}`;
+    const { error } = await createClient().auth.signInWithOAuth({ provider: "azure", options: { scopes: "email", redirectTo: back } });
+    if (error) { setBusy(false); setError("Microsoft sign-in isn't available: " + error.message); }
+  }
+
   async function reset() {
     if (!email.trim()) return setError("Type your email first, then press Forgot password.");
     setBusy(true); setError(""); setInfo("");
@@ -44,7 +56,14 @@ function LoginForm() {
         <CardTitle className="text-xl">NeoLiv Master Budget</CardTitle>
         <CardDescription>Sign in with the account your admin set up for you.</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="grid gap-4">
+        {MICROSOFT && <>
+          <Button type="button" variant="outline" className="h-10 gap-2.5" disabled={busy} onClick={microsoft}>
+            <svg aria-hidden viewBox="0 0 21 21" className="size-4"><path fill="#f25022" d="M1 1h9v9H1z" /><path fill="#7fba00" d="M11 1h9v9h-9z" /><path fill="#00a4ef" d="M1 11h9v9H1z" /><path fill="#ffb900" d="M11 11h9v9h-9z" /></svg>
+            Sign in with Microsoft (NeoLiv account)
+          </Button>
+          <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-soft"><span className="h-px flex-1 bg-line" />or with a password<span className="h-px flex-1 bg-line" /></div>
+        </>}
         <form onSubmit={signIn} className="grid gap-4">
           <div className="grid gap-1.5">
             <Label htmlFor="email">Email</Label>

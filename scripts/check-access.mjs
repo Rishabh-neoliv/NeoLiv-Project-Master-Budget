@@ -49,6 +49,10 @@ try {
   await o.from("profiles").update({ is_admin: true }).eq("id", outsider.id);
   check("nobody can make themselves admin", (await admin.from("profiles").select("is_admin").eq("id", outsider.id).single()).data.is_admin === false);
   check("templates bucket isn't readable from the browser", ((await t.storage.from("templates").list()).data ?? []).length === 0);
+  // the publishable key is public, so open sign-up would let anyone make an account (and see master rates
+  // through a project of their own): Supabase → Authentication → Sign In / Providers → "Allow new users to sign up" off
+  const settings = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: pub } }).then((r) => r.json());
+  check("new sign-ups are switched off in Supabase", settings.disable_signup === true);
 } finally {
   if (projectId) await admin.from("projects").delete().eq("id", projectId);
   for (const id of made) await admin.auth.admin.deleteUser(id);
