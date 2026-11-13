@@ -22,6 +22,7 @@ export async function sendInvite({ to, name, from, link, again = false, microsof
       `Hello ${name},`, "",
       `${from || "The admin"} has added you to NeoLiv Master Budget.`, "",
       `Open the app and press “Sign in with Microsoft”, using your NeoLiv account (${to}).`, "",
+      `Username: ${to}`, "",
       "Prefer a password? This link lets you set one; it works once and expires after an hour:", link,
     ];
     const r = await sendMail({ to, subject, text: [...lines, "", appUrl].join("\n"), html: page(lines, { href: `${appUrl}/login`, label: "Open NeoLiv Master Budget" }) });
@@ -31,7 +32,8 @@ export async function sendInvite({ to, name, from, link, again = false, microsof
     `Hello ${name},`, "",
     again ? `${from || "The admin"} has sent you a link to set your password for NeoLiv Master Budget.`
       : `${from || "The admin"} has added you to NeoLiv Master Budget. Open the link below to set your password; after that you sign in with this email.`,
-    "", "The link works once and expires after an hour. If it doesn't open, ask the admin for a new one.",
+    "", `Username: ${to}`, "The password you set is only for this app; it doesn't change any other account.",
+    "", "The link works once and expires after an hour. If it doesn't open, ask whoever added you, or an admin, for a new one.",
   ];
   const r = await sendMail({ to, subject, text: [...lines, "", link].join("\n"), html: page(lines, { href: link, label: "Set your password" }) });
   return r.ok;
@@ -39,7 +41,7 @@ export async function sendInvite({ to, name, from, link, again = false, microsof
 
 /** "Forgot password": a link to set a new password, sent to the person's own email. */
 export async function sendPasswordReset({ to, name, link }: { to: string; name: string; link: string }) {
-  const lines = [`Hello ${name},`, "", "Someone (hopefully you) asked to reset your NeoLiv Master Budget password. Open the link below to set a new one.", "", "The link works once and expires after an hour. If you didn't ask for it, ignore this email: your password stays as it is."];
+  const lines = [`Hello ${name},`, "", "Someone (hopefully you) asked to reset your NeoLiv Master Budget password. Open the link below to set a new one.", "", `Username: ${to}`, "", "The link works once and expires after an hour. If you didn't ask for it, ignore this email: your password stays as it is."];
   return sendMail({ to, subject: "Reset your NeoLiv Master Budget password", text: [...lines, "", link].join("\n"), html: page(lines, { href: link, label: "Set a new password" }) });
 }
 

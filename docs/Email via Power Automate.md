@@ -41,15 +41,16 @@ Build it at **make.powerautomate.com**, signed in as Rishabh.soni.ext@neoliv.in 
   ```
 - Leave the other fields (Since, Chosen property) empty.
 
-## 3. For each email (Apply to each)
-**+ → Add an action → Apply to each** (Control).
+## 3. For each email (Apply to each / For each)
+**+ → Add an action →** search **For each** (Control; older designer: **Apply to each**).
 - **Select an output from previous steps:** lightning icon → under *List all RSS feed items* → **Body**.
 
 Inside **Apply to each** (click the **+ inside the loop**):
 
 **3a. Parse JSON**
 - **Content:** click in the box → **fx** → paste, then **Add** (purple chip):
-  `json(base64ToString(items('Apply_to_each')?['summary']))`
+  `json(base64ToString(item()?['summary']))`
+  (`item()` is the loop's current email, whatever the loop is called: the new designer names it "For each".)
 - **Schema:** paste this (the schema itself, not a sample):
   ```json
   {"type":"object","properties":{"to":{"type":"string"},"subject":{"type":"string"},"html":{"type":"string"}}}
@@ -77,7 +78,7 @@ Inside **Apply to each** (click the **+ inside the loop**):
 |---|---|
 | List all RSS feed items fails with 404 | The secret in the expression is wrong (or has spaces) |
 | It fails with 400 "after/until…" | The expression was changed: paste it again exactly |
-| Parse JSON fails | Content must be the fx expression in 3a, exactly; the step must be named "Apply to each" |
+| Parse JSON fails | Content must be the fx expression in 3a (Code view shows it starting with `@`), and Parse JSON must be inside the loop |
 | "Invalid parameters" on Send an email | To, Subject or Body empty, or Outlook not signed in |
 | Runs are Succeeded but no email | The loop shows 0 items: the email was queued before the flow was saved, or in a window when the flow was off |
 

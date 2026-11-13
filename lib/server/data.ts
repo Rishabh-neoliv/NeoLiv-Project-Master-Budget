@@ -32,15 +32,21 @@ export async function requireUser() {
   return { db, me: me as { id: string; name: string; email: string; is_admin: boolean } };
 }
 
-/** The project and this person's departments on it (admins may read any project, but act only through a department). */
-export async function requireMember(projectId: string) {
+/** For reading only: every signed-in member can view every project (and download its Excel and files). */
+export async function requireViewer(projectId: string) {
   const { db, me } = await requireUser();
   const { data: project } = await db.from("projects").select("*").eq("id", projectId).single();
   if (!project) throw new HttpError(404, "Project not found.");
+  return { db, me, project: project as ProjectRow };
+}
+
+/** For changes: the project and this person's departments on it. Only the team (and the admin) can change a project. */
+export async function requireMember(projectId: string) {
+  const { db, me, project } = await requireViewer(projectId);
   const { data: rows } = await db.from("project_members").select("user_id, dept").eq("project_id", projectId);
   const team = (rows ?? []) as { user_id: string; dept: Dept }[];
   const ownDepts = team.filter((r) => r.user_id === me.id).map((r) => r.dept);
-  if (!ownDepts.length && !me.is_admin) throw new HttpError(403, "You aren't on this project's team.");
+  if (!ownDepts.length && !me.is_admin) throw new HttpError(403, "You can view this project, but only its team can change it. Ask Base Line to add you to the team.");
   // the admin can do everything a team member can, in every department
   const myDepts: Dept[] = me.is_admin ? [...DEPTS] : ownDepts;
   // how the person is named in the history and in emails: their own departments, or "Admin"

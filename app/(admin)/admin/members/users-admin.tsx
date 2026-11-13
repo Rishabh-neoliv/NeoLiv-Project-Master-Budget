@@ -20,10 +20,13 @@ const MicrosoftMark = () => (
   <svg aria-hidden viewBox="0 0 21 21" className="size-3.5"><path fill="#f25022" d="M1 1h9v9H1z" /><path fill="#7fba00" d="M11 1h9v9h-9z" /><path fill="#00a4ef" d="M1 11h9v9H1z" /><path fill="#ffb900" d="M11 11h9v9h-9z" /></svg>
 );
 
-export function UsersAdmin({ members, microsoft }: { members: Member[]; microsoft: boolean }) {
+// The members table and "Add a member" form. Admins (Admin panel, or the Members page) get every button; other
+// members can add people and resend an invite to someone who hasn't signed in yet (the link goes only by email).
+export function UsersAdmin({ members, microsoft, meId, isAdmin }: { members: Member[]; microsoft: boolean; meId: string; isAdmin: boolean }) {
   const router = useRouter();
-  // "Make admin" asks for a second press, like the app's other one-way steps
+  // "Make admin" / "Remove admin" ask for a second press, like the app's other one-way steps
   const [armed, setArmed] = useState<string | null>(null);
+  const admins = members.filter((m) => m.isAdmin && m.status !== "removed").length;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
@@ -46,19 +49,25 @@ export function UsersAdmin({ members, microsoft }: { members: Member[]; microsof
   async function add(e: React.FormEvent) {
     e.preventDefault();
     const out = await call("/api/admin/users", "POST", { name, email });
-    if (out) { setLink({ who: name, url: out.link, emailed: out.emailed, queued: out.via === "powerautomate", microsoft: !!out.microsoft }); setName(""); setEmail(""); }
+    if (!out) return;
+    // only admins get the link back; for everyone else it goes to the new member by email only
+    if (out.link) setLink({ who: name, url: out.link, emailed: out.emailed, queued: out.via === "powerautomate", microsoft: !!out.microsoft });
+    else toast.success(`${name} is added. ${out.via === "powerautomate" ? "Their invite email goes out within about 2 minutes" : "Their invite has been emailed"}.`);
+    setName(""); setEmail("");
   }
-  async function makeAdmin(m: Member) {
-    if (armed !== m.id) { setArmed(m.id); return; }
+  async function setAdmin(m: Member, make: boolean) {
+    const key = (make ? "make:" : "unmake:") + m.id;
+    if (armed !== key) { setArmed(key); return; }
     setArmed(null);
-    if (await call(`/api/admin/users/${m.id}`, "POST", { action: "make_admin" })) {
-      toast.success(`${m.name} is now the admin. You're a normal member from now on.`);
-      router.replace("/projects");
-    }
+    if (!(await call(`/api/admin/users/${m.id}`, "POST", { action: make ? "make_admin" : "remove_admin" }))) return;
+    if (!make && m.id === meId) { toast.success("You're no longer an admin."); router.replace("/projects"); return; }
+    toast.success(make ? `${m.name} is now an admin too.` : `${m.name} is no longer an admin.`);
   }
   async function newLink(m: Member) {
     const out = await call(`/api/admin/users/${m.id}`, "POST", { action: "link" });
-    if (out) setLink({ who: m.name, url: out.link, emailed: out.emailed, queued: out.via === "powerautomate" });
+    if (!out) return;
+    if (out.link) setLink({ who: m.name, url: out.link, emailed: out.emailed, queued: out.via === "powerautomate" });
+    else toast.success(`A new link is on its way to ${m.name} by email${out.via === "powerautomate" ? " (within about 2 minutes)" : ""}.`);
   }
   async function setRemoved(m: Member, remove: boolean) {
     if (remove && !window.confirm(`Remove ${m.name}? They won't be able to sign in. Their work and history stay, and you can restore them later.`)) return;
@@ -79,9 +88,11 @@ export function UsersAdmin({ members, microsoft }: { members: Member[]; microsof
           <div className="grid gap-1.5"><Label htmlFor="e">Work email</Label><Input id="e" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@neoliv.in" /></div>
           <Button type="submit" disabled={busy}>{busy ? "Adding…" : "Add member"}</Button>
         </div>
-        <p className="text-sm text-soft">{microsoft
-          ? "They can sign in straight away with “Sign in with Microsoft”, using their NeoLiv account. You also get a link in case they'd rather set a password."
-          : "You get a sign-up link to send them. They open it, set a password, and from then on sign in with their email."}</p>
+        <p className="text-sm text-soft">{!isAdmin
+          ? (microsoft ? "They can sign in straight away with “Sign in with Microsoft”, using their NeoLiv account, and also get an email with a link to set a password." : "They get an email with a link to set their password, and from then on sign in with their email. The password is only for this app.")
+          : microsoft
+            ? "They can sign in straight away with “Sign in with Microsoft”, using their NeoLiv account. You also get a link in case they'd rather set a password."
+            : "You get a sign-up link to send them. They open it, set a password, and from then on sign in with their email."}</p>
       </form>
 
       {link && (
@@ -121,14 +132,18 @@ export function UsersAdmin({ members, microsoft }: { members: Member[]; microsof
                 </td>
                 <td className="px-4 py-3 text-right">{m.projects}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-right">
-                  {!m.isAdmin && <div className="flex justify-end gap-1">
-                    {m.status === "active" && <Button size="sm" variant={armed === m.id ? "default" : "ghost"} disabled={busy} onClick={() => makeAdmin(m)}
-                      title="They become the admin; you become a normal member">{armed === m.id ? "Confirm: make admin" : "Make admin"}</Button>}
-                    {m.status !== "removed" && <Button size="sm" variant="outline" disabled={busy} onClick={() => newLink(m)}>New link</Button>}
-                    {m.status === "removed"
+                  {isAdmin ? <div className="flex justify-end gap-1">
+                    {m.isAdmin
+                      ? admins > 1 && <Button size="sm" variant={armed === "unmake:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setAdmin(m, false)}
+                          title="They stay a member, without the Admin panel">{armed === "unmake:" + m.id ? "Confirm: remove admin" : m.id === meId ? "Stop being admin" : "Remove admin"}</Button>
+                      : m.status !== "removed" && <Button size="sm" variant={armed === "make:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setAdmin(m, true)}
+                          title="They get the Admin panel too; you stay admin">{armed === "make:" + m.id ? "Confirm: make admin" : "Make admin"}</Button>}
+                    {m.id !== meId && m.status !== "removed" && <Button size="sm" variant="outline" disabled={busy} onClick={() => newLink(m)}>New link</Button>}
+                    {!m.isAdmin && (m.status === "removed"
                       ? <Button size="sm" variant="outline" disabled={busy} onClick={() => setRemoved(m, false)}>Restore</Button>
-                      : <Button size="sm" variant="ghost" className="text-bad" disabled={busy} onClick={() => setRemoved(m, true)}>Remove</Button>}
-                  </div>}
+                      : <Button size="sm" variant="ghost" className="text-bad" disabled={busy} onClick={() => setRemoved(m, true)}>Remove</Button>)}
+                  </div>
+                    : m.status === "invited" && <div className="flex justify-end"><Button size="sm" variant="outline" disabled={busy} onClick={() => newLink(m)} title="Emails them a fresh link to set their password">Resend invite</Button></div>}
                 </td>
               </tr>
             ))}

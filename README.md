@@ -21,13 +21,17 @@ The live OneDrive app (`NeoLiv Project Master Budget\NeoLiv Master Budget.html`)
 
 ## People and access
 
-- **One admin** (now Rishabh.soni.ext@neoliv.in) signs in to the **Admin panel** (`/admin`, its own layout):
+- **Admins** (there can be several; now Rishabh.soni.ext@neoliv.in and Shobha Shetty) use the **Admin panel**
+  (`/admin`, its own layout):
   - **Overview:** every project and who has access, plus **Security and setup** (open sign-up off? Microsoft
     sign-in on? how emails go out, app address, AI reading), each red item with its fix.
   - **Team members:** add someone (with Microsoft sign-in on they can sign in straight away; the link is a
-    password fallback), new link, remove or restore, see how each person signs in (Microsoft / Password), and
-    **Make admin** to hand the admin role to someone else.
+    password fallback), new link, remove or restore, see how each person signs in (Microsoft / Password),
+    **Make admin** (adds another admin) and **Remove admin** (always leaves at least one).
   - **All projects.**
+- **Any member can add people** from **Members** in the top bar. The new member gets the sign-up link by email
+  only (members never see the link, since it signs whoever opens it in). Members can also **Resend invite** to
+  someone who hasn't signed in yet. Removing people and admin changes stay with admins.
 - **Sign-in:** email + password, and "Sign in with Microsoft" with a NeoLiv account once set up
   (docs/Microsoft sign-in.md). Only people the admin added can get in.
 - **The admin can also do everything a team member can**: create projects, edit drafts, take any workflow step
@@ -35,7 +39,9 @@ The live OneDrive app (`NeoLiv Project Master Budget\NeoLiv Master Budget.html`)
   as "Admin".
 - **Roles are per project.** Whoever creates a project picks who is Base Line, Design, Operations and Management
   on it (one person may cover several). Base Line (or the admin) can change the team later on the Team tab.
-- Team members see only the projects they're on. The admin sees all of them.
+- **Every member can view every project** (all tabs, Excel and file downloads). Changing one needs a place on
+  its team: anyone on the team, from any department, can change the open draft (inputs, rates, files) at any
+  stage; **Submit** and the workflow steps stay with the department whose turn it is, and Management approves.
 
 ## Workflow (same rules as the original app)
 
@@ -64,6 +70,7 @@ lib/
   supabase/                                browser, server and admin clients
 supabase/migrations/0001_init.sql          tables, access rules, storage buckets
 supabase/migrations/0002_files_history.sql files, field history, email outbox
+supabase/migrations/0003_all_members_view.sql every member can view every project
 docs/                                      email guides, WORKLOG.md (what's built and open)
 scripts/setup.mjs                          load templates, create dummy users, import old test projects
 scripts/check-engine.mjs                   recalculates the old app's frozen versions and compares
@@ -81,7 +88,7 @@ _legacy/                                   extracted from the old app's HTML (gi
    ```
    This creates the admin login `admin@neoliv.test` (password = `SEED_PASSWORD`). Imported projects have no team.
 4. **Supabase Auth settings** (Authentication):
-   - Sign In / Providers → Email: turn **off** "Allow new users to sign up" (only admins invite).
+   - Sign In / Providers → Email: turn **off** "Allow new users to sign up" (people are added from the app).
    - URL Configuration: Site URL = your app URL (`http://localhost:3000` locally, the Vercel URL later), and add both to Redirect URLs.
    - Emails → **Invite user** link: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/set-password`
    - Emails → **Reset password** link: `{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/set-password`
@@ -98,8 +105,8 @@ Push to the private GitHub repo, import it in Vercel, and add the same environme
 - `node scripts/check-engine.mjs "<old app folder>"`: every frozen version of the old app recalculates to the same
   Master Budget, line by line.
 - `node --env-file=.env.local scripts/check-db.mjs`: the schema's tables and buckets exist.
-- `node --env-file=.env.local scripts/check-access.mjs`: only the team (and the admin) see a project; nothing is
-  writable from the browser; nobody can make themselves admin.
+- `node --env-file=.env.local scripts/check-access.mjs`: every signed-in member sees every project, signed-out
+  visitors see none; nothing is writable from the browser; nobody can make themselves admin; sign-ups are off.
 - `node --env-file=.env.local scripts/delete-user.mjs <email>`: deletes a test account completely.
 - `node --env-file=.env.local scripts/make-admin.mjs <email> [--only]`: makes an existing person the admin
   (`--only` removes admin from everyone else).
@@ -110,7 +117,7 @@ Push to the private GitHub repo, import it in Vercel, and add the same environme
 |---|---|
 | Assumptions | The inputs, with step guidance for whoever's turn it is, a summary and Save / Submit beside them |
 | Master Budget | The budget lines with Delta vs R0; download the draft (as saved) or a frozen revision as Excel |
-| Rates | Project rates against the master rates. Base Line while preparing R0, Operations when the draft is with them |
+| Rates | Project rates against the master rates. Anyone on the team can change them while a draft is open |
 | Rate analysis | Compare any two of: master template, R0..Rn, the draft. Splits each change into quantity and rate parts |
 | Files | Upload documents. A Master Budget workbook is read exactly; others are read by Claude on request. Values are suggestions: tick, apply to the draft, then save |
 | Revisions | Frozen revisions; click a row to open it, Compare with R0, download Excel |

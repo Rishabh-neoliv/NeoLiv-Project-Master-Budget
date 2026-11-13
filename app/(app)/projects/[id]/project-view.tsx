@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { crore, isNum, missingInputs, numCell, problems, snapFromVersion, snapshot, type CellValue, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
 import { createClient } from "@/lib/supabase/client";
-import { actionLabel, availableActions, canEditDraft, canEditRates, DEPTS, dn, EDITABLE, editDept, hasDraft, nextRev, revLabel, STATUS, SUBMIT_TO, type Action, type Dept, type Status } from "@/lib/workflow";
+import { actionLabel, availableActions, canEditDraft, canEditRates, canSubmit, DEPTS, dn, EDITABLE, editDept, hasDraft, nextRev, revLabel, STATUS, SUBMIT_TO, type Action, type Dept, type Status } from "@/lib/workflow";
 import { fmtDateTime } from "@/lib/dates";
 
 export interface ProjectData {
@@ -51,7 +51,10 @@ export function ProjectView({ data }: { data: ProjectData }) {
   const ownDepts = team.filter((t) => t.user_id === meId).map((t) => t.dept);
   // the admin can do everything a team member can, in every department
   const myDepts: string[] = data.isAdmin ? [...DEPTS] : ownDepts;
+  // anyone on the team can change the open draft; only the department whose turn it is submits it
   const editable = canEditDraft(p.status, myDepts);
+  const submittable = canSubmit(p.status, myDepts);
+  const viewOnly = !ownDepts.length && !data.isAdmin;
   const actions = availableActions(p.status, myDepts);
   const r0 = versions.find((v) => v.rev === 0) ?? null;
   const rev = nextRev(p.last_rev);
@@ -73,10 +76,18 @@ export function ProjectView({ data }: { data: ProjectData }) {
 
   // a fresh copy from the server (someone else saved or moved the project) replaces the draft unless you have unsaved edits
   const [seen, setSeen] = useState(p.inputs);
+  // the saved values this person's edits started from: only the fields they changed since are sent, so two
+  // people editing the same draft at once don't undo each other's changes
+  const [editBase, setEditBase] = useState(p.inputs);
   if (seen !== p.inputs) {
     setSeen(p.inputs);
-    if (!dirty) setDraft({ ...m.defaults, ...p.inputs });
+    if (!dirty) { setDraft({ ...m.defaults, ...p.inputs }); setEditBase(p.inputs); }
   }
+  const changedInputs = () => {
+    const base = { ...m.defaults, ...editBase } as Record<string, CellValue>;
+    const keys = new Set([...Object.keys(base), ...Object.keys(draft)]);
+    return Object.fromEntries([...keys].filter((k) => JSON.stringify(base[k] ?? null) !== JSON.stringify(draft[k] ?? null)).map((k) => [k, draft[k] ?? null]));
+  };
   // the draft view disappears once the revision is approved
   if (view === "draft" && !draftOpen) setView(p.last_rev ?? 0);
 
@@ -119,14 +130,14 @@ export function ProjectView({ data }: { data: ProjectData }) {
     } finally { setBusy(false); }
   }
   async function save() {
-    const out = await call(`/api/projects/${p.id}/draft`, "PUT", { inputs: draft, source: source ?? undefined });
+    const out = await call(`/api/projects/${p.id}/draft`, "PUT", { inputs: changedInputs(), source: source ?? undefined });
     if (out) { setDirty(false); setSource(null); toast.success("Draft saved."); router.refresh(); }
   }
   async function confirm() {
     if (!pending) return;
     if (pending.kind === "submit") {
       const to = SUBMIT_TO[editDept(p.status)]![0];
-      const out = await call(`/api/projects/${p.id}/draft`, "PUT", { inputs: draft, submit: true, note: comment, source: source ?? undefined });
+      const out = await call(`/api/projects/${p.id}/draft`, "PUT", { inputs: changedInputs(), submit: true, note: comment, source: source ?? undefined });
       if (out) { setDirty(false); toast.success(rev === 0 ? `R0 submitted to ${dn(to)} and frozen as the Base Line.` : `R${rev} draft sent to ${dn(to)}.`); }
     } else {
       if (pending.a.needsComment && !comment.trim()) return void toast.error("Please add a comment first.");
@@ -144,7 +155,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
     if (!armed) return setArmed(true);
     setArmed(false);
     const to = SUBMIT_TO[editDept(p.status)]![0];
-    const out = await call(`/api/projects/${p.id}/draft`, "PUT", { inputs: draft, submit: true, note, source: source ?? undefined });
+    const out = await call(`/api/projects/${p.id}/draft`, "PUT", { inputs: changedInputs(), submit: true, note, source: source ?? undefined });
     if (out) { setDirty(false); setNote(""); toast.success(rev === 0 ? `R0 submitted to ${dn(to)} and frozen as the Base Line.` : `R${rev} draft sent to ${dn(to)}.`); router.refresh(); }
   }
 
@@ -192,6 +203,10 @@ export function ProjectView({ data }: { data: ProjectData }) {
     {!draftOpen && shownVersion.rev === p.last_rev && <> Base Line, Design or Operations can press <b>Create new version R{rev}</b> when the drawings change.</>}
     {recalcs.map((a) => <span key={a.id} className="block text-sm text-soft">{a.action} on {fmtDate(a.at)}{a.by && names[a.by] ? ` by ${names[a.by]}` : ""}: {a.comment}</span>)}
   </>;
+  else if (viewOnly) notice = <><b>View only.</b> You aren&apos;t on this project&apos;s team, so you can look at everything and download it, but not change it. Base Line can add you to the team.</>;
+  else if (editable && !submittable && holder) notice = p.status === "WITH_MGMT"
+    ? <><b>The R{rev} draft is with Management</b>{holderNames && ` (${holderNames})`} for approval. Anyone on the team can still change it; it is frozen as it stands when Management approves it.</>
+    : <><b>The R{rev} draft is with {dn(holder)}</b>{holderNames && ` (${holderNames})`}. Anyone on the team can change it and save; {dn(holder)} {EDITABLE.has(p.status) ? "submits it on" : "starts their work next"}.</>;
   else if (!editable && holder) notice = p.status === "WITH_MGMT"
     ? <><b>The R{rev} draft is with Management</b>{holderNames && ` (${holderNames})`}; the assumptions can&apos;t be changed at this step. It is frozen when Management approves it.</>
     : EDITABLE.has(p.status)
@@ -199,7 +214,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
       : <><b>The R{rev} draft is waiting for {dn(holder)}</b>{holderNames && ` (${holderNames})`}. It can change once they start their work.</>;
 
   // what to do now, for whoever's turn it is (as in the original app)
-  const guide: React.ReactNode = editable && !shownVersion ? {
+  const guide: React.ReactNode = submittable && !shownVersion ? {
     BD: <><b>Base Line:</b> fill in the General parameters and the sections below (a new project starts with the master template&apos;s sample values: change what differs for this site). Design can refine them after R0 is submitted.</>,
     Design: <><b>Design:</b> refine any of the assumptions, then submit R{rev} to Operations. R0 stays frozen as the Base Line; every change against it is highlighted.</>,
     Operations: <><b>Operations:</b> finalise the budget by changing any assumption here, then submit R{rev} to Management for approval. It is frozen when Management approves it.</>,
@@ -217,6 +232,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
             <RevTag>{revLabel(p.status, p.last_rev)}</RevTag>
             <StatusBadge status={p.status} />
             {ownDepts.length > 0 && <span className="flex flex-wrap items-center gap-1.5">You&apos;re on this project as {ownDepts.map((d) => <span key={d} className="rounded bg-brand-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand">{dn(d)}</span>)}</span>}
+            {viewOnly && <span className="rounded bg-well px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-soft" title="You aren't on this project's team">View only</span>}
             {data.isAdmin && <span className="rounded bg-info-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-info" title="The admin can take every step and change the team">Admin · can act for every department</span>}
           </div>
           <p className="flex flex-wrap items-center gap-x-1.5 text-soft">
@@ -240,7 +256,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
           <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
             {editable && <>
               <Button variant="outline" disabled={busy || !dirty} onClick={save}>{dirty ? "Save draft" : "Saved"}</Button>
-              <Button disabled={busy} onClick={() => setPending({ kind: "submit" })}>Submit R{rev} to {dn(submitTo!)}</Button>
+              {submittable && <Button disabled={busy} onClick={() => setPending({ kind: "submit" })}>Submit R{rev} to {dn(submitTo!)}</Button>}
             </>}
             {actions.map((a) => (
               <Button key={a.key} variant={a.key === "return_bd" || a.key === "mgmt_return" ? "outline" : "default"} disabled={busy} onClick={() => setPending({ kind: "action", a })}>
@@ -314,10 +330,12 @@ export function ProjectView({ data }: { data: ProjectData }) {
             {editable && !shownVersion && (
               <section className="grid gap-3 rounded-xl border border-line bg-sheet p-5">
                 <Button variant="outline" disabled={busy || !dirty} onClick={save}>{dirty ? "Save draft" : "Draft saved"}</Button>
-                <label htmlFor="sideNote" className="text-sm font-medium">Note for {dn(submitTo!)} (optional)</label>
-                <Input id="sideNote" className="bg-sheet" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Layout v3 is in the Files tab" />
-                <Button disabled={busy} onClick={submitFromSide}>{armed ? `Confirm: submit R${rev}` : `Submit R${rev} to ${dn(submitTo!)}`}</Button>
-                <p className="text-sm text-soft">{rev === 0 ? "Submitting freezes these numbers as R0, the Base Line. It can't be changed afterwards." : `R${rev} stays a draft through Design and Operations; it is frozen when Management approves it.`}</p>
+                {submittable ? <>
+                  <label htmlFor="sideNote" className="text-sm font-medium">Note for {dn(submitTo!)} (optional)</label>
+                  <Input id="sideNote" className="bg-sheet" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Layout v3 is in the Files tab" />
+                  <Button disabled={busy} onClick={submitFromSide}>{armed ? `Confirm: submit R${rev}` : `Submit R${rev} to ${dn(submitTo!)}`}</Button>
+                  <p className="text-sm text-soft">{rev === 0 ? "Submitting freezes these numbers as R0, the Base Line. It can't be changed afterwards." : `R${rev} stays a draft through Design and Operations; it is frozen when Management approves it.`}</p>
+                </> : <p className="text-sm text-soft">Your changes go into the R{rev} draft. {holder ? `${dn(holder)} ${holder === "Management" ? "approves it" : "submits it on"}.` : ""}</p>}
               </section>
             )}
           </div>
@@ -331,7 +349,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
         </div>
       )}
       {tab === "files" && data.filesReady && (
-        <FilesTab projectId={p.id} files={data.files} names={names} meId={meId} canRemoveAny={myDepts.includes("BD")} model={m} current={draft} canApply={editable}
+        <FilesTab projectId={p.id} files={data.files} names={names} meId={meId} canRemoveAny={myDepts.includes("BD")} canUpload={!viewOnly} model={m} current={draft} canApply={editable}
           onApply={(vals, from) => {
             setDraft((d) => ({ ...d, ...vals })); setDirty(true); setSource(from); setView("draft"); setTab("assumptions");
             toast.success(`${Object.keys(vals).length} value(s) applied from ${from}. Check them (they're highlighted against R0), then Save draft.`);
@@ -354,8 +372,8 @@ export function ProjectView({ data }: { data: ProjectData }) {
       {tab === "rates" && (
         <RatesTab key={`${p.id}-${String(view)}`} projectId={p.id} model={m} inputs={shownVersion ? shownInputs : { ...m.defaults, ...p.inputs }}
           saved={((shownVersion ? shownVersion.rates : p.rates) || {}) as Record<string, number>}
-          editable={!shownVersion && canEditRates(p.status, p.last_rev, myDepts)} label={shownVersion ? `R${shownRev}` : `R${rev} draft`}
-          who={shownVersion ? `R${shownRev} is frozen; its rates can't change.` : "Base Line can change these while preparing R0; Operations when the R1+ draft is with them."} />
+          editable={!shownVersion && canEditRates(p.status, myDepts)} label={shownVersion ? `R${shownRev}` : `R${rev} draft`}
+          who={shownVersion ? `R${shownRev} is frozen; its rates can't change.` : viewOnly ? "Only the project's team can change these." : "The team can change these while a draft is open."} />
       )}
 
       {tab === "analysis" && (() => {

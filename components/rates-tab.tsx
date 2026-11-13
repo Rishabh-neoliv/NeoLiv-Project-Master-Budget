@@ -1,6 +1,6 @@
 "use client";
 // The Rates tab: the master Excel's rate for every item at this project's location, and the project's own
-// rates where they differ. Base Line changes them while preparing R0, Operations when the draft is with them.
+// rates where they differ. Anyone on the project's team changes them while a draft is open.
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";

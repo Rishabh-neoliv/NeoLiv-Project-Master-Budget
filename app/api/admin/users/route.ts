@@ -1,12 +1,13 @@
-// Admin only: onboarding people into the app. Which projects they work on, and in which department,
-// is set on each project by its Base Line team, not here.
+// Onboarding people into the app. Which projects they work on, and in which department, is set on each
+// project by its Base Line team, not here.
 //
-// POST  /api/admin/users  { name, email }   adds a member and returns their sign-up link
-//                                            (also emailed to them when email is set up)
-// PATCH /api/admin/users  { id, name }      renames a member
+// POST  /api/admin/users  { name, email }   any member: adds a member and emails them their sign-up link.
+//                                            Admins also get the link back (to send it themselves); for anyone
+//                                            else it goes only to the new member's email, so email must be set up.
+// PATCH /api/admin/users  { id, name }      admins: renames a member
 import { z } from "zod";
 import { requireAdmin } from "@/lib/server/admin";
-import { errorResponse, HttpError } from "@/lib/server/data";
+import { errorResponse, HttpError, requireUser } from "@/lib/server/data";
 import { sendInvite } from "@/lib/server/email";
 import { appUrlFor, linkFor } from "@/lib/server/links";
 import { mailProvider } from "@/lib/server/mailer";
@@ -19,10 +20,11 @@ const Invite = z.object({
 
 export async function POST(req: Request) {
   try {
-    const { db, me } = await requireAdmin();
+    const { db, me } = await requireUser();
     const body = Invite.parse(await req.json());
+    if (!me.is_admin && !mailProvider()) throw new HttpError(400, "Email isn't set up yet, so an admin has to add them.");
     const { data: existing } = await db.from("profiles").select("id").eq("email", body.email).maybeSingle();
-    if (existing) throw new HttpError(409, `${body.email} is already a member. Use “New link” on their row to send another sign-up link.`);
+    if (existing) throw new HttpError(409, `${body.email} is already a member. Use “${me.is_admin ? "New link" : "Resend invite"}” on their row to send another sign-up link.`);
 
     // With Microsoft sign-in on, the account is created with its (company) email already confirmed, so their
     // NeoLiv Microsoft account joins it on first sign-in; the link is only a fallback to set a password.
@@ -45,7 +47,9 @@ export async function POST(req: Request) {
     await db.from("profiles").upsert({ id: userId, name: body.name, email: body.email, is_admin: false });
 
     const emailed = await sendInvite({ to: body.email, name: body.name, from: me.name, link, microsoft, appUrl: appUrlFor(req) });
-    return Response.json({ id: userId, link, emailed, via: mailProvider(), microsoft });
+    if (!me.is_admin && !emailed) throw new HttpError(500, `${body.name} is added, but the invite email couldn't be sent. Ask an admin to send them a link.`);
+    // a sign-up link signs whoever opens it in as the new member, so only admins see it
+    return Response.json({ id: userId, link: me.is_admin ? link : undefined, emailed, via: mailProvider(), microsoft });
   } catch (err) {
     if (err instanceof z.ZodError) return Response.json({ error: err.issues[0]?.message ?? "Invalid request" }, { status: 400 });
     return errorResponse(err);

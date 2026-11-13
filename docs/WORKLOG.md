@@ -5,16 +5,50 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
-- **Switch off "Allow new users to sign up" in Supabase** (found ON on 2026-11-12; check-access.mjs fails until it is).
+- **Run `supabase/migrations/0003_all_members_view.sql`** in the Supabase SQL Editor (every member views every
+  project). Until then members still see only their own projects, and check-access fails 2 checks.
+- Tidy: delete the old flow "NeoLiv Budget emails" (RSS trigger; its 4 failures were the test emails), and the
+  second Supabase project that Vercel's Supabase integration created (remove the integration in Vercel first;
+  the app uses pcvsfstbhtmmvbmlbrgv only).
 - Delete the dummy accounts (admin@neoliv.test, test.member@neoliv.test) when the user agrees.
 - **Microsoft sign-in**: Entra app registration + Supabase Azure provider + `NEXT_PUBLIC_MICROSOFT_SIGNIN=on` in
-  Vercel (docs/Microsoft sign-in.md). Needs this code pushed first.
-- **Email**: build the Power Automate flow against the live feed address (`docs/Email via Power Automate.md`),
-  or the Microsoft 365 route via IT. Until then emails wait in the outbox.
+  Vercel (docs/Microsoft sign-in.md). Code is live.
+- Optional: instant email from a shared mailbox (budget@neoliv.in) via IT's Microsoft 365 route; the 2-minute
+  Power Automate flow then gets turned off.
+- Delete the leftover `.env.vercel` (git-ignored copy of keys) and the old RSS-trigger flow "NeoLiv Budget emails".
+- Before real data: Supabase Pro (backups) and Vercel Pro (commercial use).
 - **AI reading of documents** needs `ANTHROPIC_API_KEY` (user: "not now"). Waiting to be read: the
   (09-09-2026) MOM xlsx and the Guidelines PDF (partly scanned). `6071422233.PDF` is an SAP invoice, not a project doc.
 - Imported NCR projects (9) have no team; assign when needed. Test projects still present: "UI Check Project",
   "Workflow Test 05526" (orphaned), and the user's "test12".
+
+## 2026-11-13
+
+- Access changed (user's decision): **every member can view every project** (all tabs, Excel and file downloads;
+  "View only" shown when not on the team), and **anyone on a project's team, from any department, can change the
+  open draft, rates and files at any stage**. Submit, Approve and the other workflow steps stay with the department
+  whose turn it is. Team changes stay with Base Line / admin. New `requireViewer` for downloads, `canSubmit` in
+  lib/workflow.ts, migration 0003 (RLS select for all signed-in users). Saving now sends only the changed fields,
+  so two people editing the same draft don't undo each other. check-access.mjs: 12 checks (outsider can view, can't
+  write).
+- Shobha Shetty was made admin by mistake with the old "Make admin" (which handed the role over and demoted
+  Rishabh). Rishabh is admin again (make-admin.mjs); Shobha stays admin too.
+- **Several admins allowed** (user's request): "Make admin" now adds an admin, "Remove admin" / "Stop being admin"
+  takes it away, always leaving at least one; an admin must lose the role before they can be removed.
+- **Any member can add members** (user's request): new **Members** page in the top bar (`/members`). Non-admins
+  don't see sign-up links (a link signs whoever opens it in): the invite goes only to the new person's email, and
+  they can "Resend invite" only to people who haven't signed in yet. Remove/restore/admin changes stay with admins.
+- Tested against the local app with throwaway accounts (made and deleted by a scratch script, plus any queued
+  test emails): 24/24 pass (member adds people without seeing the link, can't make admins or remove people;
+  Make/Remove admin; Design saves R0 draft but can't submit; parallel saves keep each other's fields; non-team
+  member can't save but can download the draft Excel). Pages not clicked through in a browser.
+- Set-password page (first sign-up and password resets) now shows **Username: <their email>** (read-only, marked
+  as username so browsers save it with the password), says the password is only for this app, and confirms
+  "From now on sign in with <email> and this password" after saving. An expired/used link says so. The invite,
+  new-link and Forgot-password emails now carry a "Username: <email>" line. Checked in the local app with a
+  throwaway account (deleted).
+- Drafted an email to Shobha about the project and her invite (the user sends it; Outlook draft failed: Microsoft
+  503s). No account for Shobha in the app yet.
 
 ## 2026-11-12
 
@@ -51,7 +85,19 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   `?after=&until=` (created_at in (after, until], max a day; tested locally incl. Power Automate's +05:30 dates),
   and the flow is rebuilt as Schedule every 2 min → RSS "List all RSS feed items" for the 2 minutes before its
   scheduled time → Apply to each → Parse JSON → Send email. Guide rewritten; app wording now "about 2 minutes".
-  Needs this code pushed, then the user rebuilds the flow and turns the RSS-trigger version off.
+  Pushed (8f1e2e0); the live feed answers time windows (checked from here: empty window → 0 items, bad window
+  → 400). The old RSS-trigger flow fired once after ~30 min: trigger fine, Parse JSON failed because Content
+  was typed text, not an fx expression.
+- **Email is live.** The user built "NeoLiv Budget emails 2min" (Schedule every 2 min → List all RSS feed items
+  with the after/until fx URL → Apply to each [Parse JSON with item() → Send an email (V2)]); Forgot password
+  test email arrived. Invites, password links and workflow emails now go out from the user's Outlook in ~2 min.
+  Guide uses item() (the new designer names the loop "For each"/"Apply to each").
+- User removed admin@neoliv.test (Admin panel) and invited kajal.shidruk@highbartech.com (invite email queued).
+  check-access.mjs now makes its own throwaway admin instead of signing in as admin@neoliv.test: 10/11 pass;
+  "sign-ups off" still failed: the user had switched it off in a second Supabase project (made by Vercel's
+  integration). Switched off in the app's project pcvsfstbhtmmvbmlbrgv: **all 11 access checks pass.**
+- Microsoft's "1 of your flows failed" email was the old RSS-trigger flow (4 failures = the test emails it
+  couldn't parse). The 2-minute flow is fine; the old one is to be deleted.
 - Hosting decision: Vercel + Supabase on free plans while testing with dummy data; Pro plans before real data.
   NeoLiv probably has Azure: Microsoft sign-in (Entra ID), shared-mailbox email and Claude via Foundry are the
   next Azure-side steps (need IT).

@@ -1,14 +1,14 @@
 // GET /api/projects/:id/draft/excel   the working draft, as last saved, as an Excel file (same layout as the
 // frozen revisions, with a "draft" row in its Revision History).
 import { snapshot } from "@/lib/budget";
-import { errorResponse, HttpError, loadModel, requireMember, type VersionRow } from "@/lib/server/data";
+import { errorResponse, HttpError, loadModel, requireViewer, type VersionRow } from "@/lib/server/data";
 import { buildDraftWorkbook } from "@/lib/server/workbook";
 import { hasDraft, nextRev, STATUS } from "@/lib/workflow";
 
 export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]/draft/excel">) {
   try {
     const { id } = await ctx.params;
-    const { db, me, project: p } = await requireMember(id);
+    const { db, me, project: p } = await requireViewer(id);
     if (!hasDraft(p.status)) throw new HttpError(400, "There's no working draft: the latest revision is approved. Download it from the Revisions tab.");
     const m = await loadModel(p.template);
     const inputs = { ...m.defaults, ...p.inputs }, rates = p.rates || {};

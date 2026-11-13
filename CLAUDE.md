@@ -40,7 +40,7 @@ npx tsc --noEmit; npx eslint .; npm run build # checks before committing
 npx next typegen                              # after adding or renaming routes
 node scripts/check-engine.mjs "D:\OneDrive - NeoLiv\Rishabh\Project\NeoLiv Project Master Budget"
 node --env-file=.env.local scripts/check-db.mjs       # tables and buckets exist
-node --env-file=.env.local scripts/check-access.mjs   # RLS + sign-ups off: 11 checks must pass
+node --env-file=.env.local scripts/check-access.mjs   # RLS + sign-ups off: 12 checks must pass (makes and removes its own test accounts)
 node --env-file=.env.local scripts/delete-user.mjs <email>
 node --env-file=.env.local scripts/make-admin.mjs <email> --only  # change who the admin is (also: Admin panel → Make admin)
 node --env-file=.env.local scripts/test-email.mjs
@@ -48,13 +48,20 @@ node --env-file=.env.local scripts/test-email.mjs
 
 ## Access model and workflow
 
-- **One admin** (`profiles.is_admin`), with a separate **Admin panel** (`app/(admin)/admin/`: Overview, Members,
-  All projects). The admin onboards members (invite link / email) and can do everything a member can, in any
-  department (acts as "Admin" when not on the team).
+- **Admins** (`profiles.is_admin`; several allowed, at least one always kept), with a separate **Admin panel**
+  (`app/(admin)/admin/`: Overview, Members, All projects). Admins can do everything a member can, in any
+  department (act as "Admin" when not on the team), plus remove/restore people and make/remove admins.
+- **Any member can add people** (`/members`, same `UsersAdmin` component; API `POST /api/admin/users` takes any
+  signed-in user). Non-admins never get the sign-up link back: it goes only to the new person's email (a link signs
+  whoever opens it in), so they need email set up; they can resend only to people who haven't signed in yet.
 - **Sign-in:** email + password, and "Sign in with Microsoft" (Supabase Azure provider, single-tenant NeoLiv,
   shown when `NEXT_PUBLIC_MICROSOFT_SIGNIN=on`; docs/Microsoft sign-in.md). Only people the admin added can get
   in: Supabase's "Allow new users to sign up" must stay **off** (check-access.mjs checks it).
 - **No global roles.** Roles are per project (`project_members.dept`), set by Base Line or the admin.
+- **Every member views every project** (RLS select for all signed-in users; downloads via `requireViewer`).
+  Changes need a place on the team (`requireMember`): anyone on the team, any department, can edit the open draft,
+  rates and files at any stage (`canEditDraft`); Submit and workflow steps stay with whose turn it is (`canSubmit`,
+  `ACTIONS`). User's decision, 2026-11-13. The screen sends only changed fields, so parallel edits don't clash.
 - Workflow: **Base Line → Design → Operations → Management**. R0 freezes when Base Line submits; R1+ freeze on
   Management approval; Delta is always against R0. Rules live in `lib/workflow.ts`.
 
@@ -81,7 +88,7 @@ app/api/...                    projects, drafts, actions, team, rates, files, ex
 lib/budget.ts, lib/workflow.ts shared logic (browser and server)
 lib/server/                    data access, freeze, workbook, extract (Excel exact read + Claude), email
 lib/engine/                    original engine (see hard rules)
-supabase/migrations/           0001_init.sql, 0002_files_history.sql (both run)
+supabase/migrations/           0001_init.sql, 0002_files_history.sql (both run), 0003_all_members_view.sql
 scripts/                       setup, checks, test helpers
 docs/                          email guides, WORKLOG.md
 ```

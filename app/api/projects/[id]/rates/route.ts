@@ -12,7 +12,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/ra
   try {
     const { id } = await ctx.params;
     const { db, me, project: p, myDepts, deptLabel } = await requireMember(id);
-    if (!canEditRates(p.status, p.last_rev, myDepts)) throw new HttpError(403, "Rates can be changed by Base Line while preparing R0, and by Operations when the draft is with them.");
+    if (!canEditRates(p.status, myDepts)) throw new HttpError(403, "Rates can be changed by the project's team while a draft is open. Start a new version first.");
     const { rates: raw } = Body.parse(await req.json());
     const m = await loadModel(p.template);
     const known = new Set(rateIndex(m).flatMap((r) => Object.values(r.cells)));

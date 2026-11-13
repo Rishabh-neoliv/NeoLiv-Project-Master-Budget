@@ -28,13 +28,14 @@ interface Props {
   names: Record<string, string>;
   meId: string;
   canRemoveAny: boolean;   // Base Line or the admin
+  canUpload: boolean;      // on the project's team (people who aren't only view and download)
   model: Model;
   current: Record<string, CellValue>;   // the working draft, to compare with what was found
   canApply: boolean;       // the draft is editable by this person now
   onApply: (values: Record<string, CellValue>, source: string) => void;
 }
 
-export function FilesTab({ projectId, files, names, meId, canRemoveAny, model, current, canApply, onApply }: Props) {
+export function FilesTab({ projectId, files, names, meId, canRemoveAny, canUpload, model, current, canApply, onApply }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -94,13 +95,13 @@ export function FilesTab({ projectId, files, names, meId, canRemoveAny, model, c
 
   return (
     <div className="grid gap-5">
-      <label onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+      {canUpload && <label onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); if (e.dataTransfer.files.length) upload(e.dataTransfer.files); }}
         className={`grid cursor-pointer place-items-center gap-1 rounded-xl border-2 border-dashed px-6 py-8 text-center ${drag ? "border-brand bg-brand-soft" : "border-line bg-sheet hover:border-brand"}`}>
         <input type="file" multiple className="sr-only" onChange={(e) => { if (e.target.files?.length) upload(e.target.files); e.target.value = ""; }} disabled={!!busy} />
         <span className="font-semibold">Drop files here, or click to choose</span>
         <span className="text-sm text-soft">Budget Excel, minutes of meeting, drawings, PDFs, Word files or photos, up to 50 MB each. They are kept with the working draft and move into the revision when it freezes.</span>
-      </label>
+      </label>}
       {busy && <div className="rounded-lg bg-info-soft px-4 py-3 text-info">{busy}</div>}
 
       {!files.length && <p className="text-soft">No files yet.</p>}
@@ -123,7 +124,7 @@ export function FilesTab({ projectId, files, names, meId, canRemoveAny, model, c
                     {f.extraction_status === "failed" && <span className="rounded bg-bad-soft px-2 py-0.5 text-xs font-medium text-bad" title={f.extraction_error ?? ""}>Couldn&apos;t read</span>}
                     <div className="flex flex-wrap gap-1.5">
                       {ex && <Button size="sm" variant={isOpen ? "secondary" : "outline"} onClick={() => setOpen(isOpen ? null : f.id)}>{isOpen ? "Hide details" : `Details${ex.suggestions.length ? ` (${ex.suggestions.length})` : ""}`}</Button>}
-                      {f.kind === "document" && READABLE.test(f.name) && (
+                      {canUpload && f.kind === "document" && READABLE.test(f.name) && (
                         <Button size="sm" variant={ex ? "ghost" : "default"} disabled={!!busy || f.extraction_status === "pending"} onClick={() => readWithAi(f)}>
                           {f.extraction_status === "pending" ? "Reading…" : ex ? "Read again" : "Read with AI"}
                         </Button>
@@ -186,7 +187,7 @@ function Review({ file, ex, model, current, canApply, onApply }: { file: Project
               const vals = Object.fromEntries(rows.filter((r) => picked.has(r.cell)).map((r) => [r.cell, r.value]));
               onApply(vals, `${file.name}${ex.method === "ai" ? " (AI)" : ""}`);
             }}>Apply {picked.size} value(s) to the draft</Button>
-            <span className="text-sm text-soft">{canApply ? "They go into the Assumptions tab for you to check, then Save draft." : file.rev !== null ? "Values from a frozen revision's file can't be applied." : "Only the department whose turn it is can apply values to the draft."}</span>
+            <span className="text-sm text-soft">{canApply ? "They go into the Assumptions tab for you to check, then Save draft." : file.rev !== null ? "Values from a frozen revision's file can't be applied." : "Only the project's team can apply values to the draft."}</span>
           </div>
         </div>
       )}

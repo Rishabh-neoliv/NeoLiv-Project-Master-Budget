@@ -3,14 +3,14 @@
 // Frozen revisions keep the template they were frozen on.
 import { migrateInputs, migrateRates, snapshot } from "@/lib/budget";
 import { errorResponse, HttpError, loadModel, requireMember } from "@/lib/server/data";
-import { canEditDraft, dn, editDept, hasDraft } from "@/lib/workflow";
+import { canEditDraft, hasDraft } from "@/lib/workflow";
 
 export async function POST(_req: Request, ctx: RouteContext<"/api/projects/[id]/template">) {
   try {
     const { id } = await ctx.params;
     const { db, me, project: p, myDepts, deptLabel } = await requireMember(id);
     if (!hasDraft(p.status)) throw new HttpError(400, "There's no working draft to move: start a new version first.");
-    if (!canEditDraft(p.status, myDepts)) throw new HttpError(403, `Only ${dn(editDept(p.status))} can move the draft now, while it's their turn.`);
+    if (!canEditDraft(p.status, myDepts)) throw new HttpError(403, "Only the project's team can move the draft.");
     const [from, to] = await Promise.all([loadModel(p.template), loadModel()]);
     if (from.stamp === to.stamp) throw new HttpError(400, "The draft is already on the current template.");
 

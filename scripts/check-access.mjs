@@ -1,5 +1,5 @@
 // Checks the access rules against Supabase:
-//   * a project is visible to its team (and the admin), and to nobody else
+//   * every signed-in member can view every project (and its team); signed-out visitors see nothing
 //   * nobody can write from the browser: every change goes through the app's API
 //   * the master templates (real rates) can't be read from the browser
 //   node --env-file=.env.local scripts/check-access.mjs
@@ -28,16 +28,18 @@ const member = async (tag) => {
 };
 let projectId = null;
 try {
-  const onTeam = await member("team"), outsider = await member("outsider");
+  const onTeam = await member("team"), outsider = await member("outsider"), checkAdmin = await member("admin");
+  // a throwaway admin for the "admin sees everything" reference (the real admin's password isn't known here)
+  await admin.from("profiles").update({ is_admin: true }).eq("id", checkAdmin.id);
   const { data: tpl } = await admin.from("templates").select("stamp").eq("is_current", true).single();
   const { data: p } = await admin.from("projects").insert({ name: "Access check " + stamp, region: "NCR", template: tpl.stamp }).select("id").single();
   projectId = p.id;
   await admin.from("project_members").insert({ project_id: p.id, user_id: onTeam.id, dept: "BD" });
 
-  const t = await signIn(onTeam.email), o = await signIn(outsider.email), a = await signIn("admin@neoliv.test");
+  const t = await signIn(onTeam.email), o = await signIn(outsider.email), a = await signIn(checkAdmin.email);
   check("team member sees the project", ((await t.from("projects").select("id").eq("id", p.id)).data ?? []).length === 1);
-  check("someone not on the team does not", ((await o.from("projects").select("id").eq("id", p.id)).data ?? []).length === 0);
-  check("not on the team: no team list either", ((await o.from("project_members").select("user_id").eq("project_id", p.id)).data ?? []).length === 0);
+  check("a member not on the team can view it too", ((await o.from("projects").select("id").eq("id", p.id)).data ?? []).length === 1);
+  check("...and its team list", ((await o.from("project_members").select("user_id").eq("project_id", p.id)).data ?? []).length === 1);
   check("the admin sees it (for reference)", ((await a.from("projects").select("id").eq("id", p.id)).data ?? []).length === 1);
   const signedOut = createClient(url, pub, { auth: { persistSession: false } });
   check("signed out sees no projects", ((await signedOut.from("projects").select("id")).data ?? []).length === 0);
@@ -46,6 +48,8 @@ try {
   check("team member can't write a frozen version directly", !!(await t.from("versions").insert({ project_id: p.id, rev: 0, inputs: {}, master: [], calc: {}, dept: "BD" })).error);
   await t.from("project_members").insert({ project_id: p.id, user_id: outsider.id, dept: "Design" });
   check("team member can't change the team directly", ((await admin.from("project_members").select("user_id").eq("project_id", p.id)).data ?? []).length === 1);
+  await o.from("projects").update({ name: "changed by an outsider" }).eq("id", p.id);
+  check("a member not on the team can't change it directly", (await admin.from("projects").select("name").eq("id", p.id).single()).data.name === "Access check " + stamp);
   await o.from("profiles").update({ is_admin: true }).eq("id", outsider.id);
   check("nobody can make themselves admin", (await admin.from("profiles").select("is_admin").eq("id", outsider.id).single()).data.is_admin === false);
   check("templates bucket isn't readable from the browser", ((await t.storage.from("templates").list()).data ?? []).length === 0);

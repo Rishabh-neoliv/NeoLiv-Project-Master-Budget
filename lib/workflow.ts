@@ -19,7 +19,7 @@ export const STATUS: Record<Status, [label: string, dept: Dept | null]> = {
   APPROVED: ["Approved", null], COMPLETED: ["Completed", null],
 };
 
-// a working draft can be edited in these states, by the department whose turn it is
+// the department whose turn it is works on the draft in these states, and submits it on
 export const EDITABLE = new Set<Status>(["DRAFT", "RETURNED", "DESIGN_IN_PROGRESS", "OPS_IN_PROGRESS"]);
 export const editDept = (status: Status): Dept => (status === "DESIGN_IN_PROGRESS" ? "Design" : status === "OPS_IN_PROGRESS" ? "Operations" : "BD");
 const CLOSED = new Set<Status>(["APPROVED", "COMPLETED"]);
@@ -57,8 +57,12 @@ export function actionLabel(a: Action, lastRev: number | null) {
 export const availableActions = (status: Status, myDepts: string[]) =>
   ACTIONS.filter((a) => a.from.includes(status) && a.depts.some((d) => myDepts.includes(d)));
 
-/** Can this person edit (save / submit) the working draft right now? */
-export const canEditDraft = (status: Status, myDepts: string[]) => EDITABLE.has(status) && myDepts.includes(editDept(status));
+/** Can this person change the working draft (inputs, rates, files) right now? Anyone on the project's team,
+ *  from any department, whenever a draft is open (user's decision, 2026-11-13). People not on the team only view. */
+export const canEditDraft = (status: Status, myDepts: string[]) => hasDraft(status) && myDepts.length > 0;
+
+/** Can this person submit the draft on to the next department? Only the department whose turn it is. */
+export const canSubmit = (status: Status, myDepts: string[]) => EDITABLE.has(status) && myDepts.includes(editDept(status));
 
 export type NotifyKey = "created" | "team_added" | "submit" | "revise" | "return_bd" | "design_done" | "ops_submit" | "approve" | "mgmt_return";
 // who hears about each step by email
@@ -74,9 +78,6 @@ export const NOTIFY: Record<NotifyKey, { to: readonly Dept[]; verb: (rev: number
   mgmt_return: { to: ["Operations"], verb: (rev) => `sent R${rev} back to Operations` },
 };
 
-/** Who may change project rates (as in the original app): Base Line while preparing R0,
- *  Operations once the R1+ draft is with them. Frozen revisions never change. */
-export const RATE_STAGES = new Set<Status>(["DESIGN_DONE", "OPS_IN_PROGRESS"]);
-export const canEditRates = (status: Status, lastRev: number | null, myDepts: string[]) =>
-  (myDepts.includes("Operations") && RATE_STAGES.has(status) && lastRev !== null)
-  || (myDepts.includes("BD") && (status === "DRAFT" || status === "RETURNED") && lastRev === null);
+/** Who may change project rates: like the draft, anyone on the team while a draft is open.
+ *  (The original app allowed Base Line while preparing R0 and Operations on R1+.) Frozen revisions never change. */
+export const canEditRates = canEditDraft;

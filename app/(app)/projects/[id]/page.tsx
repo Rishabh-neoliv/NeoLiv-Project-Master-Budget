@@ -1,4 +1,4 @@
-// A project: header, action bar, summary and tabs. Row-level security means a person who isn't on the team gets "not found".
+// A project: header, action bar, summary and tabs. Every signed-in member can open it; only its team (and the admin) can change it.
 import { notFound } from "next/navigation";
 import type { Model } from "@/lib/budget";
 import { activeMembers } from "@/lib/server/people";

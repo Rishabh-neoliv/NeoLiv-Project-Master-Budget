@@ -1,4 +1,4 @@
-// Signed-in pages: the top bar (template in use, who you are, Team members for the admin, Sign out).
+// Signed-in pages: the top bar (template in use, Projects, Members, Admin panel for admins, who you are, Sign out).
 // Everything that reads the session sits inside <Suspense>, so the page shell shows at once.
 import { Suspense } from "react";
 import Link from "next/link";
@@ -22,6 +22,7 @@ async function UserBar() {
       <span className="hidden text-sm text-soft md:inline">Rates: template of {tpl?.modified || tpl?.stamp || "–"} · {APP_VERSION}</span>
       <nav className="flex gap-4 text-sm">
         <Link href="/projects" className="text-soft hover:text-ink">Projects</Link>
+        <Link href="/members" className="text-soft hover:text-ink">Members</Link>
         {me?.is_admin && <Link href="/admin" className="font-medium text-brand hover:underline">Admin panel</Link>}
       </nav>
       <div className="ml-auto flex items-center gap-2.5 text-sm">

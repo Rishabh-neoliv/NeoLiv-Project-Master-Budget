@@ -36,7 +36,7 @@ console.log("current template:", index.current);
 // ------------------------------------------------------------------ 2. dummy users
 const password = process.env.SEED_PASSWORD;
 if (!password || password.length < 8) throw new Error("Set SEED_PASSWORD (8+ characters) in .env.local for the dummy users.");
-// one admin, who onboards everyone else from the app's Team members page (no role logins)
+// an admin, who (with any member) adds everyone else from the app (no role logins)
 const USERS = [
   { email: "admin@neoliv.test", name: "Admin (dummy)", dept: null, admin: true },
 ];

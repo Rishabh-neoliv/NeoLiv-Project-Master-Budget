@@ -1,18 +1,24 @@
 // GET    /api/projects/:id/files/:fileId   a 60-second download link
 // DELETE /api/projects/:id/files/:fileId   remove a working-draft file (files of a frozen revision stay)
-import { errorResponse, HttpError, requireMember } from "@/lib/server/data";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { errorResponse, HttpError, requireMember, requireViewer } from "@/lib/server/data";
 
+async function findFile(db: ReturnType<typeof createAdminClient>, id: string, fileId: string) {
+  const { data: file } = await db.from("files").select("*").eq("id", fileId).eq("project_id", id).maybeSingle();
+  if (!file) throw new HttpError(404, "File not found.");
+  return file;
+}
+// removing needs the team; downloading only needs a signed-in member (everyone can view every project)
 async function fileOf(id: string, fileId: string) {
   const ctx = await requireMember(id);
-  const { data: file } = await ctx.db.from("files").select("*").eq("id", fileId).eq("project_id", id).maybeSingle();
-  if (!file) throw new HttpError(404, "File not found.");
-  return { ...ctx, file };
+  return { ...ctx, file: await findFile(ctx.db, id, fileId) };
 }
 
 export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]/files/[fileId]">) {
   try {
     const { id, fileId } = await ctx.params;
-    const { db, file } = await fileOf(id, fileId);
+    const { db } = await requireViewer(id);
+    const file = await findFile(db, id, fileId);
     const { data, error } = await db.storage.from("files").createSignedUrl(file.path, 60, { download: file.name });
     if (error || !data) throw new HttpError(500, error?.message ?? "Couldn't create the download link.");
     return Response.redirect(data.signedUrl, 302);

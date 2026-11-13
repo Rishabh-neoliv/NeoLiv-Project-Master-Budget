@@ -1,7 +1,7 @@
 // Makes an existing person the admin. Add them first (Admin panel → Team members → invite), then:
 //   node --env-file=.env.local scripts/make-admin.mjs someone@neoliv.in            adds them as an admin
 //   node --env-file=.env.local scripts/make-admin.mjs someone@neoliv.in --only     ...and removes admin from everyone else
-// The app has one admin; --only keeps it that way when the admin changes (e.g. from the dummy admin@neoliv.test).
+// There can be several admins (also made in Admin panel → Team members → Make admin); --only removes all others.
 // Only the secret key can do this: nobody can make themselves admin from the app.
 import { createClient } from "@supabase/supabase-js";
 

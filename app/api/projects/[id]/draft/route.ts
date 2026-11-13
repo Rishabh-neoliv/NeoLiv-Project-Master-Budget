@@ -5,9 +5,10 @@ import { cleanInputs, missingInputs, snapshot } from "@/lib/budget";
 import { errorResponse, HttpError, loadModel, requireMember } from "@/lib/server/data";
 import { notify } from "@/lib/server/email";
 import { freezeVersion } from "@/lib/server/freeze";
-import { canEditDraft, dn, EDITABLE, editDept, nextRev, STATUS, SUBMIT_TO } from "@/lib/workflow";
+import { canEditDraft, canSubmit, dn, EDITABLE, editDept, nextRev, STATUS, SUBMIT_TO } from "@/lib/workflow";
 
 const Body = z.object({
+  /** the fields this person changed (the screen sends only those, so two people editing at once don't undo each other) */
   inputs: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
   submit: z.boolean().optional(),
   note: z.string().max(2000).optional(),
@@ -20,12 +21,14 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/dr
     const { id } = await ctx.params;
     const { db, me, project: p, team, myDepts, actorDepts, deptLabel } = await requireMember(id);
     const body = Body.parse(await req.json());
-    if (!canEditDraft(p.status, myDepts)) {
+    // anyone on the team can save changes while a draft is open; submitting stays with the department whose turn it is
+    if (!canEditDraft(p.status, myDepts)) throw new HttpError(403, `R${p.last_rev ?? 0} is approved and frozen. Start a new version to make changes.`);
+    if (body.submit && !canSubmit(p.status, myDepts)) {
       const [label, holder] = STATUS[p.status];
       throw new HttpError(403, EDITABLE.has(p.status)
-        ? `It's ${dn(editDept(p.status))}'s turn on this project, so you can't change the draft now.`
-        : p.status === "WITH_MGMT" ? "The draft is with Management for approval, so it can't change. Management can approve it or send it back to Operations."
-        : holder ? `The project is ${label.toLowerCase()}: ${dn(holder)} has to start their work before the draft can change.` : `R${p.last_rev ?? 0} is approved and frozen. Start a new version to make changes.`);
+        ? `Only ${dn(editDept(p.status))} can submit the draft now, while it's their turn. You can still save changes.`
+        : p.status === "WITH_MGMT" ? "The draft is with Management: they approve it or send it back to Operations."
+        : holder ? `The project is ${label.toLowerCase()}: ${dn(holder)} has to start their work before it can be submitted.` : "This draft can't be submitted now.");
     }
 
     const m = await loadModel(p.template);

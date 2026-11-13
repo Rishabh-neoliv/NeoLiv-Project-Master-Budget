@@ -1,4 +1,5 @@
-// The project list: what's waiting for you first, then the rest of your projects, by region.
+// The project list: what's waiting for you first, then every other project, by region. Every member sees every
+// project; "Your role" shows where they're on the team (anything else is view only).
 // Click anywhere on a row to open the project.
 import Link from "next/link";
 import { ClickableRow } from "@/components/clickable-row";
@@ -31,14 +32,14 @@ export default async function ProjectsPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Projects</h1>
-          <p className="text-soft">{isAdmin ? "Every project. As admin you can open any of them and take any step. Click a row to open it." : "The projects you're on. Click a row to open it."}</p>
+          <p className="text-soft">{isAdmin ? "Every project. As admin you can open any of them and take any step. Click a row to open it." : "Every project. You can change the ones you're on the team of; the rest are view only. Click a row to open it."}</p>
         </div>
         <div className="flex gap-2">
           {isAdmin && <Link href="/admin" className={buttonVariants({ variant: "outline" })}>Admin panel</Link>}
           <Link href="/projects/new" className={buttonVariants()}>New project</Link>
         </div>
       </div>
-      {!rows.length && <p className="rounded-xl border border-line bg-sheet p-5 text-soft">{isAdmin ? "No projects yet. Press New project to set one up." : "You aren't on any project yet. Press New project to set one up, or ask a Base Line colleague to add you to their project's team."}</p>}
+      {!rows.length && <p className="rounded-xl border border-line bg-sheet p-5 text-soft">{isAdmin ? "No projects yet. Press New project to set one up." : "No projects yet. Press New project to set one up."}</p>}
       {waiting.length > 0 && <Group title="Waiting for you" rows={waiting} deptsOf={deptsOf} isAdmin={isAdmin} highlight />}
       {(["NCR", "MMR"] as const).map((region) => {
         const list = rest.filter((p) => p.region === region);
@@ -63,7 +64,7 @@ function Group({ title, rows, deptsOf, isAdmin, highlight = false }: { title: st
                 <td className="px-4 py-3"><Link href={`/projects/${p.id}`} className="font-semibold text-brand hover:underline">{p.name}</Link><div className="text-sm text-soft">{p.location} rates</div></td>
                 <td className="px-4 py-3"><RevTag>{revLabel(p.status, p.last_rev)}</RevTag></td>
                 <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                <td className="px-4 py-3 text-soft">{(deptsOf.get(p.id) ?? []).map(dn).join(" + ") || (isAdmin ? "Admin" : "")}</td>
+                <td className="px-4 py-3 text-soft">{(deptsOf.get(p.id) ?? []).map(dn).join(" + ") || (isAdmin ? "Admin" : <span className="text-xs uppercase tracking-wide">View only</span>)}</td>
                 <td className="px-4 py-3 text-right">{numCell(p.acre)}</td>
                 <td className="px-4 py-3 text-right font-semibold">{crore(p.grand_total)}</td>
               </ClickableRow>
