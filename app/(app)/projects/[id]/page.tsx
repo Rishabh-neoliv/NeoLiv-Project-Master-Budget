@@ -13,7 +13,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
 
   const { data: project } = await supabase.from("projects").select("*").eq("id", id).maybeSingle();
   if (!project) notFound();
-  const [{ data: team }, { data: versions }, { data: activity }, { data: tpl }, { data: me }, { data: currentTpl }, { data: files, error: filesError }] = await Promise.all([
+  const [{ data: team }, { data: versions }, { data: activity }, { data: tpl }, { data: me }, { data: currentTpl }, { data: files, error: filesError }, { data: changes }] = await Promise.all([
     supabase.from("project_members").select("user_id, dept, profiles(name, email)").eq("project_id", id),
     supabase.from("versions").select("rev, inputs, rates, master, calc, grand_total, reason, dept, template, xlsx_path, frozen_by, frozen_at").eq("project_id", id).order("rev"),
     supabase.from("activity").select("id, at, by, dept, action, comment, rev, details").eq("project_id", id).order("at", { ascending: false }).limit(200),
@@ -21,10 +21,12 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
     supabase.from("profiles").select("is_admin").eq("id", uid).single(),
     supabase.from("templates").select("stamp, modified").eq("is_current", true).maybeSingle(),
     supabase.from("files").select("id, rev, name, size, content_type, kind, uploaded_by, uploaded_at, extraction_status, extraction, extraction_error").eq("project_id", id).order("uploaded_at", { ascending: false }),
+    // every recorded field change (all of them, not just the latest 200), for who-changed-what colours
+    supabase.from("activity").select("by, at, rev, details").eq("project_id", id).not("details", "is", null).order("at").limit(5000),
   ]);
   if (!tpl) throw new Error(`Template ${project.template} isn't loaded. Run scripts/setup.mjs.`);
 
-  const ids = [...new Set([project.created_by, ...(activity ?? []).map((a) => a.by), ...(versions ?? []).map((v) => v.frozen_by), ...(files ?? []).map((f) => f.uploaded_by)].filter(Boolean))] as string[];
+  const ids = [...new Set([project.created_by, ...(activity ?? []).map((a) => a.by), ...(changes ?? []).map((a) => a.by), ...(versions ?? []).map((v) => v.frozen_by), ...(files ?? []).map((f) => f.uploaded_by)].filter(Boolean))] as string[];
   const { data: ppl } = ids.length ? await supabase.from("profiles").select("id, name").in("id", ids) : { data: [] };
   const teamRows = (team ?? []).map((t) => {
     const p = (Array.isArray(t.profiles) ? t.profiles[0] : t.profiles) as { name: string; email: string } | null;
@@ -38,6 +40,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
     team: teamRows,
     versions: versions ?? [],
     activity: activity ?? [],
+    changes: changes ?? [],
     names: Object.fromEntries((ppl ?? []).map((p) => [p.id, p.name])),
     model: { ...(tpl.model as Model), stamp: tpl.stamp },
     templateDate: tpl.modified || tpl.stamp,

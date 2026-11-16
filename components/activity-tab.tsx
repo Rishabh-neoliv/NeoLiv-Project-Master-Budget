@@ -1,9 +1,12 @@
 "use client";
 // The Activity tab: every step, with the fields each save changed (from → to) and where applied values came
-// from. "Field history" narrows it to one input: who changed it, when, and from what to what.
+// from. "Field history" narrows it to one input: who changed it, when, and from what to what. Each person's entries
+// are in their own colour (the same colour marks their changes on the Assumptions and Rates tabs), and the list can
+// be narrowed to one person.
 import { useMemo, useState } from "react";
 import { Initials } from "@/components/initials";
 import { fmtCalc, fmtInput, inr, isNum, type CellValue, type Field, type Model } from "@/lib/budget";
+import type { Person } from "@/lib/changes";
 import { fmtDateTime } from "@/lib/dates";
 
 export interface ActivityRow {
@@ -12,8 +15,9 @@ export interface ActivityRow {
 }
 const fmtDate = fmtDateTime;
 
-export function ActivityTab({ activity, names, model }: { activity: ActivityRow[]; names: Record<string, string>; model: Model }) {
+export function ActivityTab({ activity, names, model, people }: { activity: ActivityRow[]; names: Record<string, string>; model: Model; people?: Map<string, Person> }) {
   const [field, setField] = useState("");
+  const [who, setWho] = useState("");
   const [open, setOpen] = useState<Set<number>>(new Set());
   const fields = useMemo(() => new Map(model.sections.flatMap((s) => s.fields.map((f) => [f.cell, f] as const))), [model]);
   // every input that has a history, for the picker
@@ -28,7 +32,9 @@ export function ActivityTab({ activity, names, model }: { activity: ActivityRow[
     if (v === null || v === undefined || v === "") return "–";
     return f ? (f.kind === "percent" && isNum(v) ? fmtInput(f, v) + " %" : isNum(v) ? fmtCalc(f, v) : String(v)) : String(v);
   };
-  const rows = field ? activity.filter((a) => a.details?.changes?.some((c) => c.cell === field)) : activity;
+  const rows = activity.filter((a) => (!field || a.details?.changes?.some((c) => c.cell === field)) && (!who || a.by === who));
+  const authors = useMemo(() => [...new Set(activity.map((a) => a.by).filter((x): x is string => !!x))], [activity]);
+  const colourOf = (id: string | null) => (id && people?.get(id)?.colour) || undefined;
 
   return (
     <div className="grid gap-3">
@@ -38,16 +44,20 @@ export function ActivityTab({ activity, names, model }: { activity: ActivityRow[
           <option value="">All activity</option>
           {changed.map(([cell, label]) => <option key={cell} value={cell}>{label} ({cell.replace(/^Additional Inputs!/, "AI ")})</option>)}
         </select>
-        {field && <span className="text-sm text-soft">{rows.length} change(s)</span>}
+        <select className="h-9 min-w-48 rounded-lg border border-input bg-sheet px-2.5" value={who} onChange={(e) => setWho(e.target.value)} aria-label="Show one person's activity">
+          <option value="">Everyone</option>
+          {authors.map((id) => <option key={id} value={id}>{names[id] || "Someone"}</option>)}
+        </select>
+        {(field || who) && <span className="text-sm text-soft">{rows.length} entr{rows.length === 1 ? "y" : "ies"}</span>}
       </div>
       <ol className="grid gap-2">
         {rows.map((a) => {
           const ch = (a.details?.changes ?? []).filter((c) => !field || c.cell === field);
           const isOpen = !!field || open.has(a.id);
           return (
-            <li key={a.id} className="rounded-lg border border-line bg-sheet px-4 py-3">
+            <li key={a.id} className="rounded-lg border border-line bg-sheet px-4 py-3" style={colourOf(a.by) ? { boxShadow: `inset 3px 0 0 ${colourOf(a.by)}` } : undefined}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="flex items-center gap-2"><Initials name={(a.by && names[a.by]) || "?"} /><span><b>{(a.by && names[a.by]) || "Someone"}</b>{a.dept ? <span className="text-soft"> ({a.dept})</span> : ""}: {a.action}</span></span>
+                <span className="flex items-center gap-2"><Initials name={(a.by && names[a.by]) || "?"} colour={colourOf(a.by)} /><span><b style={colourOf(a.by) ? { color: colourOf(a.by) } : undefined}>{(a.by && names[a.by]) || "Someone"}</b>{a.dept ? <span className="text-soft"> ({a.dept})</span> : ""}: {a.action}</span></span>
                 <span className="text-sm text-soft">{fmtDate(a.at)}</span>
               </div>
               {a.comment && <p className="mt-1 pl-9 text-soft">{a.comment}</p>}

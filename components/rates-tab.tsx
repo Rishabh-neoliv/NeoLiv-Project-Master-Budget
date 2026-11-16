@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { crore, inr, isNum, masterRate, rateCellFor, rateIndex, snapshot, type CellValue, type Model } from "@/lib/budget";
+import { tint, type Authored } from "@/lib/changes";
+import { fmtDateTime } from "@/lib/dates";
 
 interface Props {
   projectId: string;
@@ -16,9 +18,11 @@ interface Props {
   editable: boolean;
   label: string;          // "R1 draft", "R2"
   who: string;            // who can change them, for people who can't
+  /** who last changed each rate in this revision, in their colour (lib/changes.ts) */
+  authors?: Map<string, Authored>;
 }
 
-export function RatesTab({ projectId, model: m, inputs, saved, editable, label, who }: Props) {
+export function RatesTab({ projectId, model: m, inputs, saved, editable, label, who, authors }: Props) {
   const router = useRouter();
   const [rates, setRates] = useState<Record<string, number>>({ ...saved });
   const [q, setQ] = useState("");
@@ -78,10 +82,12 @@ export function RatesTab({ projectId, model: m, inputs, saved, editable, label, 
                   <thead className="bg-well text-left text-xs uppercase tracking-wide text-soft"><tr><th className="px-3 py-2">Item</th><th className="px-3 py-2">UOM</th><th className="px-3 py-2 text-right">Master rate (₹)</th><th className="px-3 py-2 text-right">Project rate (₹)</th><th className="w-16" /></tr></thead>
                   <tbody>
                     {shown.map((r) => {
-                      const master = masterRate(m, r.ref), mine = rates[r.ref], changed = r.ref in rates;
+                      const master = masterRate(m, r.ref), mine = rates[r.ref], changed = r.ref in rates, a = authors?.get(r.ref);
+                      const money = (v: CellValue) => (isNum(v) ? fmt(v) : "master");
                       return (
-                        <tr key={r.ref} className={`border-t border-line ${changed ? "bg-amber-soft/50" : ""}`}>
-                          <td className="px-3 py-2">{r.item || "(unnamed)"}</td>
+                        <tr key={r.ref} style={a ? tint(a.by.colour) : undefined} className={`border-t border-line ${changed && !a ? "bg-amber-soft/50" : ""}`}
+                          title={a ? `${a.by.name} · ${fmtDateTime(a.at)}: ${money(a.from)} → ${money(a.to)}${a.count > 1 ? ` (changed ${a.count} times)` : ""}` : undefined}>
+                          <td className="px-3 py-2">{r.item || "(unnamed)"}{a && <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium" style={{ color: a.by.colour }}><span aria-hidden className="size-2 rounded-full" style={{ background: a.by.colour }} />{a.by.name}</span>}</td>
                           <td className="px-3 py-2 text-sm text-soft">{r.uom}</td>
                           <td className="px-3 py-2 text-right">{fmt(master)}</td>
                           <td className="w-40 px-3 py-1.5 text-right">

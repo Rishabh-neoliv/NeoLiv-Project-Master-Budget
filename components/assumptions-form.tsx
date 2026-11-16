@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import engineApi from "@/lib/engine/budget-engine";
 import { fmtCalc, fmtInput, inr, isNum, lineKey, parseInput, type CellValue, type Field, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
+import { tint, type Authored } from "@/lib/changes";
+import { fmtDateTime } from "@/lib/dates";
 
 type Inputs = Record<string, CellValue>;
 export interface Baseline { inputs: Inputs; calc: Record<string, unknown>; master: MasterRow[]; sameTemplate: boolean }
@@ -75,10 +77,12 @@ interface Props {
   editable: boolean;
   /** R0 (the Base Line), to show what changed since it was frozen (null at R0 itself) */
   base: Baseline | null;
+  /** who last changed each input in this revision: shown in that person's colour (lib/changes.ts) */
+  authors?: Map<string, Authored>;
   onChange: (next: Inputs) => void;
 }
 
-export function AssumptionsForm({ model: m, draft, snap, editable, base, onChange }: Props) {
+export function AssumptionsForm({ model: m, draft, snap, editable, base, authors, onChange }: Props) {
   const all = useMemo(() => m.sections.flatMap((s) => s.fields), [m]);
   const [shown, setShown] = useState<Set<string>>(new Set());
   const lengths = useMemo(() => all.filter((x) => x.group === "roadcol" && x.col === "len"), [all]);
@@ -106,7 +110,23 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, onChang
     }
     lengths.forEach((x, j) => { next[x.cell] = out[j] === 0 && !isNum(next[x.cell]) ? null : out[j]; });
   }
-  const changed = (cell: string) => !!base && String(base.inputs[cell] ?? "") !== String(draft[cell] ?? "");
+  // changed against R0 (amber) unless someone's colour already marks it as changed in this revision
+  const changed = (cell: string) => !!base && String(base.inputs[cell] ?? "") !== String(draft[cell] ?? "") && !authors?.get(cell);
+  const val = (cell: string, v: CellValue) => {
+    const f = all.find((x) => x.cell === cell);
+    if (blank(v)) return "–";
+    return f ? (f.kind === "percent" && isNum(v) ? fmtInput(f, v) + " %" : isNum(v) ? fmtCalc(f, v) : String(v)) : String(v);
+  };
+  // who changed it, when, and from → to (hover), and their colour
+  const hover = (cell: string) => {
+    const a = authors?.get(cell);
+    return a ? `${a.by.name} · ${a.at ? fmtDateTime(a.at) : "not saved yet"}: ${val(cell, a.from)} → ${val(cell, a.to)}${a.count > 1 ? ` (changed ${a.count} times)` : ""}` : undefined;
+  };
+  const paint = (cell: string, strength?: number) => { const a = authors?.get(cell); return a ? tint(a.by.colour, strength) : undefined; };
+  const byChip = (cell: string) => {
+    const a = authors?.get(cell);
+    return a && <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium" style={{ color: a.by.colour }}><span aria-hidden className="size-2 rounded-full" style={{ background: a.by.colour }} />{a.by.name}{a.at ? "" : " (not saved)"}</span>;
+  };
   const fieldDelta = (f: Field) => {
     if (!base) return null;
     const t = f.kind === "calc" ? deltaText(f, snap.calc[f.cell], base.calc[f.cell]) : deltaText(f, draft[f.cell], base.inputs[f.cell]);
@@ -195,9 +215,9 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, onChang
     if (lightHidden(f)) return null;
     const lbl = typeof f.lightWidth === "string" && isNum(draft[f.lightWidth]) ? `External Lights – ${draft[f.lightWidth]} m road (line ${f.label.replace(/\D+/g, "")})` : f.label;
     return (
-      <div key={f.cell} className={`grid grid-cols-1 gap-1 border-b border-line/70 px-2 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_280px] sm:items-center ${f.kind === "calc" ? "bg-tint" : ""} ${f.kind !== "calc" && changed(f.cell) ? changedCls : ""}`}>
+      <div key={f.cell} title={hover(f.cell)} style={f.kind !== "calc" ? paint(f.cell) : undefined} className={`grid grid-cols-1 gap-1 border-b border-line/70 px-2 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_280px] sm:items-center ${f.kind === "calc" ? "bg-tint" : ""} ${f.kind !== "calc" && changed(f.cell) ? changedCls : ""}`}>
         <label htmlFor={"in-" + f.cell.replace(/[^A-Za-z0-9]/g, "_")}>
-          <span className="font-medium">{lbl}</span> <span className="ml-1 font-mono text-xs text-soft">{shortRef(f.cell)}</span>
+          <span className="font-medium">{lbl}</span> <span className="ml-1 font-mono text-xs text-soft">{shortRef(f.cell)}</span>{f.kind !== "calc" && byChip(f.cell)}
           {f.kind === "calc" && <span className="ml-2 text-xs text-soft">calculated</span>}
           {f.note && <small className="block text-sm text-soft">{f.note}</small>}          {typeof f.detail === "string" && <small className="block text-sm text-soft">{fmtCalc({} as Field, snap.calc[f.detail])}</small>}
         </label>
@@ -226,10 +246,10 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, onChang
                 const opts = (f.options || []).map(String).filter((o) => ok.has(o) || o === v);
                 return (
                   <tr key={f.cell} className={`border-t border-line ${v === "No" ? "text-soft" : ""} ${changed(f.cell) ? "bg-amber-soft/40" : ""}`}>
-                    <td className="w-24 px-2 py-1">{typed && typeof f.widthCell === "string"
+                    <td className="w-24 px-2 py-1" style={typeof f.widthCell === "string" ? paint(f.widthCell, 22) : undefined} title={typeof f.widthCell === "string" ? hover(f.widthCell) : undefined}>{typed && typeof f.widthCell === "string"
                       ? (editable ? <input type="number" step="any" min={0} className={inputCls} aria-label={`Width of road line ${f.line} (m)`} value={fmtInput({} as Field, draft[f.widthCell])} onChange={(e) => set(f.widthCell as string, parseInput({ kind: "number" } as Field, e.target.value))} /> : <b>{fmtInput({} as Field, draft[f.widthCell]) || "–"} m</b>)
                       : <b>{isNum(f.width) ? String(f.width) : ""} m</b>}</td>
-                    <td className="min-w-56 px-2 py-1">
+                    <td className="min-w-56 px-2 py-1" style={paint(f.cell, 22)} title={hover(f.cell)}>
                       {editable ? <select className={inputCls} value={v} aria-label={`Road type for ${f.label}`} onChange={(e) => set(f.cell, e.target.value)}>
                         {opts.map((o) => <option key={o} value={o}>{o}{ok.has(o) ? "" : " – costs ₹ 0 here"}</option>)}
                       </select> : <span className="font-medium">{v}</span>}
@@ -244,8 +264,8 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, onChang
                       const lf = lenOf(f);
                       if (key !== "len" && lf && !(isNum(draft[lf.cell]) && (draft[lf.cell] as number) > 0)) return <td key={key} className="px-2 py-1 text-right text-soft">–</td>;
                       if (c.kind === "calc") return <td key={key} className="px-2 py-1 text-right tabular-nums text-soft">{fmtCalc(c, snap.calc[c.cell])}</td>;
-                      if (!editable) return <td key={key} className={`px-2 py-2 text-right font-medium ${changed(c.cell) ? "bg-amber-soft" : ""}`}>{fmtInput(c, draft[c.cell]) || "–"}</td>;
-                      return <td key={key} className="w-24 px-2 py-1"><input type="number" step="any" min={0} className={`${inputCls} ${changed(c.cell) ? changedCls : ""}`} aria-label={c.label} value={fmtInput(c, draft[c.cell])} onChange={(e) => set(c.cell, parseInput(c, e.target.value))} /></td>;
+                      if (!editable) return <td key={key} style={paint(c.cell, 22)} title={hover(c.cell)} className={`px-2 py-2 text-right font-medium ${changed(c.cell) ? "bg-amber-soft" : ""}`}>{fmtInput(c, draft[c.cell]) || "–"}</td>;
+                      return <td key={key} style={paint(c.cell, 22)} title={hover(c.cell)} className="w-24 px-2 py-1"><input type="number" step="any" min={0} className={`${inputCls} ${changed(c.cell) ? changedCls : ""}`} aria-label={c.label} value={fmtInput(c, draft[c.cell])} onChange={(e) => set(c.cell, parseInput(c, e.target.value))} /></td>;
                     })}
                     {base && <td className="min-w-36 px-2 py-1 text-right tabular-nums">{roadDelta(f)}</td>}
                     {typed && <td className="whitespace-nowrap px-1">{editable && <>

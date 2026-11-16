@@ -70,6 +70,9 @@ node --env-file=.env.local scripts/test-email.mjs
   recalculates exactly like Excel and the input sheets' labels are unchanged. The Assumptions form (sections, options)
   and the rate tables' columns are hand-made and carried over from the current template: new input rows need a
   developer. Rate columns are picked by name (NCR / ALL), since jsonb doesn't keep key order.
+- **Who changed what** (`lib/changes.ts`): each person a colour (`--who-1..8` in globals.css); inputs, road cells
+  and rates changed in the shown revision are tinted by whoever changed them last. Derived from `activity.details`
+  (saves carry `rev`; rate changes by time), so every save must keep recording its field changes.
 - Workflow: **Base Line → Design → Operations → Management**. R0 freezes when Base Line submits; R1+ freeze on
   Management approval; Delta is always against R0. Rules live in `lib/workflow.ts`.
 
@@ -99,7 +102,7 @@ lib/budget.ts, lib/workflow.ts shared logic (browser and server)
 lib/template-import.ts         reads a master .xlsx into a model (Admin panel → Master templates); lib/server/templates.ts checks it
 lib/server/                    data access, freeze, workbook, extract (Excel exact read + Claude), email
 lib/engine/                    original engine (see hard rules)
-supabase/migrations/           0001–0003 (run), 0004_outbox_cc.sql (to run)
+supabase/migrations/           0001–0004 (all run)
 scripts/                       setup, checks, test helpers
 docs/                          email guides, WORKLOG.md
 ```

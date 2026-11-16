@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { AssumptionsForm, type Baseline } from "@/components/assumptions-form";
+import { ChangeLegend } from "@/components/change-legend";
 import { BudgetTable } from "@/components/budget-table";
 import { ActivityTab, type ActivityRow } from "@/components/activity-tab";
 import { FilesTab, type ProjectFile } from "@/components/files-tab";
@@ -16,6 +17,7 @@ import { TeamEditor, teamFromRows, teamToRows, type Person, type Team } from "@/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { crore, isNum, missingInputs, numCell, problems, snapFromVersion, snapshot, type CellValue, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
+import { authorship, colours, type Authored, type ChangeRow } from "@/lib/changes";
 import { createClient } from "@/lib/supabase/client";
 import { actionLabel, availableActions, canEditDraft, canEditRates, canSubmit, DEPTS, dn, EDITABLE, editDept, hasDraft, nextRev, revLabel, STATUS, SUBMIT_TO, type Action, type Dept, type Status } from "@/lib/workflow";
 import { fmtDateTime } from "@/lib/dates";
@@ -29,6 +31,8 @@ export interface ProjectData {
   team: { user_id: string; dept: string; name: string; email: string }[];
   versions: { rev: number; inputs: Record<string, CellValue>; rates: Record<string, unknown> | null; template: string | null; master: MasterRow[]; calc: Record<string, CellValue> | null; grand_total: number | null; reason: string; dept: string; xlsx_path: string | null; frozen_by: string | null; frozen_at: string }[];
   activity: ActivityRow[];
+  /** every recorded field change (activity rows with details), for who-changed-what colours */
+  changes: ChangeRow[];
   names: Record<string, string>;
   model: Model;
   templateDate: string;
@@ -118,6 +122,33 @@ export function ProjectView({ data }: { data: ProjectData }) {
   const formBase: Baseline | null = useMemo(() => (r0 && shownRev !== 0
     ? { inputs: r0.inputs as Record<string, CellValue>, calc: r0.calc ?? {}, master: r0.master ?? [], sameTemplate: r0.template === shownTemplate } : null), [r0, shownRev, shownTemplate]);
   const canChangeTeam = myDepts.includes("BD");
+
+  // who changed what in the revision on screen, each person in their own colour (lib/changes.ts)
+  const people = useMemo(() => colours([...new Set(team.map((t) => t.user_id))], data.changes.map((c) => c.by).filter((x): x is string => !!x).concat(meId), names), [team, data.changes, names, meId]);
+  const winAfter = useMemo(() => [...versions].sort((a, b) => a.rev - b.rev).filter((v) => v.rev < shownRev).at(-1)?.frozen_at ?? null, [versions, shownRev]);
+  const saved = useMemo(() => ({ ...m.defaults, ...p.inputs }) as Record<string, CellValue>, [m.defaults, p.inputs]);
+  const [focus, setFocus] = useState<string | null>(null);
+  const authors = useMemo(() => {
+    const out = authorship(data.changes, shownRev, winAfter, shownVersion ? shownVersion.frozen_at : null, people);
+    // your own edits that aren't saved yet show in your colour straight away
+    if (!shownVersion && dirty) {
+      const me = people.get(meId)!;
+      for (const k of new Set([...Object.keys(saved), ...Object.keys(draft)])) {
+        if (JSON.stringify(saved[k] ?? null) === JSON.stringify(draft[k] ?? null)) continue;
+        const was = out.get(k);
+        out.set(k, { by: me, at: "", from: was ? was.from : saved[k] ?? null, to: draft[k] ?? null, count: (was?.count ?? 0) + 1 });
+      }
+    }
+    return out;
+  }, [data.changes, shownRev, winAfter, shownVersion, people, dirty, draft, saved, meId]);
+  const shownAuthors = useMemo(() => (focus ? new Map([...authors].filter(([, a]) => a.by.id === focus)) : authors), [authors, focus]);
+  const legendLabel = shownVersion ? `R${shownVersion.rev}` : `R${rev} draft`;
+  const legend = (only?: (cell: string) => boolean) => {
+    const list = only ? new Map([...authors].filter(([k]) => only(k))) : authors;
+    return <ChangeLegend authors={list as Map<string, Authored>} label={legendLabel} focus={focus} onFocus={setFocus} />;
+  };
+  // rate changes are "Sheet!Cell" refs that aren't inputs; inputs are the template's input cells
+  const inputCells = useMemo(() => new Set(m.sections.flatMap((x) => x.fields.map((f) => f.cell))), [m]);
 
   async function call(url: string, method: string, body: unknown) {
     setBusy(true);
@@ -322,8 +353,9 @@ export function ProjectView({ data }: { data: ProjectData }) {
                 {issues.gaps.length > 0 && <p><b>{issues.gaps.length} line(s) have a quantity but no rate</b> for {String(draft.C8)}: {issues.gaps.slice(0, 4).map((g) => g.item).join(", ")}</p>}
               </div>
             )}
+            {legend((k) => inputCells.has(k))}
             <AssumptionsForm model={m} draft={shownInputs} snap={snap} editable={editable && !shownVersion}
-              base={formBase} onChange={(d) => { setDraft(d); setDirty(true); }} />
+              base={formBase} authors={shownAuthors} onChange={(d) => { setDraft(d); setDirty(true); }} />
           </div>
           <div className="grid gap-4 lg:sticky lg:top-4">
             <Summary snap={snap} r0={shownRev !== 0 ? r0?.grand_total ?? null : null} label={shownVersion ? `R${shownRev}` : `R${rev} draft`} templateDate={data.templateDate} live={editable && !shownVersion} incomplete={missing.length} />
@@ -369,8 +401,9 @@ export function ProjectView({ data }: { data: ProjectData }) {
         </div>
       )}
 
+      {tab === "rates" && legend((k) => !inputCells.has(k))}
       {tab === "rates" && (
-        <RatesTab key={`${p.id}-${String(view)}`} projectId={p.id} model={m} inputs={shownVersion ? shownInputs : { ...m.defaults, ...p.inputs }}
+        <RatesTab authors={shownAuthors} key={`${p.id}-${String(view)}`} projectId={p.id} model={m} inputs={shownVersion ? shownInputs : { ...m.defaults, ...p.inputs }}
           saved={((shownVersion ? shownVersion.rates : p.rates) || {}) as Record<string, number>}
           editable={!shownVersion && canEditRates(p.status, myDepts)} label={shownVersion ? `R${shownRev}` : `R${rev} draft`}
           who={shownVersion ? `R${shownRev} is frozen; its rates can't change.` : viewOnly ? "Only the project's team can change these." : "The team can change these while a draft is open."} />
@@ -452,7 +485,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
         </div>
       ))}
 
-      {tab === "activity" && <ActivityTab activity={activity} names={names} model={m} />}
+      {tab === "activity" && <ActivityTab activity={activity} names={names} model={m} people={people} />}
     </div>
   );
 }

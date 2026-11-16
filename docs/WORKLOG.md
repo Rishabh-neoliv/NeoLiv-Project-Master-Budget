@@ -5,10 +5,8 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
-- **Run `supabase/migrations/0004_outbox_cc.sql`**, then add Cc to the Power Automate flow (docs/Email via Power
-  Automate.md, "Adding Cc to a flow you already built"). Until then emails go out without the Cc copy.
-- **Next feature (user, 2026-11-16):** every team member's edits marked in a colour of their own on the form, with
-  the change log (Activity already records each field change, who and when).
+- Confirm the Power Automate flow has Cc (Parse JSON schema with "cc", Send an email CC = Body cc): the first
+  workflow email after the push should show the person who took the step in Cc.
 - Master templates: a workbook with new or moved **input rows** is refused until the Assumptions form (sections in
   the template model) is updated in code. If that becomes common, add a form editor to the Admin panel.
 - Tidy: delete the old flow "NeoLiv Budget emails" (RSS trigger; its 4 failures were the test emails), and the
@@ -40,6 +38,16 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   - New project form no longer says "Only the team can see the project".
 - Drafted every email template for the user's approval in docs/Email templates.md (user: "every mail template first
   verify it from me then add").
+- **Who changed what, in colour** (user's request): each person on a project gets a colour (team order; 8 colours,
+  light and dark theme). Every input, road type / measurement / width (Assumptions) and project rate (Rates) changed
+  in the revision on screen is tinted in the colour of whoever changed it last, with their name beside it; hovering
+  shows who, when and from → to (and how many times). A legend ("Changes in the R1 draft: ● name 3") filters to one
+  person. Your own unsaved edits show at once ("(not saved)"). Frozen revisions show the changes made in them.
+  Activity: each entry in the person's colour, plus an Everyone/person filter. Built from the Activity log (no new
+  table): saves/submits carry their revision, rate changes are placed by time. Amber "changed vs R0" stays for
+  changes from earlier revisions. Save entries no longer say "(Base Line)" for R0 (anyone on the team can edit it).
+  Checked in the local app with a throwaway project edited by three throwaway people (deleted afterwards).
+- User ran migration 0004 (outbox cc column present, checked) and updated the flow (user: "done").
 - **Email templates approved one by one** (13: A1–A9 workflow, B1–B4 sign-in) and built. User's changes: greeting
   "Hello Team," for group emails (first name for personal ones); no departments after names; no grand total / change
   vs R0; "web application" not "app"; "Regards, NeoLiv"; A1/A2 in the user's own wording (A2 personal, no team list,

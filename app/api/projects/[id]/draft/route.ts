@@ -55,7 +55,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/dr
     if (!body.submit) {
       const { error } = await db.from("projects").update(common).eq("id", p.id).eq("status", p.status);
       if (error) throw new HttpError(400, error.message);
-      await db.from("activity").insert({ project_id: p.id, by: me.id, dept: deptLabel, action: `Saved R${rev} draft${rev === 0 ? " (Base Line)" : ""}${changes.length ? `: ${changes.length} field(s) changed` : ""}${body.source ? ` from ${body.source}` : ""}`, rev, details });
+      await db.from("activity").insert({ project_id: p.id, by: me.id, dept: deptLabel, action: `Saved R${rev} draft${changes.length ? `: ${changes.length} field(s) changed` : ""}${body.source ? ` from ${body.source}` : ""}`, rev, details });
       return Response.json({ ok: true, grandTotal: snap.grandTotal });
     }
 

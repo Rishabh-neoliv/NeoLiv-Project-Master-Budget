@@ -126,7 +126,7 @@ Push to the private GitHub repo, import it in Vercel, and add the same environme
 | Rate analysis | Compare any two of: master template, R0..Rn, the draft. Splits each change into quantity and rate parts |
 | Files | Upload documents. A Master Budget workbook is read exactly; others are read by Claude on request. Values are suggestions: tick, apply to the draft, then save |
 | Revisions | Frozen revisions; click a row to open it, Compare with R0, download Excel |
-| Team / Activity | Who works on it; every step, with the fields each save changed (Field history) |
+| Team / Activity | Who works on it; every step, with the fields each save changed (Field history), each person in their colour, filter by person |
 
 A draft on an older master template shows "Move to the new template", which carries inputs by field name and
 project rates by item, as the original app did. A frozen revision on an older template shows "Recalculate R<n>
