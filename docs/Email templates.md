@@ -8,9 +8,10 @@ Rules for all of them:
 - No grand total and no change vs R0.
 - "web application", not "app".
 - Ends with "Regards, NeoLiv".
-- **Workflow emails** (A1, A3–A9): ONE email to everyone the step concerns (all in **To**), with the person who took
-  the step in **Cc**. Nobody else gets one, and the person who took the step is never in To. If nobody else is
-  concerned (e.g. you are the only Design member and you submit), no email is sent.
+- **Workflow emails** (A1, A3–A9): ONE email. **To:** the department(s) the step concerns (whose turn it is).
+  **Cc:** the rest of the team and the person who took the step, so the whole team sees every step (user's
+  decision, 2026-11-16, after the first live email reached only Design). The person who took the step is never in
+  To. If nobody is left to act (you are that department yourself), the rest of the team is in To instead.
 - **A2** and the **personal emails** (B1–B4): one email per person. B1–B4 carry a sign-in link, so they must never
   go to a group.
 - "Start design work" and "Start operations" send no email.
@@ -69,7 +70,7 @@ Regards,
 NeoLiv
 ```
 
-## A3. Base Line submits to Design — Design · Cc the submitter
+## A3. Base Line submits to Design — To: Design · Cc: rest of the team + the submitter
 ```
 Subject: NeoLiv Budget | R<n> submitted to Design: <Project> (<Location>)
 
@@ -94,7 +95,7 @@ Regards,
 NeoLiv
 ```
 
-## A4. New version started — Base Line, Design, Operations · Cc the person who started it
+## A4. New version started — To: Base Line, Design, Operations · Cc: Management + the person who started it
 ```
 Subject: NeoLiv Budget | New version R<n> started: <Project> (<Location>)
 
@@ -118,7 +119,7 @@ Regards,
 NeoLiv
 ```
 
-## A5. Design sends back to Base Line — Base Line · Cc the sender
+## A5. Design sends back to Base Line — To: Base Line · Cc: rest of the team + the sender
 ```
 Subject: NeoLiv Budget | R<n> sent back to Base Line: <Project> (<Location>)
 
@@ -142,7 +143,7 @@ Regards,
 NeoLiv
 ```
 
-## A6. Design submits to Operations — Operations · Cc the submitter
+## A6. Design submits to Operations — To: Operations · Cc: rest of the team + the submitter
 ```
 Subject: NeoLiv Budget | R<n> submitted to Operations: <Project> (<Location>)
 
@@ -166,7 +167,7 @@ Regards,
 NeoLiv
 ```
 
-## A7. Operations submits for approval — Management · Cc the submitter
+## A7. Operations submits for approval — To: Management · Cc: rest of the team + the submitter
 ```
 Subject: NeoLiv Budget | R<n> submitted for approval: <Project> (<Location>)
 
@@ -214,7 +215,7 @@ Regards,
 NeoLiv
 ```
 
-## A9. Management sends back to Operations — Operations · Cc the sender
+## A9. Management sends back to Operations — To: Operations · Cc: rest of the team + the sender
 ```
 Subject: NeoLiv Budget | R<n> sent back to Operations: <Project> (<Location>)
 

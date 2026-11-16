@@ -85,7 +85,7 @@ node --env-file=.env.local scripts/test-email.mjs
   constants. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
 - **Dates:** always format with `lib/dates.ts` (hand-built, India time). `toLocaleString` causes hydration errors.
 - Database changes: add a numbered file in `supabase/migrations/`; the user runs it in the Supabase SQL Editor.
-- Emails (`lib/server/email.ts`): workflow steps send ONE email to everyone concerned (To) with the person who took
+- Emails (`lib/server/email.ts`): workflow steps send ONE email: whose turn in To, rest of the team + the person who took
   the step in Cc; A2 and sign-in link emails go one per person. Outbox `to`/`cc` hold ";"-separated addresses.
 - Email (`lib/server/mailer.ts`) picks the first configured: Microsoft 365 Graph (`MS_*` + `MAIL_FROM`), then
   Power Automate (outbox table + private RSS feed, `POWER_AUTOMATE_FEED_TOKEN`), then Resend. With none, emails
@@ -96,6 +96,7 @@ node --env-file=.env.local scripts/test-email.mjs
 
 ```
 app/(app)/projects/...         member app: list, new, project page (project-view.tsx holds the tabs)
+app/(app)/profile, members     My profile (name, password, my projects); Members (add people)
 app/(admin)/admin/...          admin panel
 app/api/...                    projects, drafts, actions, team, rates, files, extract, admin users, auth, email feed
 lib/budget.ts, lib/workflow.ts shared logic (browser and server)

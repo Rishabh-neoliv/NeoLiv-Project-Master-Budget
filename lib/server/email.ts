@@ -1,8 +1,8 @@
 // The app's emails, worded exactly as approved by Rishabh on 2026-11-16 (docs/Email templates.md). Don't change
 // wording or recipients without his approval.
 //
-// Workflow emails (A1, A3–A9): ONE email to everyone the step concerns (all in To), with the person who took the
-// step in Cc; nothing is sent when nobody else is concerned. A2 (added to a team) and the sign-in emails (B1–B4)
+// Workflow emails (A1, A3–A9): ONE email: the department(s) the step concerns in To; the rest of the team and the person who took the
+// step in Cc (nobody to act: the team in To). A2 (added to a team) and the sign-in emails (B1–B4)
 // go one per person: B1–B4 carry a link that signs whoever opens it in.
 // Sent through lib/server/mailer.ts. Without email set up nothing is sent: links are shown to the admin to share,
 // and steps are logged as skipped.
@@ -107,17 +107,26 @@ function standing(status: Status, lastRev: number | null | undefined) {
 export async function notify({ key, project, rev, note, actor, team }: Args) {
   const rule = NOTIFY[key];
   const db = createAdminClient();
-  const ids = [...new Set(team.filter((t) => rule.to.includes(t.dept as never) && t.user_id !== actor.id).map((t) => t.user_id))];
-  if (!ids.length) return;
-  const { data: people } = await db.from("profiles").select("id, name, email").in("id", ids);
-  const to = (people ?? []).filter((p) => p.email) as { id: string; name: string; email: string }[];
+  // To: the department(s) the step concerns. Cc (user's decision, 2026-11-16): the rest of the team, so everyone
+  // sees every step, and the person who took it. A2 (added to a team) only goes to the people added.
+  const others = team.filter((t) => t.user_id !== actor.id);
+  const ids = [...new Set(others.filter((t) => rule.to.includes(t.dept as never)).map((t) => t.user_id))];
+  const restIds = key === "team_added" ? [] : [...new Set(others.map((t) => t.user_id))].filter((id) => !ids.includes(id));
+  if (!ids.length && !restIds.length) return;
+  const { data: people } = await db.from("profiles").select("id, name, email").in("id", [...ids, ...restIds]);
+  const withEmail = (people ?? []).filter((p) => p.email) as { id: string; name: string; email: string }[];
+  let to = withEmail.filter((p) => ids.includes(p.id));
+  let rest = withEmail.filter((p) => restIds.includes(p.id));
+  // nobody to act (e.g. you are that department yourself): the rest of the team still hears, in To
+  if (!to.length) { to = rest; rest = []; }
 
   const appUrl = (process.env.APP_URL || "").replace(/\/+$/, "");
   const link = appUrl ? `${appUrl}/projects/${project.id}` : "";
   const open: Part[] = link ? [{ btn: { href: link, label: "Open project" } }] : [P("Open the NeoLiv Master Budget web application.")];
   const teamTab = P("To see who else is on the team, open the project and go to the Team tab.");
   const who = actor.name || "A colleague", name = project.name, loc = project.location || "—";
-  const cc = actor.email && !to.some((p) => p.email.toLowerCase() === actor.email!.toLowerCase()) ? [actor.email] : [];
+  const lower = (s: string) => s.toLowerCase();
+  const cc = [...new Set([...rest.map((p) => p.email), ...(actor.email ? [actor.email] : [])].map(lower))].filter((e) => !to.some((p) => lower(p.email) === e));
   const summary = (revision: string): Part[] => [{ h: "Project summary" }, { ul: [
     `Project: ${name}`, `Location: ${loc} · ${numCell(project.acre)} acre`, `Revision: ${revision}`, `Status: ${STATUS[project.status][0]}`,
   ] }];

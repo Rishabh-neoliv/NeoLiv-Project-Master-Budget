@@ -13,7 +13,7 @@ async function Who() {
     <div className="grid gap-3 border-t border-white/10 pt-4">
       <div className="flex items-center gap-2.5">
         <Initials name={me.name || me.email} />
-        <div className="min-w-0 text-sm"><div className="truncate font-medium text-white">{me.name}</div><div className="truncate text-white/60">{me.email}</div></div>
+        <Link href="/profile" title="My profile" className="min-w-0 text-sm hover:underline"><div className="truncate font-medium text-white">{me.name}</div><div className="truncate text-white/60">{me.email}</div></Link>
       </div>
       <div className="[&_button]:text-white/80 [&_button:hover]:bg-white/10 [&_button:hover]:text-white"><SignOutButton /></div>
     </div>

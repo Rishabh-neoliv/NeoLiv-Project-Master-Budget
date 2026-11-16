@@ -1,4 +1,4 @@
-// Signed-in pages: the top bar (template in use, Projects, Members, Admin panel for admins, who you are, Sign out).
+// Signed-in pages: the top bar (template in use, Projects, Members, Admin panel for admins, who you are → My profile, Sign out).
 // Everything that reads the session sits inside <Suspense>, so the page shell shows at once.
 import { Suspense } from "react";
 import Link from "next/link";
@@ -26,8 +26,10 @@ async function UserBar() {
         {me?.is_admin && <Link href="/admin" className="font-medium text-brand hover:underline">Admin panel</Link>}
       </nav>
       <div className="ml-auto flex items-center gap-2.5 text-sm">
-        <Initials name={me?.name || me?.email || "?"} />
-        <span className="hidden sm:inline"><b className="font-medium">{me?.name}</b> <span className="text-soft">{me?.email}</span>{me?.is_admin && <span className="ml-1.5 rounded bg-info-soft px-1.5 py-0.5 text-xs text-info">Admin</span>}</span>
+        <Link href="/profile" title="My profile" className="flex items-center gap-2.5 rounded-lg px-1.5 py-1 hover:bg-well">
+          <Initials name={me?.name || me?.email || "?"} />
+          <span className="hidden sm:inline"><b className="font-medium">{me?.name}</b> <span className="text-soft">{me?.email}</span>{me?.is_admin && <span className="ml-1.5 rounded bg-info-soft px-1.5 py-0.5 text-xs text-info">Admin</span>}</span>
+        </Link>
         <SignOutButton />
       </div>
     </>

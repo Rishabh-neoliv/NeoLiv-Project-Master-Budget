@@ -38,6 +38,14 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   - New project form no longer says "Only the team can see the project".
 - Drafted every email template for the user's approval in docs/Email templates.md (user: "every mail template first
   verify it from me then add").
+- **My profile** (user's request): click your name in the top bar (or the Admin panel sidebar). Change your name
+  (profiles + the sign-in account, PATCH /api/profile), see your username (email, read-only: an admin changes it),
+  change your password after confirming the current one, and see your projects with your role in each. Tested with
+  a throwaway member: name saved, wrong current password refused, new password works and the old one doesn't.
+  Not included (would need a database change): phone / designation fields. Admins can't yet rename others on screen.
+- First live workflow email (Test121, R0 to Design) reached only Design + the submitter (as approved). User decided:
+  **whose turn in To, the rest of the team in Cc** (plus the person who took the step), so everyone sees every step.
+  Built and tested (throwaway project: A1, A3, A6 recipients exactly as intended, 4/4); templates doc updated.
 - **Who changed what, in colour** (user's request): each person on a project gets a colour (team order; 8 colours,
   light and dark theme). Every input, road type / measurement / width (Assumptions) and project rate (Rates) changed
   in the revision on screen is tinted in the colour of whoever changed it last, with their name beside it; hovering

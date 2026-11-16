@@ -34,6 +34,8 @@ The live OneDrive app (`NeoLiv Project Master Budget\NeoLiv Master Budget.html`)
     sample project) before **Add and make current**. Older templates stay listed: download one, or make it current
     again. New projects use the current template; open drafts get "Move to the new template". A workbook whose
     input rows moved, were added or renamed is refused: the Assumptions form has to be updated by a developer first.
+- **My profile** (click your name in the top bar): change your name and password, see your username and your
+  projects with your role in each.
 - **Any member can add people** from **Members** in the top bar. The new member gets the sign-up link by email
   only (members never see the link, since it signs whoever opens it in). Members can also **Resend invite** to
   someone who hasn't signed in yet. Removing people and admin changes stay with admins.
