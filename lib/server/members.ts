@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export async function listMembers(): Promise<Member[]> {
   const db = createAdminClient();
   const [{ data: people }, { data: auth }, { data: teams }] = await Promise.all([
-    db.from("profiles").select("id, name, email, is_admin").order("name"),
+    db.from("profiles").select("*").order("name"), // "*": department exists only after migration 0005
     db.auth.admin.listUsers({ perPage: 1000 }),
     db.from("project_members").select("user_id, project_id"),
   ]);
@@ -20,7 +20,7 @@ export async function listMembers(): Promise<Member[]> {
     const a = authById.get(p.id);
     const removed = !!a?.banned_until && new Date(a.banned_until) > new Date();
     return {
-      id: p.id, name: p.name, email: p.email, isAdmin: p.is_admin,
+      id: p.id, name: p.name, email: p.email, isAdmin: p.is_admin, department: (p.department as string | undefined) ?? "",
       status: removed ? "removed" : a?.last_sign_in_at ? "active" : "invited",
       lastSignIn: a?.last_sign_in_at ?? null,
       projects: projects.get(p.id)?.size ?? 0,

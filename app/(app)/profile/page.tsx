@@ -11,7 +11,8 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   const [{ data: me }, { data: mine }] = await Promise.all([
-    supabase.from("profiles").select("name, email, is_admin").eq("id", user.id).single(),
+    // "*": the department column exists only after migration 0005
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
     supabase.from("project_members").select("dept, projects(id, name, status, last_rev, location)").eq("user_id", user.id),
   ]);
   const microsoft = (user.identities ?? []).some((i) => i.provider === "azure");
@@ -33,7 +34,7 @@ export default async function ProfilePage() {
         <h1 className="text-3xl font-semibold tracking-tight">My profile</h1>
         <p className="text-soft">Your details in NeoLiv Master Budget.{me?.is_admin ? " You are an admin." : ""}</p>
       </div>
-      <ProfileForm name={me?.name ?? ""} email={me?.email ?? user.email ?? ""} microsoft={microsoft} />
+      <ProfileForm name={me?.name ?? ""} department={(me?.department as string | undefined) ?? ""} email={me?.email ?? user.email ?? ""} microsoft={microsoft} />
       <section className="grid gap-3 rounded-xl border border-line bg-sheet p-5">
         <h2 className="text-lg font-semibold">My projects</h2>
         {projects.length ? (

@@ -96,14 +96,15 @@ node --env-file=.env.local scripts/test-email.mjs
 
 ```
 app/(app)/projects/...         member app: list, new, project page (project-view.tsx holds the tabs)
-app/(app)/profile, members     My profile (name, password, my projects); Members (add people)
+app/(app)/profile, members     My profile (name, department, password, my projects); Members (add people)
+lib/departments.ts             company departments for My profile (PROVISIONAL list until the user confirms it)
 app/(admin)/admin/...          admin panel
 app/api/...                    projects, drafts, actions, team, rates, files, extract, admin users, auth, email feed
 lib/budget.ts, lib/workflow.ts shared logic (browser and server)
 lib/template-import.ts         reads a master .xlsx into a model (Admin panel → Master templates); lib/server/templates.ts checks it
 lib/server/                    data access, freeze, workbook, extract (Excel exact read + Claude), email
 lib/engine/                    original engine (see hard rules)
-supabase/migrations/           0001–0004 (all run)
+supabase/migrations/           0001–0005 (all run)
 scripts/                       setup, checks, test helpers
 docs/                          email guides, WORKLOG.md
 ```

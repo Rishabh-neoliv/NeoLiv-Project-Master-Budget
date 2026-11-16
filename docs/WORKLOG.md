@@ -5,6 +5,9 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
+- **Department list is provisional** (lib/departments.ts): replace with the confirmed list when the user has it.
+  The NeoLifers Group's members/departments couldn't be read from Microsoft 365 (the connector lacks People.Read /
+  Team.ReadBasic.All / directory permissions); the list is built from the group's emails + common departments.
 - Confirm the Power Automate flow has Cc (Parse JSON schema with "cc", Send an email CC = Body cc): the first
   workflow email after the push should show the person who took the step in Cc.
 - Master templates: a workbook with new or moved **input rows** is refused until the Assumptions form (sections in
@@ -38,6 +41,13 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   - New project form no longer says "Only the team can see the project".
 - Drafted every email template for the user's approval in docs/Email templates.md (user: "every mail template first
   verify it from me then add").
+- User ran migration 0005. Department test 6/6: saving a department works and it shows on the Members list.
+- **Department on My profile** (user's request): a dropdown of company departments (provisional list in
+  lib/departments.ts: Costing & Budgeting, Fund Raising, Human Resources from the NeoLifers Group emails; Business
+  Development, Design, Operations, Management from the app; common real-estate ones; Other). Saved with the name
+  ("Save details"); shown under each person on Members and Admin → Team members. Column `profiles.department`
+  (migration 0005); pages read it with select("*") so they work before the migration. Tested before the migration:
+  5/5 (page and dropdown load, name saves, unknown department refused, department save asks for 0005).
 - **My profile** (user's request): click your name in the top bar (or the Admin panel sidebar). Change your name
   (profiles + the sign-in account, PATCH /api/profile), see your username (email, read-only: an admin changes it),
   change your password after confirming the current one, and see your projects with your role in each. Tested with

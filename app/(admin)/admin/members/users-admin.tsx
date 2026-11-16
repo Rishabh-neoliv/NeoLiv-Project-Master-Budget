@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fmtDay } from "@/lib/dates";
 
-export interface Member { id: string; name: string; email: string; isAdmin: boolean; status: "active" | "invited" | "removed"; lastSignIn: string | null; projects: number; microsoft: boolean }
+export interface Member { id: string; name: string; email: string; department: string; isAdmin: boolean; status: "active" | "invited" | "removed"; lastSignIn: string | null; projects: number; microsoft: boolean }
 
 const STATUS_TAG: Record<Member["status"], [string, string]> = {
   active: ["Active", "bg-good-soft text-good"],
@@ -120,6 +120,7 @@ export function UsersAdmin({ members, microsoft, meId, isAdmin }: { members: Mem
                 <td className="px-4 py-3">
                   <div className="font-medium">{m.name}{m.isAdmin && <span className="ml-2 rounded bg-info-soft px-1.5 py-0.5 text-xs text-info">Admin</span>}</div>
                   <div className="text-soft">{m.email}</div>
+                  {m.department && <div className="text-xs text-soft">{m.department}</div>}
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TAG[m.status][1]}`}>{STATUS_TAG[m.status][0]}</span>
