@@ -7,6 +7,7 @@ const LINKS = [
   ["/admin", "Overview"],
   ["/admin/members", "Team members"],
   ["/admin/projects", "All projects"],
+  ["/admin/templates", "Master templates"],
 ] as const;
 
 export function AdminNav() {

@@ -5,6 +5,8 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
+- Master templates: a workbook with new or moved **input rows** is refused until the Assumptions form (sections in
+  the template model) is updated in code. If that becomes common, add a form editor to the Admin panel.
 - **Run `supabase/migrations/0003_all_members_view.sql`** in the Supabase SQL Editor (every member views every
   project). Until then members still see only their own projects, and check-access fails 2 checks.
 - Tidy: delete the old flow "NeoLiv Budget emails" (RSS trigger; its 4 failures were the test emails), and the
@@ -21,6 +23,25 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   (09-09-2026) MOM xlsx and the Guidelines PDF (partly scanned). `6071422233.PDF` is an SAP invoice, not a project doc.
 - Imported NCR projects (9) have no team; assign when needed. Test projects still present: "UI Check Project",
   "Workflow Test 05526" (orphaned), and the user's "test12".
+
+## 2026-11-16
+
+- **Admin panel → Master templates** (user's choice of the next improvement): upload a new master workbook in the
+  app instead of a script on Rishabh's PC. `lib/template-import.ts` reads the .xlsx (values, formulas incl. shared
+  formulas, hidden rows, links to other workbooks), keeps only the cells the budget depends on, and builds the model;
+  the input form and rate-table columns are carried over from the current template. Checked against all 16 legacy
+  templates (`scripts/check-template-import.mts`): identical cells, sample values, Master Budget rows and dates where
+  the form didn't change, and every formula (1,204–1,335 per template) recalculates exactly like Excel's saved values.
+  Upload goes straight to the private bucket (signed upload), then the check report shows errors, each changed
+  rate (old → new) and the effect on a sample project; Add (and make current), Make current, Download.
+  Refused: any formula giving a different result than Excel, input sheets' labels moved/added/renamed, missing
+  sheets, a workbook already loaded.
+- Tested end to end with the user's OK: a copy of the current master with 3 rates changed and saved by Excel
+  (Roadwork hard rock 200→250, GSB 2400→2500, precast wall 2000→2200) was uploaded by a throwaway admin and added as
+  NOT current; 19/19 checks pass (report lists exactly those 3 rates, sample total +0.04 Cr as in Excel, members
+  refused, duplicate refused). Also checked on screen. Fixed two bugs found this way: rate columns picked by
+  position (the database reorders them) and two same-named rate items mixed up in the report. Then deleted: the
+  template row and its file, temporary uploads, test accounts and the local copies. 16 templates, current unchanged.
 
 ## 2026-11-13
 

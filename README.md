@@ -29,6 +29,11 @@ The live OneDrive app (`NeoLiv Project Master Budget\NeoLiv Master Budget.html`)
     password fallback), new link, remove or restore, see how each person signs in (Microsoft / Password),
     **Make admin** (adds another admin) and **Remove admin** (always leaves at least one).
   - **All projects.**
+  - **Master templates:** upload a new master workbook (.xlsx). The app reads it, recalculates every formula and
+    checks it gives exactly what Excel saved, then shows what changes (each rate, old → new, and the effect on a
+    sample project) before **Add and make current**. Older templates stay listed: download one, or make it current
+    again. New projects use the current template; open drafts get "Move to the new template". A workbook whose
+    input rows moved, were added or renamed is refused: the Assumptions form has to be updated by a developer first.
 - **Any member can add people** from **Members** in the top bar. The new member gets the sign-up link by email
   only (members never see the link, since it signs whoever opens it in). Members can also **Resend invite** to
   someone who hasn't signed in yet. Removing people and admin changes stay with admins.

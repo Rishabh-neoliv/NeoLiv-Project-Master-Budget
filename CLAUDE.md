@@ -39,6 +39,7 @@ npm run dev                                   # http://localhost:3000
 npx tsc --noEmit; npx eslint .; npm run build # checks before committing
 npx next typegen                              # after adding or renaming routes
 node scripts/check-engine.mjs "D:\OneDrive - NeoLiv\Rishabh\Project\NeoLiv Project Master Budget"
+node scripts/check-template-import.mts        # template upload reader vs the 16 legacy templates (after touching lib/template-import.ts)
 node --env-file=.env.local scripts/check-db.mjs       # tables and buckets exist
 node --env-file=.env.local scripts/check-access.mjs   # RLS + sign-ups off: 12 checks must pass (makes and removes its own test accounts)
 node --env-file=.env.local scripts/delete-user.mjs <email>
@@ -62,6 +63,11 @@ node --env-file=.env.local scripts/test-email.mjs
   Changes need a place on the team (`requireMember`): anyone on the team, any department, can edit the open draft,
   rates and files at any stage (`canEditDraft`); Submit and workflow steps stay with whose turn it is (`canSubmit`,
   `ACTIONS`). User's decision, 2026-11-13. The screen sends only changed fields, so parallel edits don't clash.
+- **Master templates** (Admin panel): admins upload a new master .xlsx; the model is built in the app
+  (`lib/template-import.ts`, matches the old exporter on all 16 legacy templates) and refused unless every formula
+  recalculates exactly like Excel and the input sheets' labels are unchanged. The Assumptions form (sections, options)
+  and the rate tables' columns are hand-made and carried over from the current template: new input rows need a
+  developer. Rate columns are picked by name (NCR / ALL), since jsonb doesn't keep key order.
 - Workflow: **Base Line → Design → Operations → Management**. R0 freezes when Base Line submits; R1+ freeze on
   Management approval; Delta is always against R0. Rules live in `lib/workflow.ts`.
 
@@ -86,6 +92,7 @@ app/(app)/projects/...         member app: list, new, project page (project-view
 app/(admin)/admin/...          admin panel
 app/api/...                    projects, drafts, actions, team, rates, files, extract, admin users, auth, email feed
 lib/budget.ts, lib/workflow.ts shared logic (browser and server)
+lib/template-import.ts         reads a master .xlsx into a model (Admin panel → Master templates); lib/server/templates.ts checks it
 lib/server/                    data access, freeze, workbook, extract (Excel exact read + Claude), email
 lib/engine/                    original engine (see hard rules)
 supabase/migrations/           0001_init.sql, 0002_files_history.sql (both run), 0003_all_members_view.sql
