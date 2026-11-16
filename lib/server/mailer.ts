@@ -13,7 +13,9 @@ import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type MailResult = { ok: true } | { ok: false; skipped?: boolean; error: string };
-export interface Mail { to: string; subject: string; text: string; html: string }
+/** One email. Several To addresses go out as ONE email to all of them; cc gets a copy (the person who took a step). */
+export interface Mail { to: string | string[]; cc?: string[]; subject: string; text: string; html: string }
+const list = (v: string | string[] | undefined) => (Array.isArray(v) ? v : v ? [v] : []).map((s) => s.trim()).filter(Boolean);
 
 export const mailProvider = () =>
   process.env.MS_TENANT_ID && process.env.MS_CLIENT_ID && process.env.MS_CLIENT_SECRET && process.env.MAIL_FROM ? "microsoft365"
@@ -21,8 +23,13 @@ export const mailProvider = () =>
   : process.env.RESEND_API_KEY ? "resend" : null;
 
 // ------------------------------------------------------------------ Power Automate (outbox + feed)
+// The flow's Send an email box takes several addresses separated by ";"
 async function queueForFlow(m: Mail): Promise<MailResult> {
-  const { error } = await createAdminClient().from("email_outbox").insert({ to: m.to, subject: m.subject, html: m.html, text: m.text });
+  const db = createAdminClient(), row = { to: list(m.to).join("; "), subject: m.subject, html: m.html, text: m.text };
+  const cc = list(m.cc).join("; ");
+  let { error } = await db.from("email_outbox").insert((cc ? { ...row, cc } : row) as typeof row);
+  // before migration 0004 (the cc column) the copy can't be queued: send the email without it
+  if (error && cc && error.message.includes("cc")) ({ error } = await db.from("email_outbox").insert(row));
   return error ? { ok: false, error: "Couldn't queue the email: " + error.message } : { ok: true };
 }
 
@@ -53,7 +60,11 @@ async function sendMicrosoft(m: Mail): Promise<MailResult> {
     method: "POST",
     headers: { authorization: `Bearer ${await graphToken()}`, "content-type": "application/json" },
     body: JSON.stringify({
-      message: { subject: m.subject, body: { contentType: "HTML", content: m.html }, toRecipients: [{ emailAddress: { address: m.to } }] },
+      message: {
+        subject: m.subject, body: { contentType: "HTML", content: m.html },
+        toRecipients: list(m.to).map((address) => ({ emailAddress: { address } })),
+        ccRecipients: list(m.cc).map((address) => ({ emailAddress: { address } })),
+      },
       saveToSentItems: true, // a copy in the mailbox's Sent Items, for reference
     }),
   });
@@ -66,7 +77,7 @@ async function sendMicrosoft(m: Mail): Promise<MailResult> {
 // ------------------------------------------------------------------ Resend
 async function sendResend(m: Mail): Promise<MailResult> {
   const { error } = await new Resend(process.env.RESEND_API_KEY).emails.send({
-    from: process.env.EMAIL_FROM || "NeoLiv Budget <onboarding@resend.dev>", to: m.to, subject: m.subject, text: m.text, html: m.html,
+    from: process.env.EMAIL_FROM || "NeoLiv Budget <onboarding@resend.dev>", to: list(m.to), cc: list(m.cc).length ? list(m.cc) : undefined, subject: m.subject, text: m.text, html: m.html,
   });
   return error ? { ok: false, error: error.message } : { ok: true };
 }

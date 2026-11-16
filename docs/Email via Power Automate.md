@@ -53,14 +53,21 @@ Inside **Apply to each** (click the **+ inside the loop**):
   (`item()` is the loop's current email, whatever the loop is called: the new designer names it "For each".)
 - **Schema:** paste this (the schema itself, not a sample):
   ```json
-  {"type":"object","properties":{"to":{"type":"string"},"subject":{"type":"string"},"html":{"type":"string"}}}
+  {"type":"object","properties":{"to":{"type":"string"},"cc":{"type":"string"},"subject":{"type":"string"},"html":{"type":"string"}}}
   ```
+  "to" and "cc" can hold several addresses separated by ";": a workflow email goes to the whole group at once,
+  with the person who took the step in Cc. "cc" is empty when there is no copy.
 
 **3b. Send an email (V2)** (Office 365 Outlook), still inside the loop
 - **To:** lightning → under Parse JSON → **Body to**
 - **Subject:** lightning → **Body subject**
 - **Body:** click **`</>`** first, then lightning → **Body html**
+- **CC:** click **Show all** (or **Advanced parameters** → tick **CC**), then in **CC**: lightning → **Body cc**
 - If it asks to sign in, use your NeoLiv account.
+
+> **Adding Cc to a flow you already built** (needed since 2026-11-16): open the flow → **Edit** → in **Parse JSON**,
+> replace the Schema with the one above (it adds `cc`) → in **Send an email (V2)**, set **CC** to **Body cc** as above
+> → **Save**. Run migration `0004_outbox_cc.sql` in Supabase first; without it emails still go out, just without the copy.
 
 ## 4. Save, and turn off any older version
 - **Save.**
@@ -80,6 +87,7 @@ Inside **Apply to each** (click the **+ inside the loop**):
 | It fails with 400 "after/until…" | The expression was changed: paste it again exactly |
 | Parse JSON fails | Content must be the fx expression in 3a (Code view shows it starting with `@`), and Parse JSON must be inside the loop |
 | "Invalid parameters" on Send an email | To, Subject or Body empty, or Outlook not signed in |
+| Send an email fails only on emails without a copy | Your Outlook connection rejects an empty CC: set CC with **fx** to `if(empty(body('Parse_JSON')?['cc']), null, body('Parse_JSON')?['cc'])` |
 | Runs are Succeeded but no email | The loop shows 0 items: the email was queued before the flow was saved, or in a window when the flow was off |
 
 ## Good to know

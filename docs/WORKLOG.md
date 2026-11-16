@@ -5,10 +5,12 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
+- **Run `supabase/migrations/0004_outbox_cc.sql`**, then add Cc to the Power Automate flow (docs/Email via Power
+  Automate.md, "Adding Cc to a flow you already built"). Until then emails go out without the Cc copy.
+- **Next feature (user, 2026-11-16):** every team member's edits marked in a colour of their own on the form, with
+  the change log (Activity already records each field change, who and when).
 - Master templates: a workbook with new or moved **input rows** is refused until the Assumptions form (sections in
   the template model) is updated in code. If that becomes common, add a form editor to the Admin panel.
-- **Run `supabase/migrations/0003_all_members_view.sql`** in the Supabase SQL Editor (every member views every
-  project). Until then members still see only their own projects, and check-access fails 2 checks.
 - Tidy: delete the old flow "NeoLiv Budget emails" (RSS trigger; its 4 failures were the test emails), and the
   second Supabase project that Vercel's Supabase integration created (remove the integration in Vercel first;
   the app uses pcvsfstbhtmmvbmlbrgv only).
@@ -26,6 +28,32 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-16
 
+- Fixes from the user's screenshots:
+  - Road table: a line added with "+" (or "+ Add road") offered only "No" until a length was typed, because the
+    list shows only types that cost > ₹ 0 and an empty length costs ₹ 0. Now each type is tried with a 100 m length
+    when the length is empty, every type is offered while the width is empty, and the line's own width is used
+    (before, the template's default width for that line was). Checked in the local app on a throwaway project.
+  - NCR projects listed under MMR (test12, test23, Workflow Test 05526: created with region MMR, Location later set
+    to NCR). The project list now groups by Location (the rates), Admin → All projects orders by it, and saving a
+    draft sets the region to the Location when that is NCR or MMR. Checked: list shows them under NCR; a save moved
+    the throwaway project MMR → NCR.
+  - New project form no longer says "Only the team can see the project".
+- Drafted every email template for the user's approval in docs/Email templates.md (user: "every mail template first
+  verify it from me then add").
+- **Email templates approved one by one** (13: A1–A9 workflow, B1–B4 sign-in) and built. User's changes: greeting
+  "Hello Team," for group emails (first name for personal ones); no departments after names; no grand total / change
+  vs R0; "web application" not "app"; "Regards, NeoLiv"; A1/A2 in the user's own wording (A2 personal, no team list,
+  points to the Team tab); "Here is your link to reset…" in B4; Cc the person who took the step: yes.
+  Workflow emails now go as ONE email to everyone concerned (all in To) + Cc; A2 and B1–B4 one per person. The
+  draft email's "Note" is now only what the person typed (it used to include the stored revision reason).
+  Mailer: several To, Cc for Microsoft 365, Power Automate (outbox `cc` column, migration 0004; falls back to no Cc
+  before it) and Resend; feed adds `cc` (works before the migration).
+  Tested on the local app: a throwaway project through every step (14 emails captured and deleted from the outbox
+  at once, throwaway accounts): 16/16 checks, wording matches the approved text. B2 (Microsoft invite) not
+  exercised: Microsoft sign-in isn't on.
+- User pushed d699b90 and 1dd0acf and ran migration 0003. **All 12 access checks pass** (members not on a team can
+  view a project and its team, can't change it). Live site has the new routes (/members, /admin/templates, templates
+  API answer signed-out visitors with the login page / "Please sign in.").
 - **Admin panel → Master templates** (user's choice of the next improvement): upload a new master workbook in the
   app instead of a script on Rishabh's PC. `lib/template-import.ts` reads the .xlsx (values, formulas incl. shared
   formulas, hidden rows, links to other workbooks), keeps only the cells the budget depends on, and builds the model;

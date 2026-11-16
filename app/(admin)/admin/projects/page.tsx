@@ -16,7 +16,7 @@ export default async function AdminProjects() {
   await adminOrRedirect();
   const db = createAdminClient();
   const [{ data: projects }, { data: teams }, { data: people }] = await Promise.all([
-    db.from("projects").select("id, name, region, status, last_rev, grand_total, base_total, location, acre, updated_at").order("region").order("name"),
+    db.from("projects").select("id, name, region, status, last_rev, grand_total, base_total, location, acre, updated_at").order("location").order("name"),
     db.from("project_members").select("project_id, user_id, dept"),
     db.from("profiles").select("id, name"),
   ]);
@@ -43,7 +43,7 @@ export default async function AdminProjects() {
               const team = teamOf(p.id);
               return (
                 <ClickableRow key={p.id} href={`/projects/${p.id}`} label={`Open ${p.name}`} className="border-t border-line align-top">
-                  <td className="px-4 py-3"><div className="font-semibold text-brand">{p.name}</div><div className="text-sm text-soft">{p.region} · {p.location} rates</div></td>
+                  <td className="px-4 py-3"><div className="font-semibold text-brand">{p.name}</div><div className="text-sm text-soft">{p.location ?? p.region} rates</div></td>
                   <td className="px-4 py-3"><RevTag>{revLabel(p.status, p.last_rev)}</RevTag></td>
                   <td className="px-4 py-3"><StatusBadge status={p.status} />{STATUS[p.status][1] && <div className="mt-1 text-sm text-soft">waiting for {dn(STATUS[p.status][1]!)}</div>}</td>
                   <td className="px-4 py-3 text-sm">

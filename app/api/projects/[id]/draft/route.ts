@@ -42,7 +42,9 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/dr
     const rates = p.rates || {};
     const snap = snapshot(m, inputs, rates);
     const now = new Date().toISOString();
-    const common = { inputs, rates, rates_template: m.stamp, grand_total: snap.grandTotal, location: inputs.C8 as string, acre: inputs.C9 as number, updated_by: me.id, updated_at: now, saved_at: now };
+    // the region follows the Location input when it is one of the regions (NCR / MMR), so the project is listed there
+    const region = inputs.C8 === "NCR" || inputs.C8 === "MMR" ? { region: inputs.C8 } : {};
+    const common = { inputs, rates, rates_template: m.stamp, grand_total: snap.grandTotal, location: inputs.C8 as string, acre: inputs.C9 as number, ...region, updated_by: me.id, updated_at: now, saved_at: now };
     const dept = editDept(p.status), rev = nextRev(p.last_rev);
     // field history: every input that changed in this save, with its label
     const before = { ...m.defaults, ...p.inputs } as Record<string, unknown>;
@@ -71,7 +73,8 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/dr
     }
     await db.from("activity").insert({ project_id: p.id, by: me.id, dept: deptLabel,
       action: rev === 0 ? `Submitted R0 to ${dn(to)} – frozen as the Base Line` : `Submitted the R${rev} draft to ${dn(to)}`, comment: reason, rev, details });
-    await notify({ key: notifyKey, project: { ...p, ...common, status }, rev, note: reason, actor: me, actorDepts, team });
+    // the email's "Note" is what the person typed when submitting (approved templates), not the stored reason
+    await notify({ key: notifyKey, project: { ...p, ...common, status }, rev, note: body.note?.trim() || undefined, actor: me, actorDepts, team });
     return Response.json({ ok: true, status, workbookError });
   } catch (err) {
     if (err instanceof z.ZodError) return Response.json({ error: err.issues[0]?.message ?? "Invalid request" }, { status: 400 });

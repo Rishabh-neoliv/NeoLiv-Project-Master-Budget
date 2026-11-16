@@ -40,13 +40,20 @@ function roadAvailability(m: Model, inputs: Inputs) {
   let eng: InstanceType<typeof engineApi.BudgetEngine> | null = null;
   for (const f of all.filter((x) => x.group === "roads")) {
     const mine = all.filter((x) => (x.group === "roadcol" || x.group === "roadwidth") && x.road === f.cell);
-    const key = [m.stamp, inputs.C8, f.cell, ...mine.map((c) => inputs[c.cell])].join("|");
+    // the line's own width; until it is typed (a new line), every road type is offered
+    const wc = typeof f.widthCell === "string" ? f.widthCell : null;
+    if (wc && !(isNum(inputs[wc]) && (inputs[wc] as number) > 0)) { out[f.cell] = new Set((f.options || []).map(String)); continue; }
+    const width = wc ? inputs[wc] : null;
+    const key = [m.stamp, inputs.C8, f.cell, width, ...mine.map((c) => inputs[c.cell])].join("|");
     if (!availCache.has(key)) {
       const row = roadLineRow(m, f), ok = new Set(["No"]);
       for (const opt of f.options || []) {
         if (opt === "No" || !row) continue;
-        const vals: Record<string, unknown> = { ...m.defaults, C8: inputs.C8, [f.cell]: opt };
+        const vals: Record<string, unknown> = { ...m.defaults, C8: inputs.C8, [f.cell]: opt, ...(wc ? { [wc]: width } : {}) };
         for (const c of mine) vals[c.cell] = inputs[c.cell];
+        // a new line has no length yet, and every type costs ₹ 0 at length 0: try a length of 100 m, so the
+        // types this location and width can cost are offered before the length is typed
+        for (const c of mine) if (c.col === "len" && !(isNum(vals[c.cell]) && (vals[c.cell] as number) > 0)) vals[c.cell] = 100;
         const k: Record<string, unknown> = {};
         for (const [c, v] of Object.entries(vals)) k[c.includes("!") ? c : "Assumptions!" + c] = v;
         eng ??= new engineApi.BudgetEngine(m);
@@ -227,7 +234,8 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, onChang
                         {opts.map((o) => <option key={o} value={o}>{o}{ok.has(o) ? "" : " – costs ₹ 0 here"}</option>)}
                       </select> : <span className="font-medium">{v}</span>}
                       {v !== "No" && typeof f.detail === "string" && <small className="block text-xs text-soft">{fmtCalc({} as Field, snap.calc[f.detail])}</small>}
-                      {ok.size <= 1 && v === "No" && <small className="block text-xs text-soft">Enter a length to choose a road type.</small>}
+                      {ok.size <= 1 && v === "No" && <small className="block text-xs text-soft">No road type has a {String(draft.C8)} rate for this width.</small>}
+                      {v !== "No" && typeof f.widthCell === "string" && !(isNum(draft[f.widthCell]) && (draft[f.widthCell] as number) > 0) && <small className="block text-xs text-amber">Enter the road width.</small>}
                     </td>
                     {heads.map(([key]) => {
                       const c = all.find((x) => x.group === "roadcol" && x.road === f.cell && x.col === key);

@@ -13,6 +13,8 @@ command or structure below changes.
 
 ## Hard rules
 
+- **Email wording and recipients are approved by Rishabh** (docs/Email templates.md, 2026-11-16). Don't change any
+  email without showing him the draft first, one by one, template then example.
 - **Real master rates never go into git.** They live in `_legacy/` (extracted from the old app; git-ignored) and in
   Supabase Storage behind the login. Before any commit, check that nothing from `_legacy/`, no `.xlsx`/`.pdf`,
   and no `.env.local` is staged.
@@ -80,6 +82,8 @@ node --env-file=.env.local scripts/test-email.mjs
   constants. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
 - **Dates:** always format with `lib/dates.ts` (hand-built, India time). `toLocaleString` causes hydration errors.
 - Database changes: add a numbered file in `supabase/migrations/`; the user runs it in the Supabase SQL Editor.
+- Emails (`lib/server/email.ts`): workflow steps send ONE email to everyone concerned (To) with the person who took
+  the step in Cc; A2 and sign-in link emails go one per person. Outbox `to`/`cc` hold ";"-separated addresses.
 - Email (`lib/server/mailer.ts`) picks the first configured: Microsoft 365 Graph (`MS_*` + `MAIL_FROM`), then
   Power Automate (outbox table + private RSS feed, `POWER_AUTOMATE_FEED_TOKEN`), then Resend. With none, emails
   are logged as skipped.
@@ -95,7 +99,7 @@ lib/budget.ts, lib/workflow.ts shared logic (browser and server)
 lib/template-import.ts         reads a master .xlsx into a model (Admin panel → Master templates); lib/server/templates.ts checks it
 lib/server/                    data access, freeze, workbook, extract (Excel exact read + Claude), email
 lib/engine/                    original engine (see hard rules)
-supabase/migrations/           0001_init.sql, 0002_files_history.sql (both run), 0003_all_members_view.sql
+supabase/migrations/           0001–0003 (run), 0004_outbox_cc.sql (to run)
 scripts/                       setup, checks, test helpers
 docs/                          email guides, WORKLOG.md
 ```

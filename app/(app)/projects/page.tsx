@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 
 interface Row { id: string; name: string; region: string; status: Status; last_rev: number | null; grand_total: number | null; location: string | null; acre: number | null; updated_at: string }
+const placeOf = (p: Row) => (p.location || p.region).trim();
 
 export default async function ProjectsPage() {
   const supabase = await createClient();
@@ -41,9 +42,10 @@ export default async function ProjectsPage() {
       </div>
       {!rows.length && <p className="rounded-xl border border-line bg-sheet p-5 text-soft">{isAdmin ? "No projects yet. Press New project to set one up." : "No projects yet. Press New project to set one up."}</p>}
       {waiting.length > 0 && <Group title="Waiting for you" rows={waiting} deptsOf={deptsOf} isAdmin={isAdmin} highlight />}
-      {(["NCR", "MMR"] as const).map((region) => {
-        const list = rest.filter((p) => p.region === region);
-        return list.length ? <Group key={region} title={region} rows={list} deptsOf={deptsOf} isAdmin={isAdmin} /> : null;
+      {/* grouped by the rates location (the Location input), not the region picked when the project was set up */}
+      {[...new Set(["NCR", "MMR", ...rest.map(placeOf).sort()])].map((place) => {
+        const list = rest.filter((p) => placeOf(p) === place);
+        return list.length ? <Group key={place} title={place} rows={list} deptsOf={deptsOf} isAdmin={isAdmin} /> : null;
       })}
     </div>
   );

@@ -35,7 +35,7 @@ export function NewProjectForm({ people, meId, isAdmin = false }: { people: Pers
           <select id="region" className="h-9 rounded-lg border border-input bg-sheet px-2.5 text-sm" value={region} onChange={(e) => setRegion(e.target.value as "NCR" | "MMR")}><option>NCR</option><option>MMR</option></select></div>
       </div>
       <div className="grid gap-3">
-        <div><h2 className="text-lg font-semibold">Team</h2><p className="text-sm text-soft">At least one person for each step. Only the team can see the project.</p></div>
+        <div><h2 className="text-lg font-semibold">Team</h2><p className="text-sm text-soft">At least one person for each step. Everyone can view the project; only its team can change it.</p></div>
         <TeamEditor team={team} people={people} onChange={setTeam} lockedId={isAdmin ? undefined : meId} />
       </div>
       <div className="flex gap-2"><Button type="submit" disabled={busy}>{busy ? "Creating…" : "Create project"}</Button>

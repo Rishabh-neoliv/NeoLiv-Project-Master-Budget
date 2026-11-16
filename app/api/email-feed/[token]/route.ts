@@ -3,7 +3,8 @@
 //
 // For the Power Automate flow that sends the app's emails from Outlook (docs/Email via Power Automate.md). The
 // token is a long secret only the app and the flow know; without it there is nothing to see. Each item's summary
-// is the email (to, subject, html) as base64 JSON, so the RSS reader can't alter the HTML.
+// is the email (to, cc, subject, html) as base64 JSON, so the RSS reader can't alter the HTML. "to" and "cc" can
+// hold several addresses separated by ";" (one email to a whole group); cc is "" when there is no copy.
 //
 // The window is how the flow gets v58's speed: Microsoft's RSS *trigger* checks at most every 30 minutes, so the
 // flow runs on a Recurrence every 2 minutes instead and asks for exactly the 2 minutes before its scheduled time.
@@ -27,7 +28,8 @@ export async function GET(req: Request, ctx: RouteContext<"/api/email-feed/[toke
   if ((after && !until) || (!after && until)) return new Response("give both after and until, or neither", { status: 400 });
   if (after && until && (until <= after || until.getTime() - after.getTime() > DAY)) return new Response("the window must be positive and at most a day", { status: 400 });
 
-  let query = createAdminClient().from("email_outbox").select("id, created_at, to, subject, html");
+  // "*": the cc column only exists after migration 0004, and the feed must keep working before it
+  let query = createAdminClient().from("email_outbox").select("*");
   query = after && until
     ? query.gt("created_at", after.toISOString()).lte("created_at", until.toISOString())
     : query.gte("created_at", new Date(Date.now() - 3 * DAY).toISOString());
@@ -36,7 +38,7 @@ export async function GET(req: Request, ctx: RouteContext<"/api/email-feed/[toke
 
   const site = xml(process.env.APP_URL || "https://example.invalid");
   const items = (data ?? []).map((e) => {
-    const body = Buffer.from(JSON.stringify({ to: e.to, subject: e.subject, html: e.html }), "utf8").toString("base64");
+    const body = Buffer.from(JSON.stringify({ to: e.to, cc: e.cc ?? "", subject: e.subject, html: e.html }), "utf8").toString("base64");
     return `<item><title>${xml(e.subject)}</title><link>${site}</link><guid isPermaLink="false">${e.id}</guid><pubDate>${new Date(e.created_at).toUTCString()}</pubDate><description>${body}</description></item>`;
   }).join("");
   const rss = `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>NeoLiv Master Budget email outbox</title><link>${site}</link><description>Emails for Power Automate to send</description>${items}</channel></rss>`;
