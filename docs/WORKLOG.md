@@ -12,20 +12,24 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   workflow email after the push should show the person who took the step in Cc.
 - Master templates: a workbook with new or moved **input rows** is refused until the Assumptions form (sections in
   the template model) is updated in code. If that becomes common, add a form editor to the Admin panel.
-- Tidy: delete the old flow "NeoLiv Budget emails" (RSS trigger; its 4 failures were the test emails), and the
-  second Supabase project that Vercel's Supabase integration created (remove the integration in Vercel first;
+- Tidy (user): delete the old flow "NeoLiv Budget emails" (RSS trigger; its 4 failures were the test emails), and
+  the second Supabase project that Vercel's Supabase integration created (remove the integration in Vercel first;
   the app uses pcvsfstbhtmmvbmlbrgv only).
-- Delete the dummy accounts (admin@neoliv.test, test.member@neoliv.test) when the user agrees.
 - **Microsoft sign-in**: Entra app registration + Supabase Azure provider + `NEXT_PUBLIC_MICROSOFT_SIGNIN=on` in
   Vercel (docs/Microsoft sign-in.md). Code is live.
 - Optional: instant email from a shared mailbox (budget@neoliv.in) via IT's Microsoft 365 route; the 2-minute
   Power Automate flow then gets turned off.
-- Delete the leftover `.env.vercel` (git-ignored copy of keys) and the old RSS-trigger flow "NeoLiv Budget emails".
 - Before real data: Supabase Pro (backups) and Vercel Pro (commercial use).
 - **AI reading of documents** needs `ANTHROPIC_API_KEY` (user: "not now"). Waiting to be read: the
   (09-09-2026) MOM xlsx and the Guidelines PDF (partly scanned). `6071422233.PDF` is an SAP invoice, not a project doc.
-- Imported NCR projects (9) have no team; assign when needed. Test projects still present: "UI Check Project",
-  "Workflow Test 05526" (orphaned), and the user's "test12".
+- Projects without a team (10, mostly the imported NCR ones): assign when needed.
+
+## 2026-11-17
+
+- Tidy-up (user's OK): deleted the dummy accounts admin@neoliv.test and test.member@neoliv.test (scripts/delete-user.mjs,
+  which now also clears "uploaded by" on files), the test projects "UI Check Project", "Workflow Test 05526" and
+  "test12" with their 4 revision workbooks in storage, and the leftover `.env.vercel`. Left: 4 members (Rishabh and
+  Shobha admins, Mayuresh, Kajal), 15 projects. check-access: 12/12.
 
 ## 2026-11-16
 

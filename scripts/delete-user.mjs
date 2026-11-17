@@ -18,6 +18,7 @@ for (const email of emails) {
   must(await db.from("versions").update({ frozen_by: null }).eq("frozen_by", p.id), "versions");
   must(await db.from("projects").update({ created_by: null }).eq("created_by", p.id), "projects created_by");
   must(await db.from("projects").update({ updated_by: null }).eq("updated_by", p.id), "projects updated_by");
+  must(await db.from("files").update({ uploaded_by: null }).eq("uploaded_by", p.id), "files uploaded_by");
   must(await db.from("project_members").delete().eq("user_id", p.id), "team places");
   must(await db.auth.admin.deleteUser(p.id), "login"); // the profile goes with it
   console.log("deleted", email);

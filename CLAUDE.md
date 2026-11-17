@@ -115,4 +115,6 @@ docs/                          email guides, WORKLOG.md
   terminal). Commit here; the user runs `git push` from their own terminal.
 - The Semgrep plugin is turned off (its hook blocked every write). The Remember plugin's saves fail
   (`call-haiku` not found), so don't rely on it; use this file and the work log.
-- Test logins: `admin@neoliv.test` and `test.member@neoliv.test`; password is `SEED_PASSWORD` in `.env.local`.
+- No standing test logins (the dummy accounts were deleted on 2026-11-17). Tests make throwaway `@neoliv.test`
+  accounts with random passwords and delete them afterwards, as check-access.mjs does. scripts/setup.mjs would
+  recreate admin@neoliv.test: only run it on a fresh database.
