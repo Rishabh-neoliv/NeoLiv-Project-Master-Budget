@@ -3,7 +3,7 @@
 // frozen revisions never do. Each change is listed in the history.
 import { z } from "zod";
 import { inr, isNum, masterRate, rateIndex, rateName, snapshot } from "@/lib/budget";
-import { errorResponse, HttpError, loadModel, requireMember } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, loadModel, requireMember } from "@/lib/server/data";
 import { canEditRates, revLabel } from "@/lib/workflow";
 
 const Body = z.object({ rates: z.record(z.string().regex(/^[^!]+![A-Z]+\d+$/), z.number().finite().nonnegative()) });
@@ -13,7 +13,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/ra
     const { id } = await ctx.params;
     const { db, me, project: p, myDepts, deptLabel } = await requireMember(id);
     if (!canEditRates(p.status, myDepts)) throw new HttpError(403, "Rates can be changed by the project's team while a draft is open. Start a new version first.");
-    const { rates: raw } = Body.parse(await req.json());
+    const { rates: raw } = Body.parse(await readJson(req));
     const m = await loadModel(p.template);
     const known = new Set(rateIndex(m).flatMap((r) => Object.values(r.cells)));
     // keep only real rate cells, and drop values equal to the master (they aren't project rates)

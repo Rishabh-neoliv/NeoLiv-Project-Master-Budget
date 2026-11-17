@@ -3,13 +3,15 @@
 // already added can get in: new sign-ups are switched off in Supabase, and the Microsoft app only accepts
 // NeoLiv accounts (docs/Microsoft sign-in.md).
 import { NextResponse, type NextRequest } from "next/server";
+import { safeNext } from "@/lib/safe-next";
 import { createClient } from "@/lib/supabase/server";
 
 const toLogin = (origin: string, message: string) => NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(message)}`, origin));
 
 export async function GET(request: NextRequest) {
   const url = request.nextUrl;
-  const next = url.searchParams.get("next")?.startsWith("/") ? url.searchParams.get("next")! : "/";
+  // only an internal path, so a crafted ?next=//evil.com can't redirect off-site after sign-in
+  const next = safeNext(url.searchParams.get("next"), "/");
   const problem = url.searchParams.get("error_description") || url.searchParams.get("error");
   if (problem) {
     // Supabase's wording for someone who isn't in the app yet, or was removed

@@ -5,7 +5,7 @@
 // POST /api/projects/:id/files { action: "done", path, name, size, type } -> the file row; a Master Budget
 //      workbook is read exactly at this point (no AI)
 import { z } from "zod";
-import { errorResponse, HttpError, loadModel, requireMember } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, loadModel, requireMember } from "@/lib/server/data";
 import { exactIfBudgetWorkbook } from "@/lib/server/extract";
 
 const MAX_FILE_MB = 50;
@@ -18,7 +18,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/projects/[id]/f
   try {
     const { id } = await ctx.params;
     const { db, me, project, deptLabel } = await requireMember(id);
-    const body = z.discriminatedUnion("action", [Start, Done]).parse(await req.json());
+    const body = z.discriminatedUnion("action", [Start, Done]).parse(await readJson(req));
 
     if (body.action === "start") {
       if (body.size > MAX_FILE_MB * 1024 * 1024) throw new HttpError(400, `Files can be up to ${MAX_FILE_MB} MB.`);

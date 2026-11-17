@@ -7,7 +7,7 @@
 // PATCH /api/admin/users  { id, name }      admins: renames a member
 import { z } from "zod";
 import { requireAdmin } from "@/lib/server/admin";
-import { errorResponse, HttpError, requireUser } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, requireUser } from "@/lib/server/data";
 import { sendInvite } from "@/lib/server/email";
 import { appUrlFor, linkFor } from "@/lib/server/links";
 import { mailProvider } from "@/lib/server/mailer";
@@ -21,7 +21,7 @@ const Invite = z.object({
 export async function POST(req: Request) {
   try {
     const { db, me } = await requireUser();
-    const body = Invite.parse(await req.json());
+    const body = Invite.parse(await readJson(req));
     if (!me.is_admin && !mailProvider()) throw new HttpError(400, "Email isn't set up yet, so an admin has to add them.");
     const { data: existing } = await db.from("profiles").select("id").eq("email", body.email).maybeSingle();
     if (existing) throw new HttpError(409, `${body.email} is already a member. Use “${me.is_admin ? "New link" : "Resend invite"}” on their row to send another sign-up link.`);
@@ -61,7 +61,7 @@ const Rename = z.object({ id: z.uuid(), name: z.string().trim().min(1).max(80) }
 export async function PATCH(req: Request) {
   try {
     const { db } = await requireAdmin();
-    const { id, name } = Rename.parse(await req.json());
+    const { id, name } = Rename.parse(await readJson(req));
     const { error } = await db.from("profiles").update({ name }).eq("id", id);
     if (error) throw new HttpError(400, error.message);
     return Response.json({ ok: true });

@@ -1,7 +1,7 @@
 // PUT /api/projects/:id/team  { team: [{ user_id, dept }] }
 // The project's Base Line team changes who works on it, and in which department (as in the original app).
 import { z } from "zod";
-import { errorResponse, HttpError, requireMember } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, requireMember } from "@/lib/server/data";
 import { notify } from "@/lib/server/email";
 import { assertActiveMembers } from "@/lib/server/people";
 import { DEPTS, dn } from "@/lib/workflow";
@@ -13,7 +13,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/te
     const { id } = await ctx.params;
     const { db, me, project, team: before, myDepts, actorDepts, deptLabel } = await requireMember(id);
     if (!myDepts.includes("BD")) throw new HttpError(403, "Only the project's Base Line team (or the admin) can change its team.");
-    const body = Body.parse(await req.json());
+    const body = Body.parse(await readJson(req));
     const team = [...new Map(body.team.map((t) => [`${t.user_id}|${t.dept}`, t])).values()];
     const missing = DEPTS.filter((d) => !team.some((t) => t.dept === d));
     if (missing.length) throw new HttpError(400, `Keep at least one person in ${missing.map(dn).join(", ")}.`);

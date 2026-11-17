@@ -3,7 +3,7 @@
 // passwords are changed in the browser with Supabase.
 import { z } from "zod";
 import { DEPARTMENTS } from "@/lib/departments";
-import { errorResponse, HttpError, requireUser } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, requireUser } from "@/lib/server/data";
 
 const Body = z.object({
   name: z.string().trim().min(2, "Enter your name.").max(80, "That name is too long.").optional(),
@@ -13,7 +13,7 @@ const Body = z.object({
 export async function PATCH(req: Request) {
   try {
     const { db, me } = await requireUser();
-    const body = Body.parse(await req.json());
+    const body = Body.parse(await readJson(req));
     const change: Record<string, string> = {};
     if (body.name !== undefined) change.name = body.name;
     if (body.department !== undefined) change.department = body.department;

@@ -2,7 +2,7 @@
 // Start design / operations, send back, approve (freezes R1+), create a new version.
 import { z } from "zod";
 import { snapshot } from "@/lib/budget";
-import { errorResponse, HttpError, loadModel, requireMember } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, loadModel, requireMember } from "@/lib/server/data";
 import { notify } from "@/lib/server/email";
 import { freezeVersion } from "@/lib/server/freeze";
 import { ACTIONS, availableActions, nextRev, type ActionKey, type Status } from "@/lib/workflow";
@@ -13,7 +13,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/projects/[id]/a
   try {
     const { id } = await ctx.params;
     const { db, me, project: p, team, myDepts, ownDepts, actorDepts, deptLabel } = await requireMember(id);
-    const { key, comment: raw } = Body.parse(await req.json());
+    const { key, comment: raw } = Body.parse(await readJson(req));
     const comment = (raw || "").trim();
     const a = availableActions(p.status, myDepts).find((x) => x.key === key);
     if (!a) throw new HttpError(403, "That step isn't open to you on this project right now.");

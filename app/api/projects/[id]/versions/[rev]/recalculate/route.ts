@@ -5,7 +5,7 @@
 // (or the admin). The old total and template are kept in the Activity log.
 import { z } from "zod";
 import { crore, migrateInputs, migrateRates, snapshot, type Model } from "@/lib/budget";
-import { errorResponse, HttpError, loadModel, requireMember, type VersionRow } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, loadModel, requireMember, type VersionRow } from "@/lib/server/data";
 import { rebuildWorkbook } from "@/lib/server/freeze";
 import { hasDraft } from "@/lib/workflow";
 
@@ -16,7 +16,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/projects/[id]/v
     const { id, rev: revText } = await ctx.params;
     const rev = Number(revText);
     if (!Number.isInteger(rev) || rev < 0) throw new HttpError(400, "Unknown revision.");
-    const { reason } = Body.parse(await req.json());
+    const { reason } = Body.parse(await readJson(req));
     const { db, me, project: p, myDepts, deptLabel } = await requireMember(id);
     if (!myDepts.includes("BD")) throw new HttpError(403, "Only Base Line can recalculate a frozen revision.");
 

@@ -9,7 +9,7 @@
 // POST /api/admin/users/:id  { action: "remove_admin" }  they stay a member, without the Admin panel (also on
 //                                                         yourself); there is always at least one admin left
 import { z } from "zod";
-import { errorResponse, HttpError, requireUser } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, requireUser } from "@/lib/server/data";
 import { sendInvite } from "@/lib/server/email";
 import { mailProvider } from "@/lib/server/mailer";
 import { appUrlFor, linkFor } from "@/lib/server/links";
@@ -20,7 +20,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
   try {
     const { id } = await ctx.params;
     const { db, me } = await requireUser();
-    const { action } = Body.parse(await req.json());
+    const { action } = Body.parse(await readJson(req));
     if (action !== "link" && !me.is_admin) throw new HttpError(403, "Only an admin can do this.");
     if (id === me.id && action !== "remove_admin") throw new HttpError(400, "That's your own account.");
     const { data: person } = await db.from("profiles").select("id, name, email, is_admin").eq("id", id).single();

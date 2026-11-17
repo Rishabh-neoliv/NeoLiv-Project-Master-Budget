@@ -4,7 +4,7 @@
 // POST /api/admin/templates  { action: "add", path, name, current } checks again, then adds it (and makes it current)
 import { z } from "zod";
 import { requireAdmin } from "@/lib/server/admin";
-import { errorResponse, HttpError } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson } from "@/lib/server/data";
 import { checkTemplate, INCOMING, makeCurrent } from "@/lib/server/templates";
 
 const MAX_MB = 20;
@@ -15,7 +15,7 @@ const Add = z.object({ action: z.literal("add"), path: z.string().startsWith(INC
 export async function POST(req: Request) {
   try {
     const { db, me } = await requireAdmin();
-    const body = z.discriminatedUnion("action", [Start, Check, Add]).parse(await req.json());
+    const body = z.discriminatedUnion("action", [Start, Check, Add]).parse(await readJson(req));
 
     if (body.action === "start") {
       if (!/\.xlsx$/i.test(body.name)) throw new HttpError(400, "Upload the master workbook as an .xlsx file.");

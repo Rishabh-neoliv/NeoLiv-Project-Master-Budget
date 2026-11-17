@@ -1,7 +1,7 @@
 // POST /api/projects: create a project (Base Line draft R0) with its team.
 import { z } from "zod";
 import { isNum, snapshot, startInputs } from "@/lib/budget";
-import { errorResponse, HttpError, loadModel, requireUser } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, loadModel, requireUser } from "@/lib/server/data";
 import { assertActiveMembers } from "@/lib/server/people";
 import { notify } from "@/lib/server/email";
 import { DEPTS, dn } from "@/lib/workflow";
@@ -15,7 +15,7 @@ const Body = z.object({
 export async function POST(req: Request) {
   try {
     const { db, me } = await requireUser();
-    const body = Body.parse(await req.json());
+    const body = Body.parse(await readJson(req));
     const team = [...new Map(body.team.map((t) => [`${t.user_id}|${t.dept}`, t])).values()];
     const missing = DEPTS.filter((d) => !team.some((t) => t.dept === d));
     if (missing.length) throw new HttpError(400, `Add someone for ${missing.map(dn).join(", ")}.`);

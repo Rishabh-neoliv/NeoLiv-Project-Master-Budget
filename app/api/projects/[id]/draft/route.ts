@@ -2,7 +2,7 @@
 // Saves the working draft, or submits it to the next department. R0 freezes on Base Line's submit.
 import { z } from "zod";
 import { cleanInputs, missingInputs, snapshot } from "@/lib/budget";
-import { errorResponse, HttpError, loadModel, requireMember } from "@/lib/server/data";
+import { errorResponse, HttpError, readJson, loadModel, requireMember } from "@/lib/server/data";
 import { notify } from "@/lib/server/email";
 import { freezeVersion } from "@/lib/server/freeze";
 import { canEditDraft, canSubmit, dn, EDITABLE, editDept, nextRev, STATUS, SUBMIT_TO } from "@/lib/workflow";
@@ -20,7 +20,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/dr
   try {
     const { id } = await ctx.params;
     const { db, me, project: p, team, myDepts, actorDepts, deptLabel } = await requireMember(id);
-    const body = Body.parse(await req.json());
+    const body = Body.parse(await readJson(req));
     // anyone on the team can save changes while a draft is open; submitting stays with the department whose turn it is
     if (!canEditDraft(p.status, myDepts)) throw new HttpError(403, `R${p.last_rev ?? 0} is approved and frozen. Start a new version to make changes.`);
     if (body.submit && !canSubmit(p.status, myDepts)) {

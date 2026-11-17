@@ -86,3 +86,19 @@ export function errorResponse(err: unknown) {
   console.error(err);
   return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
 }
+
+/** The request's JSON body, or a clean 400 if it isn't valid JSON (so a broken body isn't a 500). */
+export async function readJson(req: Request): Promise<unknown> {
+  try {
+    return await req.json();
+  } catch {
+    throw new HttpError(400, "The request body wasn't valid JSON.");
+  }
+}
+
+/** A Supabase Storage error turned into a 404 when the object is simply gone, otherwise a 500. */
+export function storageError(error: unknown, notThere = "This file is no longer available."): HttpError {
+  const e = error as { message?: string; statusCode?: string; code?: string } | null;
+  const gone = !!e && (e.statusCode === "404" || e.code === "NoSuchKey" || /not\s*found|no such/i.test(e.message ?? ""));
+  return new HttpError(gone ? 404 : 500, gone ? notThere : e?.message ?? "Couldn't create the download link.");
+}

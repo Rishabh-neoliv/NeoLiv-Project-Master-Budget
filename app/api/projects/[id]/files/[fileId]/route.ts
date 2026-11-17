@@ -1,7 +1,7 @@
 // GET    /api/projects/:id/files/:fileId   a 60-second download link
 // DELETE /api/projects/:id/files/:fileId   remove a working-draft file (files of a frozen revision stay)
 import { createAdminClient } from "@/lib/supabase/admin";
-import { errorResponse, HttpError, requireMember, requireViewer } from "@/lib/server/data";
+import { errorResponse, HttpError, requireMember, requireViewer, storageError } from "@/lib/server/data";
 
 async function findFile(db: ReturnType<typeof createAdminClient>, id: string, fileId: string) {
   const { data: file } = await db.from("files").select("*").eq("id", fileId).eq("project_id", id).maybeSingle();
@@ -20,7 +20,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]/f
     const { db } = await requireViewer(id);
     const file = await findFile(db, id, fileId);
     const { data, error } = await db.storage.from("files").createSignedUrl(file.path, 60, { download: file.name });
-    if (error || !data) throw new HttpError(500, error?.message ?? "Couldn't create the download link.");
+    if (error || !data) throw storageError(error);
     return Response.redirect(data.signedUrl, 302);
   } catch (err) {
     return errorResponse(err);

@@ -5,6 +5,9 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
+- **Security review 2026-11-17** (docs/Security review 2026-11-17.md): open redirect + two low robustness items all
+  fixed; three hardening recs left (CSP/X-Frame headers; set Supabase min password length ≥ 8; keep the feed token
+  out of logs).
 - **Department list is provisional** (lib/departments.ts): replace with the confirmed list when the user has it.
   The NeoLifers Group's members/departments couldn't be read from Microsoft 365 (the connector lacks People.Read /
   Team.ReadBasic.All / directory permissions); the list is built from the group's emails + common departments.
@@ -26,6 +29,8 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-17
 
+- Fixed the review's two low items: `readJson` helper turns a malformed JSON body into a 400 (not 500) across all 12 JSON-body routes; `storageError` helper returns 404 (not 500) when a file/revision/template storage object is gone. Re-probed on the dev server: 47 checks, 0 holes; tsc/eslint/build clean.
+- Ran a security & operational review (user asked). 75 checks: operational (tsc/eslint/build/engine 10/10/template-import 15/15/db), access suite 12/12, a live API authorization probe with throwaway accounts (auth, non-member, non-admin, cross-project/IDOR, feed token, input validation, injection, privilege-escalation guards — all held), and a static review (secrets server-only, no client/git secret leak, no dangerous sinks). Found and FIXED an open redirect: /auth/callback and /auth/confirm only checked next.startsWith("/"), so next=//evil.com redirected off-site; added lib/safe-next.ts (rejects //, /\) and used it in both. Report in docs/Security review 2026-11-17.md; verified fix + tsc/eslint. Throwaway accounts/projects deleted.
 - Tidy-up (user's OK): deleted the dummy accounts admin@neoliv.test and test.member@neoliv.test (scripts/delete-user.mjs,
   which now also clears "uploaded by" on files), the test projects "UI Check Project", "Workflow Test 05526" and
   "test12" with their 4 revision workbooks in storage, and the leftover `.env.vercel`. Left: 4 members (Rishabh and
