@@ -2,8 +2,9 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
-/* Dark mode follows the Windows / browser setting (like the original app). */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/* Always light, whatever the Windows / browser setting (user's choice, 2026-11-18). The dark colours are kept
+   below, under :root.dark: adding class="dark" to <html> would bring them back (e.g. for a theme switch). */
+@custom-variant dark (&:where(.dark, .dark *));
 
 /* App colours as Tailwind names: bg-paper, bg-sheet, text-ink, border-line, bg-well, text-accent ... */
 @theme inline {
@@ -111,8 +112,9 @@
   --radius: 0.625rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
+/* not used: see the note at the top */
+:root.dark {
+    color-scheme: dark;
     --paper: #141a18;
     --sheet: #1b2320;
     --ink: #eef3f1;
@@ -139,7 +141,6 @@
     --mb-band: #0d1110;
     --mb-grand: #0d6a5b;
     --input: #3d4b46;
-  }
 }
 
 @layer base {
@@ -148,7 +149,7 @@
   }
   html {
     @apply font-sans;
-    color-scheme: light dark;
+    color-scheme: light;
   }
   body {
     @apply bg-background text-foreground text-[15px] leading-relaxed;

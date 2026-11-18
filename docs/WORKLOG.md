@@ -38,6 +38,10 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-18
 
+- **Always light theme** (user's choice): the app no longer follows the Windows dark-mode setting
+  (app/globals.css; the dark colours are kept under `:root.dark`, unused, in case a theme switch is wanted).
+  Checked in the browser with dark mode on: sign-in and My overview light. The Admin panel's dark green sidebar
+  is part of its design and stays.
 - **Roles and project kinds built** (agreed with the user point by point; README "People and access" has the table):
   - Admin / **Sub-admin** / Member (`lib/roles.ts`). Sub-admin: creates Live projects, sees and acts for any
     department on every Live project, gets sign-up links and removes/restores ordinary members; Admin panel with
