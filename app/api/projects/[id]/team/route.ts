@@ -2,7 +2,6 @@
 // The project's Base Line team changes who works on it, and in which department (as in the original app).
 import { z } from "zod";
 import { errorResponse, HttpError, readJson, requireMember } from "@/lib/server/data";
-import { notify } from "@/lib/server/email";
 import { assertActiveMembers } from "@/lib/server/people";
 import { DEPTS, dn } from "@/lib/workflow";
 
@@ -11,7 +10,7 @@ const Body = z.object({ team: z.array(z.object({ user_id: z.uuid(), dept: z.enum
 export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/team">) {
   try {
     const { id } = await ctx.params;
-    const { db, me, project, team: before, myDepts, actorDepts, deptLabel } = await requireMember(id);
+    const { db, me, team: before, myDepts, deptLabel } = await requireMember(id);
     if (!myDepts.includes("BD")) throw new HttpError(403, "Only the project's Base Line team (or the admin) can change its team.");
     const body = Body.parse(await readJson(req));
     const team = [...new Map(body.team.map((t) => [`${t.user_id}|${t.dept}`, t])).values()];
@@ -43,11 +42,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/te
       ...removed.map((t) => `removed ${nm(t.user_id)} (${dn(t.dept)})`),
     ];
     await db.from("activity").insert({ project_id: id, by: me.id, dept: deptLabel, action: "Changed the team: " + parts.join(", "), rev: null });
-    // newcomers hear that they're on the project
-    const newcomers = added.filter((t) => !before.some((b) => b.user_id === t.user_id));
-    if (newcomers.length) {
-      await notify({ key: "team_added", project, rev: project.last_rev ?? 0, actor: me, actorDepts, team: newcomers });
-    }
+    // no email to people added to a team (user's decision, 2026-11-18)
     return Response.json({ ok: true });
   } catch (err) {
     if (err instanceof z.ZodError) return Response.json({ error: err.issues[0]?.message ?? "Invalid request" }, { status: 400 });

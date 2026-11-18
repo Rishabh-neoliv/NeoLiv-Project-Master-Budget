@@ -85,8 +85,11 @@ node --env-file=.env.local scripts/test-email.mjs
   constants. Read `node_modules/next/dist/docs/` before using an unfamiliar API.
 - **Dates:** always format with `lib/dates.ts` (hand-built, India time). `toLocaleString` causes hydration errors.
 - Database changes: add a numbered file in `supabase/migrations/`; the user runs it in the Supabase SQL Editor.
-- Emails (`lib/server/email.ts`): workflow steps send ONE email: whose turn in To, rest of the team + the person who took
-  the step in Cc; A2 and sign-in link emails go one per person. Outbox `to`/`cc` hold ";"-separated addresses.
+- Emails (`lib/server/email.ts`): workflow steps send ONE email: the department that acts next in To (approval: whole
+  team), only the person who took the step in Cc. No email at project creation or when someone joins a team
+  (2026-11-18). Sign-in link emails go one per person. Outbox `to`/`cc` hold ";"-separated addresses.
+- **Email tests use Rishabh's own address** with a +tag per role (`rishabh.soni.ext+design@neoliv.in` …), never
+  fake domains, and leave the queued emails so he receives them (his instruction, 2026-11-18).
 - Email (`lib/server/mailer.ts`) picks the first configured: Microsoft 365 Graph (`MS_*` + `MAIL_FROM`), then
   Power Automate (outbox table + private RSS feed, `POWER_AUTOMATE_FEED_TOKEN`), then Resend. With none, emails
   are logged as skipped.

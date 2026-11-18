@@ -92,7 +92,13 @@ export function ProjectView({ data }: { data: ProjectData }) {
     const keys = new Set([...Object.keys(base), ...Object.keys(draft)]);
     return Object.fromEntries([...keys].filter((k) => JSON.stringify(base[k] ?? null) !== JSON.stringify(draft[k] ?? null)).map((k) => [k, draft[k] ?? null]));
   };
-  // the draft view disappears once the revision is approved
+  // follow the draft opening and closing, for everyone with the page open: approval freezes it (show the frozen
+  // revision); "Create new version" opens a new one (show the new draft, editable, not the frozen one before it)
+  const [wasOpen, setWasOpen] = useState(draftOpen);
+  if (wasOpen !== draftOpen) {
+    setWasOpen(draftOpen);
+    setView(draftOpen ? "draft" : p.last_rev ?? 0);
+  }
   if (view === "draft" && !draftOpen) setView(p.last_rev ?? 0);
 
   // live updates: anyone's change to this project reloads the page data

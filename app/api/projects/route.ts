@@ -3,7 +3,6 @@ import { z } from "zod";
 import { isNum, snapshot, startInputs } from "@/lib/budget";
 import { errorResponse, HttpError, readJson, loadModel, requireUser } from "@/lib/server/data";
 import { assertActiveMembers } from "@/lib/server/people";
-import { notify } from "@/lib/server/email";
 import { DEPTS, dn } from "@/lib/workflow";
 
 const Body = z.object({
@@ -41,7 +40,7 @@ export async function POST(req: Request) {
     const ownDepts = team.filter((t) => t.user_id === me.id).map((t) => t.dept);
     const actorDepts: string[] = ownDepts.length ? ownDepts : ["Admin"];
     await db.from("activity").insert({ project_id: project.id, by: me.id, dept: actorDepts.map(dn).join(" + "), action: `Created project with ${new Set(team.map((t) => t.user_id)).size} team member(s)`, rev: 0 });
-    await notify({ key: "created", project, rev: 0, actor: me, actorDepts, team });
+    // no email when a project is created (user's decision, 2026-11-18): the team hears when R0 reaches Design
     return Response.json({ id: project.id });
   } catch (err) {
     if (err instanceof z.ZodError) return Response.json({ error: err.issues[0]?.message ?? "Invalid request" }, { status: 400 });

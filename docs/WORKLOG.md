@@ -5,6 +5,15 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
+- **Next (agreed 2026-11-18, not built yet):** Test vs Live projects (Admin panel tabs, each with its own New project;
+  the type is permanent; Test projects deletable, Live never; Test projects only for their team), Live projects
+  visible only to their team (+ admins; reverses 2026-11-13), only admins/sub-admins create projects. Needs
+  migration 0006.
+- **Role hierarchy (Admin / Sub-admin / Member)** drafted in chat on 2026-11-18; the sub-admin rows are parked for a
+  detailed talk with the user before building.
+- **MMR rates:** the master workbook (template 20261102-1146) has 64 items with an NCR rate and a blank MMR rate,
+  so they cost ₹0 in MMR projects (sample project: NCR ₹41.83 Cr vs MMR ₹11.89 Cr). Fix in the workbook and upload
+  via Master templates; offered the user a list of the 64.
 - **Security review 2026-11-17** (docs/Security review 2026-11-17.md): open redirect + two low robustness items all
   fixed; three hardening recs left (CSP/X-Frame headers; set Supabase min password length ≥ 8; keep the feed token
   out of logs).
@@ -26,6 +35,24 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - **AI reading of documents** needs `ANTHROPIC_API_KEY` (user: "not now"). Waiting to be read: the
   (09-09-2026) MOM xlsx and the Guidelines PDF (partly scanned). `6071422233.PDF` is an SAP invoice, not a project doc.
 - Projects without a team (10, mostly the imported NCR ones): assign when needed.
+
+## 2026-11-18
+
+- User's changes, presented as points and confirmed before building:
+  - Emails: no email when a project is created (A1) or someone is added to a team (A2); each workflow step goes To
+    the department that acts next (new version: Design only), Cc ONLY the person who took it; approval to the whole
+    team. Reverses the 2026-11-16 "rest of the team in Cc". Wording unchanged; docs/Email templates.md updated.
+  - Fixed: after "Create new version", the screen stayed on the frozen R1 (read-only) instead of the new R2 draft,
+    so Design couldn't edit. The project screen now follows the draft opening/closing for everyone with it open.
+    (Sonipat Test Project1 also had no team until the user added himself.) Checked in the browser as a Design member:
+    R2 draft shown, 42 fields + 16 dropdowns editable, save accepted.
+  - Answered: MMR projects use the MMR rate column (Master Budget looks rates up by Location), but 64 MMR rates are
+    blank in the master workbook (see Open items).
+- Tests: recipient rules 10/10 with throwaway accounts; then, on the user's instruction, re-run with his own address
+  (rishabh.soni.ext+t7357…@neoliv.in, 6 roles): 11/11, 8 emails left queued for his inbox. From now on email tests
+  use his address with +tags (CLAUDE.md, memory).
+- Found yesterday's security probe had left 6 queued emails to fake @neoliv.test addresses; one invite was sent
+  from the user's Outlook (2026-11-17 10:58 IST, no bounce). All deleted from the outbox; told the user.
 
 ## 2026-11-17
 

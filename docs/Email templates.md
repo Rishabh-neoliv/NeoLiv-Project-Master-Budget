@@ -1,6 +1,6 @@
-# Email templates (approved 2026-11-16)
+# Email templates (approved 2026-11-16, recipients changed 2026-11-18)
 
-Approved by Rishabh, one by one, on 2026-11-16. Any change to an email's wording or recipients needs his
+Approved by Rishabh, one by one, on 2026-11-16; recipients changed by him on 2026-11-18. Any change to an email's wording or recipients needs his
 approval first. The code is `lib/server/email.ts`.
 
 Rules for all of them:
@@ -8,19 +8,21 @@ Rules for all of them:
 - No grand total and no change vs R0.
 - "web application", not "app".
 - Ends with "Regards, NeoLiv".
-- **Workflow emails** (A1, A3–A9): ONE email. **To:** the department(s) the step concerns (whose turn it is).
-  **Cc:** the rest of the team and the person who took the step, so the whole team sees every step (user's
-  decision, 2026-11-16, after the first live email reached only Design). The person who took the step is never in
-  To. If nobody is left to act (you are that department yourself), the rest of the team is in To instead.
-- **A2** and the **personal emails** (B1–B4): one email per person. B1–B4 carry a sign-in link, so they must never
-  go to a group.
+- **Workflow emails** (A3–A9): ONE email. **To:** the department that has to act next; for an approval (A8), the
+  whole team. **Cc:** only the person who took the step (user's decision, 2026-11-18, replacing "rest of the team in
+  Cc" from 2026-11-16). The person who took the step is never in To. If nobody is left to tell (you are that
+  department yourself), no email is sent.
+- **No email when a project is created (A1) or when someone is added to a team (A2)**: both dropped on 2026-11-18.
+  Their wording is kept below for the record only.
+- The **personal emails** (B1–B4): one email per person. They carry a sign-in link, so they must never go to a
+  group.
 - "Start design work" and "Start operations" send no email.
 
 `<…>` = filled in per project. Revision reads `R<n> (draft)` while the draft is open and `R<n> (frozen)` once frozen.
 
 ---
 
-## A1. New project — whole team (except the creator) · Cc the creator
+## A1. New project — NOT SENT since 2026-11-18 (kept for the record)
 ```
 Subject: NeoLiv Budget | New project assigned: <Project> (<Location>)
 
@@ -45,7 +47,7 @@ Regards,
 NeoLiv
 ```
 
-## A2. Added to an existing team — one email to each person added · Cc whoever added them
+## A2. Added to an existing team — NOT SENT since 2026-11-18 (kept for the record)
 ```
 Subject: NeoLiv Budget | You've been added to <Project> as <Department>
 
@@ -70,7 +72,7 @@ Regards,
 NeoLiv
 ```
 
-## A3. Base Line submits to Design — To: Design · Cc: rest of the team + the submitter
+## A3. Base Line submits to Design — To: Design · Cc: the submitter
 ```
 Subject: NeoLiv Budget | R<n> submitted to Design: <Project> (<Location>)
 
@@ -95,7 +97,7 @@ Regards,
 NeoLiv
 ```
 
-## A4. New version started — To: Base Line, Design, Operations · Cc: Management + the person who started it
+## A4. New version started — To: Design · Cc: the person who started it
 ```
 Subject: NeoLiv Budget | New version R<n> started: <Project> (<Location>)
 
@@ -119,7 +121,7 @@ Regards,
 NeoLiv
 ```
 
-## A5. Design sends back to Base Line — To: Base Line · Cc: rest of the team + the sender
+## A5. Design sends back to Base Line — To: Base Line · Cc: the sender
 ```
 Subject: NeoLiv Budget | R<n> sent back to Base Line: <Project> (<Location>)
 
@@ -143,7 +145,7 @@ Regards,
 NeoLiv
 ```
 
-## A6. Design submits to Operations — To: Operations · Cc: rest of the team + the submitter
+## A6. Design submits to Operations — To: Operations · Cc: the submitter
 ```
 Subject: NeoLiv Budget | R<n> submitted to Operations: <Project> (<Location>)
 
@@ -167,7 +169,7 @@ Regards,
 NeoLiv
 ```
 
-## A7. Operations submits for approval — To: Management · Cc: rest of the team + the submitter
+## A7. Operations submits for approval — To: Management · Cc: the submitter
 ```
 Subject: NeoLiv Budget | R<n> submitted for approval: <Project> (<Location>)
 
@@ -215,7 +217,7 @@ Regards,
 NeoLiv
 ```
 
-## A9. Management sends back to Operations — To: Operations · Cc: rest of the team + the sender
+## A9. Management sends back to Operations — To: Operations · Cc: the sender
 ```
 Subject: NeoLiv Budget | R<n> sent back to Operations: <Project> (<Location>)
 

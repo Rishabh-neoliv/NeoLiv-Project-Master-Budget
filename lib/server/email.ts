@@ -1,15 +1,16 @@
 // The app's emails, worded exactly as approved by Rishabh on 2026-11-16 (docs/Email templates.md). Don't change
 // wording or recipients without his approval.
 //
-// Workflow emails (A1, A3–A9): ONE email: the department(s) the step concerns in To; the rest of the team and the person who took the
-// step in Cc (nobody to act: the team in To). A2 (added to a team) and the sign-in emails (B1–B4)
-// go one per person: B1–B4 carry a link that signs whoever opens it in.
+// Workflow emails (A3–A9): ONE email: the department that has to act next in To (an approval: the whole team), and
+// the person who took the step in Cc. Nobody else. No email when a project is created (A1) or someone joins a team
+// (A2): both dropped by Rishabh on 2026-11-18. The sign-in emails (B1–B4) go one per person: they carry a link that
+// signs whoever opens it in.
 // Sent through lib/server/mailer.ts. Without email set up nothing is sent: links are shown to the admin to share,
 // and steps are logged as skipped.
 import "server-only";
 import { numCell } from "@/lib/budget";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { NOTIFY, STATUS, dn, hasDraft, nextRev, type NotifyKey, type Status } from "@/lib/workflow";
+import { NOTIFY, STATUS, type NotifyKey, type Status } from "@/lib/workflow";
 import { sendMail } from "./mailer";
 
 // ------------------------------------------------------------------ layout (HTML and plain text from one list)
@@ -89,44 +90,21 @@ interface Args {
   team: { user_id: string; dept: string }[];
 }
 
-/** where a project stands, for A2 */
-function standing(status: Status, lastRev: number | null | undefined) {
-  const n = nextRev(lastRev);
-  switch (status) {
-    case "DRAFT": return `Base Line is preparing the R${n} draft.`;
-    case "RETURNED": return `The R${n} draft is back with Base Line for changes.`;
-    case "SUBMITTED": return `The R${n} draft is with Design, waiting for design work to start.`;
-    case "DESIGN_IN_PROGRESS": return `Design is working on the R${n} draft.`;
-    case "DESIGN_DONE": return `The R${n} draft is with Operations, waiting for operations to start.`;
-    case "OPS_IN_PROGRESS": return `Operations is working on the R${n} draft.`;
-    case "WITH_MGMT": return `The R${n} draft is with Management for approval.`;
-    default: return `R${lastRev ?? 0} is approved and frozen.`;
-  }
-}
-
 export async function notify({ key, project, rev, note, actor, team }: Args) {
   const rule = NOTIFY[key];
   const db = createAdminClient();
-  // To: the department(s) the step concerns. Cc (user's decision, 2026-11-16): the rest of the team, so everyone
-  // sees every step, and the person who took it. A2 (added to a team) only goes to the people added.
-  const others = team.filter((t) => t.user_id !== actor.id);
-  const ids = [...new Set(others.filter((t) => rule.to.includes(t.dept as never)).map((t) => t.user_id))];
-  const restIds = key === "team_added" ? [] : [...new Set(others.map((t) => t.user_id))].filter((id) => !ids.includes(id));
-  if (!ids.length && !restIds.length) return;
-  const { data: people } = await db.from("profiles").select("id, name, email").in("id", [...ids, ...restIds]);
-  const withEmail = (people ?? []).filter((p) => p.email) as { id: string; name: string; email: string }[];
-  let to = withEmail.filter((p) => ids.includes(p.id));
-  let rest = withEmail.filter((p) => restIds.includes(p.id));
-  // nobody to act (e.g. you are that department yourself): the rest of the team still hears, in To
-  if (!to.length) { to = rest; rest = []; }
+  // To: the department that has to act next (an approval: the whole team), never the person who took the step.
+  // Cc: only the person who took the step (user's decision, 2026-11-18). Nobody to tell: no email.
+  const ids = [...new Set(team.filter((t) => t.user_id !== actor.id && rule.to.includes(t.dept as never)).map((t) => t.user_id))];
+  if (!ids.length) return;
+  const { data: people } = await db.from("profiles").select("id, name, email").in("id", ids);
+  const to = (people ?? []).filter((p) => p.email) as { id: string; name: string; email: string }[];
 
   const appUrl = (process.env.APP_URL || "").replace(/\/+$/, "");
   const link = appUrl ? `${appUrl}/projects/${project.id}` : "";
   const open: Part[] = link ? [{ btn: { href: link, label: "Open project" } }] : [P("Open the NeoLiv Master Budget web application.")];
-  const teamTab = P("To see who else is on the team, open the project and go to the Team tab.");
   const who = actor.name || "A colleague", name = project.name, loc = project.location || "—";
-  const lower = (s: string) => s.toLowerCase();
-  const cc = [...new Set([...rest.map((p) => p.email), ...(actor.email ? [actor.email] : [])].map(lower))].filter((e) => !to.some((p) => lower(p.email) === e));
+  const cc = actor.email && !to.some((p) => p.email.toLowerCase() === actor.email!.toLowerCase()) ? [actor.email] : [];
   const summary = (revision: string): Part[] => [{ h: "Project summary" }, { ul: [
     `Project: ${name}`, `Location: ${loc} · ${numCell(project.acre)} acre`, `Revision: ${revision}`, `Status: ${STATUS[project.status][0]}`,
   ] }];
@@ -139,20 +117,6 @@ export async function notify({ key, project, rev, note, actor, team }: Args) {
   const mails: Mail[] = [];
   const group = (subject: string, parts: Part[]) => mails.push({ to, subject: `NeoLiv Budget | ${subject}`, parts: [P("Hello Team,"), ...parts] });
   switch (key) {
-    case "created": // A1
-      group(`New project assigned: ${tag}`, [P(`${who} has created a new project in NeoLiv Master Budget and added you to its team.`),
-        ...summary("R0 (draft)"), ...next("Base Line to complete the assumptions and submit R0 to Design."), ...open, teamTab]);
-      break;
-    case "team_added": { // A2: one each, with their own department(s)
-      const revision = hasDraft(project.status) ? `R${nextRev(project.last_rev)} (draft)` : `R${project.last_rev ?? 0} (frozen)`;
-      for (const p of to) {
-        const depts = [...new Set(team.filter((t) => t.user_id === p.id).map((t) => dn(t.dept)))].join(" and ");
-        mails.push({ to: [p], subject: `NeoLiv Budget | You've been added to ${name} as ${depts}`, parts: [hello(p.name),
-          P(`${who} has added you to the team of ${name} as ${depts}.`), { h: "Where it stands" }, P(standing(project.status, project.last_rev)),
-          ...summary(revision), ...open, teamTab] });
-      }
-      break;
-    }
     case "submit": // A3
       group(`R${rev} submitted to Design: ${tag}`, [
         P(rev === 0 ? `${who} has submitted R0 of ${name} to Design. R0 is now frozen as the Base Line.` : `${who} has submitted the R${rev} draft of ${name} to Design.`, ...noted("Note")),

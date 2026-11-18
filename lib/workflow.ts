@@ -64,13 +64,13 @@ export const canEditDraft = (status: Status, myDepts: string[]) => hasDraft(stat
 /** Can this person submit the draft on to the next department? Only the department whose turn it is. */
 export const canSubmit = (status: Status, myDepts: string[]) => EDITABLE.has(status) && myDepts.includes(editDept(status));
 
-export type NotifyKey = "created" | "team_added" | "submit" | "revise" | "return_bd" | "design_done" | "ops_submit" | "approve" | "mgmt_return";
-// who hears about each step by email
+// Which steps send an email, and to whom (To). The person who took the step is in Cc. No email when a project is
+// created or someone joins a team (user's decision, 2026-11-18). Each step goes to the department that has to act
+// next; an approval goes to the whole team.
+export type NotifyKey = "submit" | "revise" | "return_bd" | "design_done" | "ops_submit" | "approve" | "mgmt_return";
 export const NOTIFY: Record<NotifyKey, { to: readonly Dept[]; verb: (rev: number) => string }> = {
-  created: { to: DEPTS, verb: () => "set up a new project and added you to its team" },
-  team_added: { to: DEPTS, verb: () => "added you to the team of" },
   submit: { to: ["Design"], verb: (rev) => `submitted R${rev} to Design` },
-  revise: { to: ["BD", "Design", "Operations"], verb: (rev) => `created new version R${rev}; it is with Design` },
+  revise: { to: ["Design"], verb: (rev) => `created new version R${rev}; it is with Design` },
   return_bd: { to: ["BD"], verb: (rev) => `sent R${rev} back to Base Line` },
   design_done: { to: ["Operations"], verb: (rev) => `submitted the R${rev} draft; it is now with Operations` },
   ops_submit: { to: ["Management"], verb: (rev) => `submitted R${rev} to Management for approval` },
