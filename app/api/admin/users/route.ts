@@ -2,11 +2,12 @@
 // project by its Base Line team, not here.
 //
 // POST  /api/admin/users  { name, email }   any member: adds a member and emails them their sign-up link.
-//                                            Admins also get the link back (to send it themselves); for anyone
+//                                            Admins and sub-admins also get the link back (to send it themselves); for anyone
 //                                            else it goes only to the new member's email, so email must be set up.
 // PATCH /api/admin/users  { id, name }      admins: renames a member
 import { z } from "zod";
 import { requireAdmin } from "@/lib/server/admin";
+import { isStaff } from "@/lib/roles";
 import { errorResponse, HttpError, readJson, requireUser } from "@/lib/server/data";
 import { sendInvite } from "@/lib/server/email";
 import { appUrlFor, linkFor } from "@/lib/server/links";
@@ -22,9 +23,10 @@ export async function POST(req: Request) {
   try {
     const { db, me } = await requireUser();
     const body = Invite.parse(await readJson(req));
-    if (!me.is_admin && !mailProvider()) throw new HttpError(400, "Email isn't set up yet, so an admin has to add them.");
+    const staff = isStaff(me.role);
+    if (!staff && !mailProvider()) throw new HttpError(400, "Email isn't set up yet, so an admin has to add them.");
     const { data: existing } = await db.from("profiles").select("id").eq("email", body.email).maybeSingle();
-    if (existing) throw new HttpError(409, `${body.email} is already a member. Use “${me.is_admin ? "New link" : "Resend invite"}” on their row to send another sign-up link.`);
+    if (existing) throw new HttpError(409, `${body.email} is already a member. Use “${staff ? "New link" : "Resend invite"}” on their row to send another sign-up link.`);
 
     // With Microsoft sign-in on, the account is created with its (company) email already confirmed, so their
     // NeoLiv Microsoft account joins it on first sign-in; the link is only a fallback to set a password.
@@ -47,9 +49,9 @@ export async function POST(req: Request) {
     await db.from("profiles").upsert({ id: userId, name: body.name, email: body.email, is_admin: false });
 
     const emailed = await sendInvite({ to: body.email, name: body.name, from: me.name, link, microsoft, appUrl: appUrlFor(req) });
-    if (!me.is_admin && !emailed) throw new HttpError(500, `${body.name} is added, but the invite email couldn't be sent. Ask an admin to send them a link.`);
-    // a sign-up link signs whoever opens it in as the new member, so only admins see it
-    return Response.json({ id: userId, link: me.is_admin ? link : undefined, emailed, via: mailProvider(), microsoft });
+    if (!staff && !emailed) throw new HttpError(500, `${body.name} is added, but the invite email couldn't be sent. Ask an admin to send them a link.`);
+    // a sign-up link signs whoever opens it in as the new member, so only admins and sub-admins see it
+    return Response.json({ id: userId, link: staff ? link : undefined, emailed, via: mailProvider(), microsoft });
   } catch (err) {
     if (err instanceof z.ZodError) return Response.json({ error: err.issues[0]?.message ?? "Invalid request" }, { status: 400 });
     return errorResponse(err);

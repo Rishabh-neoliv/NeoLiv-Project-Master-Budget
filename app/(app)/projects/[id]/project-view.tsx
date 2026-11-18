@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { crore, isNum, missingInputs, numCell, problems, snapFromVersion, snapshot, type CellValue, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
 import { authorship, colours, type Authored, type ChangeRow } from "@/lib/changes";
 import { createClient } from "@/lib/supabase/client";
+import type { Kind } from "@/lib/roles";
 import { actionLabel, availableActions, canEditDraft, canEditRates, canSubmit, DEPTS, dn, EDITABLE, editDept, hasDraft, nextRev, revLabel, STATUS, SUBMIT_TO, type Action, type Dept, type Status } from "@/lib/workflow";
 import { fmtDateTime } from "@/lib/dates";
 
@@ -37,7 +38,10 @@ export interface ProjectData {
   model: Model;
   templateDate: string;
   meId: string;
-  isAdmin: boolean;
+  /** an admin anywhere, a sub-admin on a Live project: acts for every department, team or not */
+  actsForAll: boolean;
+  roleName: string;
+  kind: Kind;
   /** onboarded members to pick from (only sent to Base Line, who may change the team) */
   people: Person[];
   files: ProjectFile[];
@@ -54,11 +58,11 @@ export function ProjectView({ data }: { data: ProjectData }) {
   const router = useRouter();
   const ownDepts = team.filter((t) => t.user_id === meId).map((t) => t.dept);
   // the admin can do everything a team member can, in every department
-  const myDepts: string[] = data.isAdmin ? [...DEPTS] : ownDepts;
+  const myDepts: string[] = data.actsForAll ? [...DEPTS] : ownDepts;
   // anyone on the team can change the open draft; only the department whose turn it is submits it
   const editable = canEditDraft(p.status, myDepts);
   const submittable = canSubmit(p.status, myDepts);
-  const viewOnly = !ownDepts.length && !data.isAdmin;
+  const viewOnly = !ownDepts.length && !data.actsForAll;
   const actions = availableActions(p.status, myDepts);
   const r0 = versions.find((v) => v.rev === 0) ?? null;
   const rev = nextRev(p.last_rev);
@@ -267,10 +271,11 @@ export function ProjectView({ data }: { data: ProjectData }) {
           <h1 className="text-3xl font-semibold tracking-tight">{p.name}</h1>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <RevTag>{revLabel(p.status, p.last_rev)}</RevTag>
+            {data.kind === "test" && <span className="rounded bg-amber-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber" title="A project for trying things out: only its team (and admins) can see it, and it can be deleted">Test project</span>}
             <StatusBadge status={p.status} />
             {ownDepts.length > 0 && <span className="flex flex-wrap items-center gap-1.5">You&apos;re on this project as {ownDepts.map((d) => <span key={d} className="rounded bg-brand-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand">{dn(d)}</span>)}</span>}
             {viewOnly && <span className="rounded bg-well px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-soft" title="You aren't on this project's team">View only</span>}
-            {data.isAdmin && <span className="rounded bg-info-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-info" title="The admin can take every step and change the team">Admin · can act for every department</span>}
+            {data.actsForAll && <span className="rounded bg-info-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-info" title={`As ${data.roleName.toLowerCase()} you can take every step and change the team`}>{data.roleName} · can act for every department</span>}
           </div>
           <p className="flex flex-wrap items-center gap-x-1.5 text-soft">
             {p.region !== p.location && <span>{p.region} region ·</span>}
@@ -469,7 +474,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
 
       {tab === "team" && (teamEdit ? (
         <div className="grid gap-4 rounded-xl border border-line bg-sheet p-5">
-          <TeamEditor team={teamEdit} people={data.people} onChange={setTeamEdit} lockedId={data.isAdmin ? undefined : meId} />
+          <TeamEditor team={teamEdit} people={data.people} onChange={setTeamEdit} lockedId={data.actsForAll ? undefined : meId} />
           <div className="flex gap-2"><Button disabled={busy} onClick={saveTeam}>{busy ? "Saving…" : "Save team"}</Button><Button variant="ghost" onClick={() => setTeamEdit(null)}>Cancel</Button></div>
         </div>
       ) : (

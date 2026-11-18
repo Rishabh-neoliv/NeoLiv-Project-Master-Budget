@@ -1,8 +1,10 @@
 // PUT /api/projects/:id/team  { team: [{ user_id, dept }] }
-// The project's Base Line team changes who works on it, and in which department (as in the original app).
+// The project's Base Line team changes who works on it, and in which department (as in the original app). Admins
+// can on any project, sub-admins on Live ones (lib/roles.ts).
 import { z } from "zod";
 import { errorResponse, HttpError, readJson, requireMember } from "@/lib/server/data";
 import { assertActiveMembers } from "@/lib/server/people";
+import { actsForAll } from "@/lib/roles";
 import { DEPTS, dn } from "@/lib/workflow";
 
 const Body = z.object({ team: z.array(z.object({ user_id: z.uuid(), dept: z.enum(DEPTS) })) });
@@ -10,13 +12,13 @@ const Body = z.object({ team: z.array(z.object({ user_id: z.uuid(), dept: z.enum
 export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/team">) {
   try {
     const { id } = await ctx.params;
-    const { db, me, team: before, myDepts, deptLabel } = await requireMember(id);
-    if (!myDepts.includes("BD")) throw new HttpError(403, "Only the project's Base Line team (or the admin) can change its team.");
+    const { db, me, project, team: before, myDepts, deptLabel } = await requireMember(id);
+    if (!myDepts.includes("BD")) throw new HttpError(403, "Only the project's Base Line team (or an admin, or a sub-admin on a Live project) can change its team.");
     const body = Body.parse(await readJson(req));
     const team = [...new Map(body.team.map((t) => [`${t.user_id}|${t.dept}`, t])).values()];
     const missing = DEPTS.filter((d) => !team.some((t) => t.dept === d));
     if (missing.length) throw new HttpError(400, `Keep at least one person in ${missing.map(dn).join(", ")}.`);
-    if (!me.is_admin && before.some((t) => t.user_id === me.id && t.dept === "BD") && !team.some((t) => t.user_id === me.id && t.dept === "BD")) throw new HttpError(400, "You can't take yourself off Base Line here. Ask another Base Line member to do it.");
+    if (!actsForAll(me.role, project.kind) && before.some((t) => t.user_id === me.id && t.dept === "BD") && !team.some((t) => t.user_id === me.id && t.dept === "BD")) throw new HttpError(400, "You can't take yourself off Base Line here. Ask another Base Line member to do it.");
     await assertActiveMembers(db, team.map((t) => t.user_id));
 
     const key = (t: { user_id: string; dept: string }) => `${t.user_id}|${t.dept}`;

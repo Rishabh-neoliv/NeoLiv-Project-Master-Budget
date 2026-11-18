@@ -5,12 +5,12 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
-- **Next (agreed 2026-11-18, not built yet):** Test vs Live projects (Admin panel tabs, each with its own New project;
-  the type is permanent; Test projects deletable, Live never; Test projects only for their team), Live projects
-  visible only to their team (+ admins; reverses 2026-11-13), only admins/sub-admins create projects. Needs
-  migration 0006.
-- **Role hierarchy (Admin / Sub-admin / Member)** drafted in chat on 2026-11-18; the sub-admin rows are parked for a
-  detailed talk with the user before building.
+- **Roles + Live/Test build: commit and push** (tested 2026-11-18, migration 0006 is run). After the push, the
+  first real Live project is made from Admin panel → Live projects; make sub-admins from Team members.
+- **Directory search when adding a member** (user's idea, 2026-11-18; "not now"): type a name, pick from the NeoLiv
+  directory, name/email/department filled in. Needs an Entra app registration with User.Read.All + admin consent
+  (also gives real departments, replacing the provisional list). Bundle into the IT request with Microsoft sign-in
+  and the shared mailbox.
 - **MMR rates:** the master workbook (template 20261102-1146) has 64 items with an NCR rate and a blank MMR rate,
   so they cost ₹0 in MMR projects (sample project: NCR ₹41.83 Cr vs MMR ₹11.89 Cr). Fix in the workbook and upload
   via Master templates; offered the user a list of the 64.
@@ -38,6 +38,27 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-18
 
+- **Roles and project kinds built** (agreed with the user point by point; README "People and access" has the table):
+  - Admin / **Sub-admin** / Member (`lib/roles.ts`). Sub-admin: creates Live projects, sees and acts for any
+    department on every Live project, gets sign-up links and removes/restores ordinary members; Admin panel with
+    Overview (Live only, no setup checks), Team members, Live projects. Only admins make or remove admins and
+    sub-admins (Team members → Make sub-admin).
+  - **Live / Test** projects, fixed at creation: Admin panel → Live projects / Test projects, each with New; only
+    admins create Test; Test projects can be deleted (with their versions and files), Live never. Members see only
+    projects they're on (reverses 2026-11-13 "every member views every project"); Test projects only their team and
+    admins. Migration 0006 (RLS `can_see_project`); existing projects all become Test.
+  - New project moved off the members' Projects page into the Admin panel; Projects lists Live by place, then Test.
+  - **My overview** (`/overview`), everyone's landing page: waiting for you (with what to do), my projects (role,
+    revision, status, last change), recent changes on them in each person's colour, counts.
+  - Team route: admins/sub-admins acting for all may take themselves off Base Line. check-access.mjs rewritten for
+    the new rules (23 checks; +tag accounts on the user's address, random password).
+  - tsc, eslint and build clean. The user ran migration 0006 (17 projects → Test). check-access.mjs 23/23.
+    API test as each role (+tag accounts t64e445: admin, sub-admin, 4 departments, outsider): 24/24 (create Live/Test,
+    delete, team changes, 404 for projects you can't see, remove/restore, make/remove sub-admin, links). Browser:
+    member (overview, own projects only, Admin panel refused), sub-admin (3-page panel, Live only, Test/Templates
+    refused, buttons only on ordinary members, submitted R0 on a Live project it isn't on → one email To Design, Cc
+    the sub-admin), admin (5 pages, Delete only on Test, two-press delete worked). Test accounts and projects
+    deleted; the one email left for the user's inbox.
 - User's changes, presented as points and confirmed before building:
   - Emails: no email when a project is created (A1) or someone is added to a team (A2); each workflow step goes To
     the department that acts next (new version: Design only), Cc ONLY the person who took it; approval to the whole

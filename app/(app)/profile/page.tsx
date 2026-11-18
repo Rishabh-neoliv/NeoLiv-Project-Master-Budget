@@ -2,6 +2,7 @@
 // you're on with your role in each.
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isStaff, roleOf } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 import { ProfileForm } from "./profile-form";
@@ -32,7 +33,7 @@ export default async function ProfilePage() {
     <div className="grid max-w-3xl gap-6">
       <div>
         <h1 className="text-3xl font-semibold tracking-tight">My profile</h1>
-        <p className="text-soft">Your details in NeoLiv Master Budget.{me?.is_admin ? " You are an admin." : ""}</p>
+        <p className="text-soft">Your details in NeoLiv Master Budget.{isStaff(roleOf(me)) ? ` You are ${roleOf(me) === "admin" ? "an admin" : "a sub-admin"}.` : ""}</p>
       </div>
       <ProfileForm name={me?.name ?? ""} department={(me?.department as string | undefined) ?? ""} email={me?.email ?? user.email ?? ""} microsoft={microsoft} />
       <section className="grid gap-3 rounded-xl border border-line bg-sheet p-5">

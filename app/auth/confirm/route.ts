@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const type = url.searchParams.get("type") as EmailOtpType | null;
   const code = url.searchParams.get("code");
   // only an internal path, so a crafted ?next=//evil.com can't redirect off-site after the link is opened
-  const next = safeNext(url.searchParams.get("next"), "/projects");
+  const next = safeNext(url.searchParams.get("next"), "/");
   const supabase = await createClient();
 
   const { error } = tokenHash && type

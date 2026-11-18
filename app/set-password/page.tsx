@@ -32,7 +32,7 @@ export default function SetPasswordPage() {
     setBusy(false);
     if (error) return setError(error.message);
     if (email) toast.success(`Password saved. From now on sign in with ${email} and this password.`, { duration: 8000 });
-    router.replace("/projects");
+    router.replace("/overview");
     router.refresh();
   }
 

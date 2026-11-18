@@ -1,6 +1,8 @@
-// A project: header, action bar, summary and tabs. Every signed-in member can open it; only its team (and the admin) can change it.
+// A project: header, action bar, summary and tabs. Who can open it is row-level security (migration 0006): its team,
+// admins, and sub-admins for Live projects; anyone else gets "not found". Who can change what: lib/roles.ts.
 import { notFound } from "next/navigation";
 import type { Model } from "@/lib/budget";
+import { actsForAll, kindOf, ROLE_NAME, roleOf } from "@/lib/roles";
 import { activeMembers } from "@/lib/server/people";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectView, type ProjectData } from "./project-view";
@@ -18,7 +20,7 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
     supabase.from("versions").select("rev, inputs, rates, master, calc, grand_total, reason, dept, template, xlsx_path, frozen_by, frozen_at").eq("project_id", id).order("rev"),
     supabase.from("activity").select("id, at, by, dept, action, comment, rev, details").eq("project_id", id).order("at", { ascending: false }).limit(200),
     supabase.from("templates").select("stamp, model, modified").eq("stamp", project.template).maybeSingle(),
-    supabase.from("profiles").select("is_admin").eq("id", uid).single(),
+    supabase.from("profiles").select("*").eq("id", uid).single(),
     supabase.from("templates").select("stamp, modified").eq("is_current", true).maybeSingle(),
     supabase.from("files").select("id, rev, name, size, content_type, kind, uploaded_by, uploaded_at, extraction_status, extraction, extraction_error").eq("project_id", id).order("uploaded_at", { ascending: false }),
     // every recorded field change (all of them, not just the latest 200), for who-changed-what colours
@@ -33,6 +35,8 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
     return { user_id: t.user_id, dept: t.dept, name: p?.name ?? "", email: p?.email ?? "" };
   });
   // Base Line (and the admin) may change the team, so they get the list of onboarded members to pick from
+  // an admin acts for every department on any project, a sub-admin on Live projects
+  const role = roleOf(me), kind = kindOf(project), all = actsForAll(role, kind);
   const isBaseLine = teamRows.some((t) => t.user_id === uid && t.dept === "BD");
 
   const data: ProjectData = {
@@ -45,8 +49,10 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
     model: { ...(tpl.model as Model), stamp: tpl.stamp },
     templateDate: tpl.modified || tpl.stamp,
     meId: uid,
-    isAdmin: !!me?.is_admin,
-    people: isBaseLine || me?.is_admin ? await activeMembers() : [],
+    actsForAll: all,
+    roleName: ROLE_NAME[role],
+    kind,
+    people: isBaseLine || all ? await activeMembers() : [],
     files: files ?? [],
     filesReady: !filesError, // false until supabase/migrations/0002_files_history.sql has been run
     currentTemplate: currentTpl ? { stamp: currentTpl.stamp, date: currentTpl.modified || currentTpl.stamp } : null,

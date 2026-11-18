@@ -1,11 +1,13 @@
-// Admin panel → Overview: people, where every project stands, and the latest activity across all projects.
+// Admin panel → Overview: people, where every project stands, and the latest activity. Admins see every project and
+// the Security and setup checks; sub-admins see Live projects only, without the setup checks (lib/roles.ts).
 import Link from "next/link";
 import { ClickableRow } from "@/components/clickable-row";
 import { Initials } from "@/components/initials";
 import { RevTag, StatusBadge } from "@/components/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { crore } from "@/lib/budget";
-import { adminOrRedirect } from "@/lib/server/admin-guard";
+import { kindOf } from "@/lib/roles";
+import { staffOrRedirect } from "@/lib/server/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEPTS, dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 import { fmtShortDateTime } from "@/lib/dates";
@@ -18,17 +20,22 @@ const LEVEL: Record<Level, [string, string]> = {
 const fmtDate = fmtShortDateTime;
 
 export default async function AdminOverview() {
-  await adminOrRedirect();
+  const me = await staffOrRedirect();
+  const isAdmin = me.role === "admin";
   const db = createAdminClient();
-  const [{ data: projects }, { data: people }, { data: auth }, { data: activity }, { data: teams }, checks] = await Promise.all([
-    db.from("projects").select("id, name, status, last_rev, grand_total, updated_at").order("updated_at", { ascending: false }),
+  const [{ data: projects }, { data: people }, { data: auth }, { data: recent }, { data: teams }, checks] = await Promise.all([
+    db.from("projects").select("*").order("updated_at", { ascending: false }),
     db.from("profiles").select("id, name"),
     db.auth.admin.listUsers({ perPage: 1000 }),
-    db.from("activity").select("id, at, by, dept, action, comment, project_id").order("at", { ascending: false }).limit(15),
+    db.from("activity").select("id, at, by, dept, action, comment, project_id").order("at", { ascending: false }).limit(80),
     db.from("project_members").select("project_id"),
-    setupStatus(),
+    isAdmin ? setupStatus() : Promise.resolve([]),
   ]);
-  const rows = (projects ?? []) as { id: string; name: string; status: Status; last_rev: number | null; grand_total: number | null; updated_at: string }[];
+  // a sub-admin's overview covers Live projects only
+  const rows = ((projects ?? []) as { id: string; name: string; status: Status; last_rev: number | null; grand_total: number | null; updated_at: string; kind?: string }[])
+    .filter((p) => isAdmin || kindOf(p) === "live");
+  const shown = new Set(rows.map((p) => p.id));
+  const activity = (recent ?? []).filter((a) => shown.has(a.project_id)).slice(0, 15);
   const users = auth?.users ?? [];
   const removed = users.filter((u) => u.banned_until && new Date(u.banned_until) > new Date()).length;
   const invited = users.filter((u) => !u.last_sign_in_at && !(u.banned_until && new Date(u.banned_until) > new Date())).length;
@@ -46,11 +53,11 @@ export default async function AdminOverview() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
-          <p className="text-soft">Where every project stands, and who has access.</p>
+          <p className="text-soft">{isAdmin ? "Where every project stands, and who has access." : "Where every Live project stands, and who has access."}</p>
         </div>
         <div className="flex gap-2">
           <Link href="/admin/members" className={buttonVariants({ variant: "outline" })}>Add a team member</Link>
-          <Link href="/projects/new" className={buttonVariants()}>New project</Link>
+          <Link href="/admin/live/new" className={buttonVariants()}>New Live project</Link>
         </div>
       </div>
 
@@ -60,15 +67,15 @@ export default async function AdminOverview() {
           <div className="mt-1 text-3xl font-semibold">{users.length - removed}</div>
           <div className="mt-1 text-sm text-soft">{invited ? <span className="text-amber">{invited} haven&apos;t signed in yet</span> : "all signed in"}{removed ? ` · ${removed} removed` : ""}</div>
         </Link>
-        <Link href="/admin/projects" className={`${card} hover:border-brand`}>
-          <div className="text-sm text-soft">Projects</div>
+        <Link href="/admin/live" className={`${card} hover:border-brand`}>
+          <div className="text-sm text-soft">{isAdmin ? "Projects (Live and Test)" : "Live projects"}</div>
           <div className="mt-1 text-3xl font-semibold">{rows.length}</div>
           <div className="mt-1 text-sm text-soft">{approved} approved · {rows.length - approved} in progress</div>
         </Link>
-        <Link href="/admin/projects" className={`${card} hover:border-brand`}>
+        <Link href="/admin/live" className={`${card} hover:border-brand`}>
           <div className="text-sm text-soft">Without a team</div>
           <div className={`mt-1 text-3xl font-semibold ${noTeam.length ? "text-bad" : ""}`}>{noTeam.length}</div>
-          <div className="mt-1 text-sm text-soft">only you can open these</div>
+          <div className="mt-1 text-sm text-soft">only admins{isAdmin ? "" : " and sub-admins"} can open these</div>
         </Link>
         <div className={card}>
           <div className="text-sm text-soft">Waiting on</div>
@@ -78,7 +85,7 @@ export default async function AdminOverview() {
         </div>
       </section>
 
-      <section className="grid gap-2">
+      {isAdmin && <section className="grid gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-soft">
           Security and setup{checks.some((c) => c.level === "bad") && <span className="ml-2 rounded bg-bad-soft px-1.5 py-0.5 text-xs normal-case tracking-normal text-bad">needs attention</span>}
         </h2>
@@ -95,7 +102,7 @@ export default async function AdminOverview() {
             </li>
           ))}
         </ul>
-      </section>
+      </section>}
 
       <section className="grid gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-soft">Recently changed projects</h2>
@@ -105,7 +112,7 @@ export default async function AdminOverview() {
             <tbody>
               {rows.slice(0, 8).map((p) => (
                 <ClickableRow key={p.id} href={`/projects/${p.id}`} label={`Open ${p.name}`} className="border-t border-line">
-                  <td className="px-4 py-3 font-semibold text-brand">{p.name}{!staffed.has(p.id) && <span className="ml-2 rounded bg-bad-soft px-1.5 py-0.5 text-xs font-medium text-bad">no team</span>}</td>
+                  <td className="px-4 py-3 font-semibold text-brand">{p.name}{kindOf(p) === "test" && <span className="ml-2 rounded bg-well px-1.5 py-0.5 text-xs font-medium text-soft">Test</span>}{!staffed.has(p.id) && <span className="ml-2 rounded bg-bad-soft px-1.5 py-0.5 text-xs font-medium text-bad">no team</span>}</td>
                   <td className="px-4 py-3"><RevTag>{revLabel(p.status, p.last_rev)}</RevTag></td>
                   <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                   <td className="px-4 py-3 text-soft">{STATUS[p.status][1] ? dn(STATUS[p.status][1]!) : "–"}</td>
@@ -119,9 +126,9 @@ export default async function AdminOverview() {
       </section>
 
       <section className="grid gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-soft">Latest activity, all projects</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wider text-soft">Latest activity, {isAdmin ? "all projects" : "Live projects"}</h2>
         <ol className="grid gap-2">
-          {(activity ?? []).map((a) => (
+          {activity.map((a) => (
             <li key={a.id} className="rounded-lg border border-line bg-sheet px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
@@ -133,7 +140,7 @@ export default async function AdminOverview() {
               {a.comment && <p className="mt-1 pl-9 text-soft">{a.comment}</p>}
             </li>
           ))}
-          {!activity?.length && <li className="text-soft">Nothing yet.</li>}
+          {!activity.length && <li className="text-soft">Nothing yet.</li>}
         </ol>
       </section>
     </div>

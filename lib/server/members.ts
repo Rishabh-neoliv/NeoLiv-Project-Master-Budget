@@ -20,7 +20,7 @@ export async function listMembers(): Promise<Member[]> {
     const a = authById.get(p.id);
     const removed = !!a?.banned_until && new Date(a.banned_until) > new Date();
     return {
-      id: p.id, name: p.name, email: p.email, isAdmin: p.is_admin, department: (p.department as string | undefined) ?? "",
+      id: p.id, name: p.name, email: p.email, isAdmin: !!p.is_admin, isSubadmin: !p.is_admin && !!p.is_subadmin, department: (p.department as string | undefined) ?? "",
       status: removed ? "removed" : a?.last_sign_in_at ? "active" : "invited",
       lastSignIn: a?.last_sign_in_at ?? null,
       projects: projects.get(p.id)?.size ?? 0,

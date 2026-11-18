@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fmtDay } from "@/lib/dates";
+import type { Role } from "@/lib/roles";
 
-export interface Member { id: string; name: string; email: string; department: string; isAdmin: boolean; status: "active" | "invited" | "removed"; lastSignIn: string | null; projects: number; microsoft: boolean }
+export interface Member { id: string; name: string; email: string; department: string; isAdmin: boolean; isSubadmin: boolean; status: "active" | "invited" | "removed"; lastSignIn: string | null; projects: number; microsoft: boolean }
 
 const STATUS_TAG: Record<Member["status"], [string, string]> = {
   active: ["Active", "bg-good-soft text-good"],
@@ -20,10 +21,16 @@ const MicrosoftMark = () => (
   <svg aria-hidden viewBox="0 0 21 21" className="size-3.5"><path fill="#f25022" d="M1 1h9v9H1z" /><path fill="#7fba00" d="M11 1h9v9h-9z" /><path fill="#00a4ef" d="M1 11h9v9H1z" /><path fill="#ffb900" d="M11 11h9v9h-9z" /></svg>
 );
 
-// The members table and "Add a member" form. Admins (Admin panel, or the Members page) get every button; other
-// members can add people and resend an invite to someone who hasn't signed in yet (the link goes only by email).
-export function UsersAdmin({ members, microsoft, meId, isAdmin }: { members: Member[]; microsoft: boolean; meId: string; isAdmin: boolean }) {
+// The members table and "Add a member" form (Admin panel → Team members, and the Members page). What each person
+// can do follows lib/roles.ts: admins get every button; sub-admins get the sign-up links and remove/restore for
+// ordinary members; other members can add people and resend an invite to someone who hasn't signed in yet (the
+// link then goes only by email).
+export function UsersAdmin({ members, microsoft, meId, role }: { members: Member[]; microsoft: boolean; meId: string; role: Role }) {
   const router = useRouter();
+  const isAdmin = role === "admin";
+  const staff = role !== "member";
+  // whom this person manages (links back, remove/restore): admins everyone, sub-admins ordinary members
+  const manages = (m: Member) => isAdmin || (role === "subadmin" && !m.isAdmin && !m.isSubadmin);
   // "Make admin" / "Remove admin" ask for a second press, like the app's other one-way steps
   const [armed, setArmed] = useState<string | null>(null);
   const admins = members.filter((m) => m.isAdmin && m.status !== "removed").length;
@@ -50,7 +57,7 @@ export function UsersAdmin({ members, microsoft, meId, isAdmin }: { members: Mem
     e.preventDefault();
     const out = await call("/api/admin/users", "POST", { name, email });
     if (!out) return;
-    // only admins get the link back; for everyone else it goes to the new member by email only
+    // only admins and sub-admins get the link back; for everyone else it goes to the new member by email only
     if (out.link) setLink({ who: name, url: out.link, emailed: out.emailed, queued: out.via === "powerautomate", microsoft: !!out.microsoft });
     else toast.success(`${name} is added. ${out.via === "powerautomate" ? "Their invite email goes out within about 2 minutes" : "Their invite has been emailed"}.`);
     setName(""); setEmail("");
@@ -60,8 +67,15 @@ export function UsersAdmin({ members, microsoft, meId, isAdmin }: { members: Mem
     if (armed !== key) { setArmed(key); return; }
     setArmed(null);
     if (!(await call(`/api/admin/users/${m.id}`, "POST", { action: make ? "make_admin" : "remove_admin" }))) return;
-    if (!make && m.id === meId) { toast.success("You're no longer an admin."); router.replace("/projects"); return; }
+    if (!make && m.id === meId) { toast.success("You're no longer an admin."); router.replace("/overview"); return; }
     toast.success(make ? `${m.name} is now an admin too.` : `${m.name} is no longer an admin.`);
+  }
+  async function setSubadmin(m: Member, make: boolean) {
+    const key = (make ? "sub:" : "unsub:") + m.id;
+    if (armed !== key) { setArmed(key); return; }
+    setArmed(null);
+    if (!(await call(`/api/admin/users/${m.id}`, "POST", { action: make ? "make_subadmin" : "remove_subadmin" }))) return;
+    toast.success(make ? `${m.name} is now a sub-admin.` : `${m.name} is no longer a sub-admin.`);
   }
   async function newLink(m: Member) {
     const out = await call(`/api/admin/users/${m.id}`, "POST", { action: "link" });
@@ -88,7 +102,7 @@ export function UsersAdmin({ members, microsoft, meId, isAdmin }: { members: Mem
           <div className="grid gap-1.5"><Label htmlFor="e">Work email</Label><Input id="e" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@neoliv.in" /></div>
           <Button type="submit" disabled={busy}>{busy ? "Adding…" : "Add member"}</Button>
         </div>
-        <p className="text-sm text-soft">{!isAdmin
+        <p className="text-sm text-soft">{!staff
           ? (microsoft ? "They can sign in straight away with “Sign in with Microsoft”, using their NeoLiv account, and also get an email with a link to set a password." : "They get an email with a link to set their password, and from then on sign in with their email. The password is only for this app.")
           : microsoft
             ? "They can sign in straight away with “Sign in with Microsoft”, using their NeoLiv account. You also get a link in case they'd rather set a password."
@@ -118,7 +132,7 @@ export function UsersAdmin({ members, microsoft, meId, isAdmin }: { members: Mem
             {members.map((m) => (
               <tr key={m.id} className="border-t border-line">
                 <td className="px-4 py-3">
-                  <div className="font-medium">{m.name}{m.isAdmin && <span className="ml-2 rounded bg-info-soft px-1.5 py-0.5 text-xs text-info">Admin</span>}</div>
+                  <div className="font-medium">{m.name}{m.isAdmin && <span className="ml-2 rounded bg-info-soft px-1.5 py-0.5 text-xs text-info">Admin</span>}{m.isSubadmin && <span className="ml-2 rounded bg-brand-soft px-1.5 py-0.5 text-xs text-brand">Sub-admin</span>}</div>
                   <div className="text-soft">{m.email}</div>
                   {m.department && <div className="text-xs text-soft">{m.department}</div>}
                 </td>
@@ -133,14 +147,21 @@ export function UsersAdmin({ members, microsoft, meId, isAdmin }: { members: Mem
                 </td>
                 <td className="px-4 py-3 text-right">{m.projects}</td>
                 <td className="whitespace-nowrap px-4 py-3 text-right">
-                  {isAdmin ? <div className="flex justify-end gap-1">
-                    {m.isAdmin
+                  {manages(m) ? <div className="flex justify-end gap-1">
+                    {isAdmin && (m.isAdmin
                       ? admins > 1 && <Button size="sm" variant={armed === "unmake:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setAdmin(m, false)}
-                          title="They stay a member, without the Admin panel">{armed === "unmake:" + m.id ? "Confirm: remove admin" : m.id === meId ? "Stop being admin" : "Remove admin"}</Button>
-                      : m.status !== "removed" && <Button size="sm" variant={armed === "make:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setAdmin(m, true)}
-                          title="They get the Admin panel too; you stay admin">{armed === "make:" + m.id ? "Confirm: make admin" : "Make admin"}</Button>}
+                          title="They become an ordinary member, without the Admin panel">{armed === "unmake:" + m.id ? "Confirm: remove admin" : m.id === meId ? "Stop being admin" : "Remove admin"}</Button>
+                      : m.status !== "removed" && <>
+                        <Button size="sm" variant={armed === "make:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setAdmin(m, true)}
+                          title="They get the whole Admin panel too; you stay admin">{armed === "make:" + m.id ? "Confirm: make admin" : "Make admin"}</Button>
+                        {m.isSubadmin
+                          ? <Button size="sm" variant={armed === "unsub:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setSubadmin(m, false)}
+                              title="They become an ordinary member">{armed === "unsub:" + m.id ? "Confirm: remove sub-admin" : "Remove sub-admin"}</Button>
+                          : <Button size="sm" variant={armed === "sub:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setSubadmin(m, true)}
+                              title="They can create Live projects, open and act on every Live project, and remove or restore ordinary members">{armed === "sub:" + m.id ? "Confirm: make sub-admin" : "Make sub-admin"}</Button>}
+                      </>)}
                     {m.id !== meId && m.status !== "removed" && <Button size="sm" variant="outline" disabled={busy} onClick={() => newLink(m)}>New link</Button>}
-                    {!m.isAdmin && (m.status === "removed"
+                    {!m.isAdmin && m.id !== meId && (m.status === "removed"
                       ? <Button size="sm" variant="outline" disabled={busy} onClick={() => setRemoved(m, false)}>Restore</Button>
                       : <Button size="sm" variant="ghost" className="text-bad" disabled={busy} onClick={() => setRemoved(m, true)}>Remove</Button>)}
                   </div>
