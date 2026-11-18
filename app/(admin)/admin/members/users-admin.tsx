@@ -126,7 +126,7 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
       <div className="overflow-x-auto rounded-xl border border-line bg-sheet">
         <table className="w-full text-sm">
           <thead className="bg-well text-left text-xs uppercase tracking-wide text-soft">
-            <tr><th className="px-4 py-2.5">Name</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5">Signs in with</th><th className="px-4 py-2.5 text-right">Projects</th><th className="px-4 py-2.5" /></tr>
+            <tr><th className="px-4 py-2.5">Name</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5 text-right">Projects</th><th className="px-4 py-2.5"><span className="sr-only">Actions</span></th></tr>
           </thead>
           <tbody>
             {members.map((m) => (
@@ -138,16 +138,14 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
                 </td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_TAG[m.status][1]}`}>{STATUS_TAG[m.status][0]}</span>
-                  {m.lastSignIn && m.status === "active" && <div className="mt-1 text-xs text-soft">Last signed in {fmtDate(m.lastSignIn)}</div>}
-                </td>
-                <td className="px-4 py-3">
-                  {m.status === "invited" ? <span className="text-soft">–</span>
-                    : m.microsoft ? <span className="inline-flex items-center gap-1.5"><MicrosoftMark />Microsoft</span>
-                      : <span>Password</span>}
+                  {m.status !== "invited" && <div className="mt-1 flex items-center gap-1.5 text-xs text-soft">
+                    {m.microsoft ? <><MicrosoftMark />Microsoft</> : "Password"}{m.lastSignIn && m.status === "active" && <> · last signed in {fmtDate(m.lastSignIn)}</>}
+                  </div>}
                 </td>
                 <td className="px-4 py-3 text-right">{m.projects}</td>
-                <td className="whitespace-nowrap px-4 py-3 text-right">
-                  {manages(m) ? <div className="flex justify-end gap-1">
+                {/* the buttons wrap onto a second line on narrow screens instead of widening the table */}
+                <td className="px-4 py-3 text-right">
+                  {manages(m) ? <div className="flex flex-wrap justify-end gap-1">
                     {isAdmin && (m.isAdmin
                       ? admins > 1 && <Button size="sm" variant={armed === "unmake:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setAdmin(m, false)}
                           title="They become an ordinary member, without the Admin panel">{armed === "unmake:" + m.id ? "Confirm: remove admin" : m.id === meId ? "Stop being admin" : "Remove admin"}</Button>

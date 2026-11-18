@@ -27,7 +27,7 @@ export function DeleteProject({ id, name }: { id: string; name: string }) {
   return (
     <Button size="sm" variant={armed ? "default" : "ghost"} className={armed ? "" : "text-bad"} disabled={busy} onClick={remove}
       title="Deletes the project, its history, files and Excel workbooks. Can't be undone.">
-      {busy ? "Deleting…" : armed ? "Confirm: delete for good" : "Delete"}
+      {busy ? "Deleting…" : armed ? "Confirm delete" : "Delete"}
     </Button>
   );
 }

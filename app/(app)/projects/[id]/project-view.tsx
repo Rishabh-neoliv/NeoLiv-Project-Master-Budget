@@ -330,7 +330,9 @@ export function ProjectView({ data }: { data: ProjectData }) {
       )}
 
       {tab === "assumptions" && (
-        <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+        // summary beside the form from 1280px; on narrower laptops it sits above it (two columns), so the road table
+        // keeps its width and the total stays in view
+        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="grid gap-4">
             {guide && <div className="rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-info">{guide}</div>}
             {!shownVersion && draftOpen && data.currentTemplate && data.currentTemplate.stamp !== p.template && (
@@ -368,7 +370,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
             <AssumptionsForm model={m} draft={shownInputs} snap={snap} editable={editable && !shownVersion}
               base={formBase} authors={shownAuthors} onChange={(d) => { setDraft(d); setDirty(true); }} />
           </div>
-          <div className="grid gap-4 lg:sticky lg:top-4">
+          <div className="order-first grid items-start gap-4 md:grid-cols-2 xl:order-none xl:sticky xl:top-4 xl:grid-cols-1">
             <Summary snap={snap} r0={shownRev !== 0 ? r0?.grand_total ?? null : null} label={shownVersion ? `R${shownRev}` : `R${rev} draft`} templateDate={data.templateDate} live={editable && !shownVersion} incomplete={missing.length} />
             {editable && !shownVersion && (
               <section className="grid gap-3 rounded-xl border border-line bg-sheet p-5">

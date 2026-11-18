@@ -7,9 +7,9 @@ const TONE: Record<Status, string> = {
 };
 
 export function StatusBadge({ status }: { status: Status }) {
-  return <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${TONE[status]}`}>{STATUS[status][0]}</span>;
+  return <span className={`inline-flex whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ${TONE[status]}`}>{STATUS[status][0]}</span>;
 }
 
 export function RevTag({ children }: { children: React.ReactNode }) {
-  return <span className="inline-flex rounded bg-amber-soft px-1.5 py-0.5 font-mono text-xs text-amber">{children}</span>;
+  return <span className="inline-flex whitespace-nowrap rounded bg-amber-soft px-1.5 py-0.5 font-mono text-xs text-amber">{children}</span>;
 }

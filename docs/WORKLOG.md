@@ -38,6 +38,14 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-18
 
+- **Layout fits laptop screens** (user: couldn't find Delete on Admin panel → Test projects; it was in a last
+  column off screen because the table had a 980px minimum and scrolled sideways). Delete stays the last column; the
+  Live/Test lists now have 5 columns (area under the name, stage = revision + status, R0 under the current budget),
+  no fixed minimum width. Team members: sign-in method under the status, action buttons wrap. Project page: the
+  summary panel sits beside the form from 1280px, above it (two columns) below that, so the road table keeps its
+  720px. Badges no longer break over two lines. Checked at 1024 and 1280 (no sideways scrolling on Overview, Team
+  members, Test projects, Projects, a project page); throwaway admin deleted after. Still wide by design: Rate
+  analysis (1100px matrix) scrolls inside its box below ~1300px.
 - **Always light theme** (user's choice): the app no longer follows the Windows dark-mode setting
   (app/globals.css; the dark colours are kept under `:root.dark`, unused, in case a theme switch is wanted).
   Checked in the browser with dark mode on: sign-in and My overview light. The Admin panel's dark green sidebar
