@@ -5,18 +5,15 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
-- **Master template version 2: the app is ready, the workbook isn't yet.** Needs fixing in Excel (whoever
-  maintains it), then upload in Admin panel → Master templates (check first: `npx jiti scripts/check-template-v2.mts`):
-  1. Master Budget rate/amount units (the upload refuses until fixed): F42, F55, F82 are `=G/E` (crores per acre)
-     and need `*10000000` like F5; G93 (OSBL sub-line) is in rupees: make it `INDEX(…)/10000000` and G92 `=G93`.
-  2. Delete Master Budget columns K–M (they read other people's files: Dream Estate DD_R3, two Sonipat concept files).
-  3. Electrical LT Cable: unit "Rmt" → "Acre"; MMR formula divides by G33 instead of the acre.
-  4. Fire Fighting Lines, Pumps, OWC have a quantity but no NCR rate in the sample.
-  5. "Hard Rock %" returns the text "3%" (make it a number); leftover work notes in Project Inputs F53/H38/H53;
-     typos "Signanges", "Undergound"; check Signage/Street Furniture MMR (look swapped).
-  Comparison lists (real rates, git-ignored): `_legacy/compare/rates_current_vs_version2.csv`, `inputs_…csv`.
-  When it's current, open drafts on the old template get "Move to the new template"; 12 new fields start from the
-  workbook's sample values (Project Duration, Terrain Type, Saucer Drain, …), so Base Line should look them over.
+- **Master template version 2 goes in as it is** (user's decision 2026-11-25; corrections are for Parth to make in
+  the master Excel, emailed to him). Upload `D:DownloadsNeoLiv_Master_Budget_template_20261102-1146_version_2.xlsx`
+  in Admin panel → Master templates after this change is pushed: it passes with one warning (5 mixed-unit lines,
+  shown right in the app). Then "Add and make current": new projects start on it, open drafts get "Move to the new
+  template" (12 new fields start from the workbook's sample values). Waiting on Parth's corrected Excel: units in
+  Master Budget F42/F55/F82 (×10000000) and row 93 (G93 ÷10000000, G92 = G93, F93 ×10000000); delete Master Budget
+  K–N and Q41/R41 (links to Dream Estate DD_R3 / Sonipat files); LT Cable unit Acre and MMR ÷ acre, MMR cable rates
+  H35:H42 blank; NCR rates for Fire Fighting Lines, Pumps, OWC; Hard Rock % as a number; Signage / Street Furniture
+  MMR swapped?; work notes F53/H38/H53; typos "Signanges", "Undergound". Comparison lists: `_legacy/compare/*.csv`.
 - **Move everything to Microsoft Azure** (user's decision 2026-11-18: company IT standard). Hosting, database, files,
   sign-in, live updates and email all on Azure; Vercel and Supabase retired afterwards. Plan presented in chat,
   waiting for the user's OK on the open choices and for IT to provide the Azure resources. Nothing built yet.
@@ -53,6 +50,10 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-25
 
+- **Version 2 accepted as it is** (the user didn't want a corrected copy; the copy I'd made was deleted): lines mixing ₹
+  and ₹ Cr are now a warning, not a refusal. Each is classed from the sample (amount ≥ 1,000 → still in ₹, else the
+  rate is in ₹ Cr) and kept in `model.rupeeAmountRows` / `croreRateRows`; the app shows them in the right units.
+  The original file passes check-template-v2 (one warning). Form: Hard Rock % shown as a percentage.
 - **Version-2 master workbook supported** (user said "build it"; plan agreed: tab renamed Project Inputs, the
   workbook's colour key decides what's typed vs calculated, its notes shown read-only, done before the Azure move):
   - A template now says where its inputs are (`inputSheet`): Assumptions (older) or Project Inputs (version 2).

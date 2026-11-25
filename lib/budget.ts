@@ -112,12 +112,17 @@ export function marks(master: MasterRow[]): Marks {
   return out;
 }
 
-/** Version 2's Master Budget has its amounts (column G) in ₹ crore, rates (F) still in rupees. The app works in
- *  rupees, with only the cost of construction block (CRORE_LABELS) in crores, as the earlier workbooks had it.
- *  The template check refuses a workbook whose lines mix the two (amountUnitProblems). */
-function amountsInRupees(master: MasterRow[]) {
+/** Version 2's Master Budget has its amounts (column G) in ₹ crore, rates (F) in rupees. The app works in rupees,
+ *  with only the cost of construction block (CRORE_LABELS) in crores, as the earlier workbooks had it. Lines the
+ *  template check found in the other unit (model.rupeeAmountRows / croreRateRows, to be fixed in Excel) are put
+ *  right here too. */
+function amountsInRupees(m: Model, master: MasterRow[]) {
   const crore = marks(master).crore;
-  for (const r of master) if (isNum(r.c[5]) && r.c[5] !== 0 && !crore.has(r.row)) r.c[5] = r.c[5] * 1e7;
+  const rupeeRows = new Set((m.rupeeAmountRows as number[] | undefined) ?? []), croreRates = new Set((m.croreRateRows as number[] | undefined) ?? []);
+  for (const r of master) {
+    if (isNum(r.c[5]) && r.c[5] !== 0 && !crore.has(r.row) && !rupeeRows.has(r.row)) r.c[5] = r.c[5] * 1e7;
+    if (croreRates.has(r.row) && isNum(r.c[4])) r.c[4] = r.c[4] * 1e7;
+  }
   marksCache.delete(master);
 }
 
@@ -136,7 +141,7 @@ export function amountUnitProblems(master: MasterRow[]) {
 export function snapshot(m: Model, inputs: Record<string, unknown>, rates: Record<string, unknown> = {}): Snapshot {
   const eng = engineFor(m, inputs, rates);
   const master = m.layout.map(({ row, hidden }) => ({ row, hidden, c: ["B", "C", "D", "E", "F", "G"].map((col) => plain(eng.value("Master Budget", col + row))) }));
-  if (m.amounts === "crore") amountsInRupees(master);
+  if (m.amounts === "crore") amountsInRupees(m, master);
   const calc: Record<string, CellValue> = {};
   const sheet = inputSheetOf(m);
   for (const sec of m.sections) for (const f of sec.fields) {

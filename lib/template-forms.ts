@@ -51,7 +51,7 @@ export const V2_SECTIONS: Section[] = [
   ] },
   { title: "Roadworks", fields: [
     ...roads,
-    { cell: "C30", label: "Hard Rock %", kind: "calc", note: "From the location" },
+    { cell: "C30", label: "Hard Rock %", kind: "calc", fmt: "percent", note: "From the location" },
     { cell: "C31", label: "Soft Soil %", kind: "calc", fmt: "percent" },
     { cell: "C32", label: "Size of Kerb Stone", kind: "select", options: ["Kerb - 250 mm", "Kerb - 375 mm", "Kerb - 500 mm"] },
     { cell: "C33", label: "Saucer Drain", kind: "select", options: ["Single Side", "Both Side"] },
@@ -93,7 +93,7 @@ export const V2_SECTIONS: Section[] = [
     { cell: `${AI}C35`, label: "Irrigation Area", kind: "number", unit: "Sqm", optional: true },
     { cell: `${AI}C36`, label: "Water Supply OSBL", kind: "number", unit: "Rmt", optional: true },
     { cell: `${AI}C37`, label: "Sluice Valve Chamber", kind: "calc", unit: "Nos", note: "75 × 75 × 120 cm, one per 80 m of road" },
-    { cell: `${AI}C38`, label: "STP Placement", kind: "select", optional: true, options: ["Undergound", "Above Ground"] },
+    { cell: `${AI}C38`, label: "STP Placement", kind: "select", optional: true, options: ["Underground", "Above Ground"] },
   ] },
   { title: "Electricals", fields: [
     { cell: "C60", label: "Substation", kind: "calc", unit: "KVA", note: "Same as Electrical Substation" },

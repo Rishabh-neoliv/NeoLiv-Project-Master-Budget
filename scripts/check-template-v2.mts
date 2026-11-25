@@ -41,15 +41,16 @@ check(`every formula recalculates like Excel (${rc.checked})`, !rc.diffs.length,
 const snap = snapshot(m, m.defaults);
 const gtRow = marks(snap.master).gt, excelGT = wb.cells["Master Budget"]?.[`G${gtRow}`]?.v;
 check("grand total of the sample = Excel's", typeof excelGT === "number" && snap.grandTotal !== null && Math.abs(snap.grandTotal - excelGT) < 1e-6, `app ${snap.grandTotal?.toFixed(4)} Cr, Excel ${typeof excelGT === "number" ? excelGT.toFixed(4) : excelGT} Cr`);
+// lines mixing ₹ and ₹ Cr are accepted (listed as a warning above, to fix in Excel) and shown in the right units
 const raw = m.layout.map(({ row }) => ({ row, hidden: false, c: ["B", "C", "D", "E", "F", "G"].map((c) => (wb.cells["Master Budget"]?.[c + row]?.v ?? null) as never) }));
 const units = m.amounts === "crore" ? amountUnitProblems(raw) : [];
-check("Master Budget lines all in ₹ Cr with rupee rates", !units.length, units.slice(0, 6).join(", "));
-// every line the app shows = Excel's amount (× 1 crore where the app keeps rupees)
-const crore = marks(snap.master).crore;
+console.log(`     ${units.length ? `to fix in Excel (mixed units): ${units.join(", ")}` : "every line in ₹ Cr with rupee rates"}`);
+// every line the app shows = Excel's amount (× 1 crore where the app keeps rupees and Excel has crores)
+const crore = marks(snap.master).crore, rupeeRows = new Set((m.rupeeAmountRows as number[] | undefined) ?? []);
 const off = snap.master.filter((r) => {
   const x = wb.cells["Master Budget"]?.[`G${r.row}`]?.v, a = r.c[5];
   if (typeof x !== "number" || typeof a !== "number") return false;
-  const want = m.amounts === "crore" && !crore.has(r.row) ? x * 1e7 : x;
+  const want = m.amounts === "crore" && !crore.has(r.row) && !rupeeRows.has(r.row) ? x * 1e7 : x;
   return Math.abs(a - want) > 1e-6 * Math.max(1, Math.abs(want));
 });
 check(`every Master Budget line as Excel's (${snap.master.length} rows)`, !off.length, off.slice(0, 6).map((r) => `row ${r.row}`).join(", "));

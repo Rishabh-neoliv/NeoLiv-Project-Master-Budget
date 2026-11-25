@@ -295,18 +295,24 @@ export function buildModel(prev: TplModel, wb: ParsedWorkbook, source: string): 
     }) }));
   }
 
-  // amounts in ₹ crore (version 2: "Amount (₹ Cr)"); every line must then have its amount in crores and its rate in
-  // rupees, or the app would show it 1 crore times too big or too small
+  // amounts in ₹ crore (version 2: "Amount (₹ Cr)"), rates in rupees. A line whose amount is quantity × rate
+  // without the crore has one of the two in the other unit: an amount of 1,000 or more is still in rupees (no line
+  // is ₹1,000 Cr), otherwise its rate is in crores. The workbook is accepted as it is (the user's decision,
+  // 2026-11-25): those lines are listed to fix in Excel, and shown in the right units meanwhile (lib/budget.ts).
   const amounts = /\bCr\b/.test(String(mb.G4?.v ?? "")) ? "crore" : undefined;
+  const rupeeAmountRows: number[] = [], croreRateRows: number[] = [];
   if (amounts) {
     const num = (a: string) => { const v = mb[a]?.v; return typeof v === "number" ? v : null; };
     const bad: string[] = [];
     for (const { row } of layout) {
       const q = num("E" + row), r = num("F" + row), amt = num("G" + row);
       if (q === null || r === null || amt === null || q * r === 0 || amt === 0) continue;
-      if (Math.abs(amt / (q * r) - 1) < 0.01) bad.push(`row ${row} (${String(mb["C" + row]?.v ?? mb["B" + row]?.v ?? "").trim()})`);
+      if (Math.abs(amt / (q * r) - 1) >= 0.01) continue;
+      const rupees = Math.abs(amt) >= 1000;
+      (rupees ? rupeeAmountRows : croreRateRows).push(row);
+      bad.push(`row ${row} (${String(mb["C" + row]?.v ?? mb["B" + row]?.v ?? "").trim()}: ${rupees ? "amount in ₹, should be ₹ Cr" : "rate in ₹ Cr, should be ₹"})`);
     }
-    if (bad.length) errors.push(`The Master Budget is in ₹ Cr, but ${bad.length} line(s) work out quantity × rate without dividing by 1 crore (an amount still in rupees, or a rate in crores): ${bad.slice(0, 6).join(", ")}. Fix those formulas so the amount is in ₹ Cr and the rate in ₹.`);
+    if (bad.length) warnings.push(`The Master Budget is in ₹ Cr, but ${bad.length} line(s) mix units: ${bad.join("; ")}. The app shows them in the right units; fix the formulas in Excel when you can.`);
   }
 
   // version 2's "Assumptions" sheet is notes: what each item's cost considers ("Trees: every 9 m c/c on both sides")
@@ -327,6 +333,7 @@ export function buildModel(prev: TplModel, wb: ParsedWorkbook, source: string): 
     ...prev, source, sections, defaults, layout, rates, exported: label, templateModified: label,
     external: wb.external.filter((k) => { const i = k.lastIndexOf("!"); return !!kept[k.slice(0, i)]?.[k.slice(i + 1)]; }), cells: kept, stamp,
     ...(amounts ? { amounts } : {}), ...(notes ? { notes } : {}),
+    ...(rupeeAmountRows.length ? { rupeeAmountRows } : {}), ...(croreRateRows.length ? { croreRateRows } : {}),
   };
   return { model, errors, warnings };
 }
