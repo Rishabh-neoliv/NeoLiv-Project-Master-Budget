@@ -29,6 +29,12 @@ export interface Model {
   layout: { row: number; hidden: boolean }[];
   rates?: unknown[];
   cells: Record<string, Record<string, { v?: unknown; f?: string }>>;
+  /** where the plain input cells are (inputSheetOf): "Assumptions" if missing; version 2: "Project Inputs" */
+  inputSheet?: string;
+  /** "crore" when the Master Budget's amounts are in ₹ crore (version 2) */
+  amounts?: string;
+  /** the master workbook's own notes (version 2's Assumptions sheet), shown beside the inputs */
+  notes?: { area: string; item: string; text: string }[];
   [k: string]: unknown;
 }
 export interface MasterRow { row: number; hidden: boolean; c: CellValue[] }
@@ -45,24 +51,37 @@ export const isNum = (v: unknown): v is number => typeof v === "number" && Numbe
 export const isErrV = (v: unknown): v is { e: string } => !!v && typeof v === "object" && "e" in (v as object);
 const plain = (v: unknown): CellValue => (isErr(v) ? { e: v.code } : (v as CellValue));
 
+/** The sheet a template's plain input cells ("C8") are on: "Assumptions" until the master workbook of 25 Nov 2026
+ *  ("version 2"), which moved them to "Project Inputs" (and uses "Assumptions" for notes). Cells on other sheets
+ *  are always named in full ("Additional Inputs!C6"). */
+export const inputSheetOf = (m: { inputSheet?: unknown }) => (typeof m.inputSheet === "string" && m.inputSheet ? m.inputSheet : "Assumptions");
+export const inputKey = (m: { inputSheet?: unknown }, cell: string) => (cell.includes("!") ? cell : `${inputSheetOf(m)}!${cell}`);
+/** A sheet name as a formula writes it: quoted when it has spaces or symbols ('Project Inputs'!B21). */
+export const sheetRef = (sheet: string) => (/^[A-Za-z_][\w.]*$/.test(sheet) ? sheet : `'${sheet.replace(/'/g, "''")}'`);
+
 export function engineFor(m: Model, inputs: Record<string, unknown>, rates: Record<string, unknown> = {}) {
   const eng = new BudgetEngine(m);
   const keyed: Record<string, unknown> = {};
-  // "C8" belongs to Assumptions; "Additional Inputs!C6" names its sheet
-  for (const [k, v] of Object.entries(inputs)) keyed[k.includes("!") ? k : "Assumptions!" + k] = v;
+  for (const [k, v] of Object.entries(inputs)) keyed[inputKey(m, k)] = v;
   Object.assign(keyed, rates || {});
   eng.setInputs(keyed);
   return eng;
 }
 
-// "Roadwork!E8" or "C12" (Assumptions)
-export function readRef(eng: InstanceType<typeof BudgetEngine>, ref: string) {
+// "Roadwork!E8", or "C12" on the template's input sheet
+export function readRef(eng: InstanceType<typeof BudgetEngine>, ref: string, inputSheet = "Assumptions") {
   const i = ref.lastIndexOf("!");
-  return i < 0 ? eng.value("Assumptions", ref) : eng.value(ref.slice(0, i).replace(/^'|'$/g, ""), ref.slice(i + 1));
+  return i < 0 ? eng.value(inputSheet, ref) : eng.value(ref.slice(0, i).replace(/^'|'$/g, ""), ref.slice(i + 1));
 }
 
-// Master Budget landmarks are found by their labels: row numbers differ between template versions.
+/** Sheets renamed between master workbooks (old name → new name), so project rates and comparisons follow them. */
+export const SHEET_RENAMES: Record<string, string> = { Roadwork: "Roadworks" };
+export const sheetNow = (s: string) => SHEET_RENAMES[s] ?? s;
+
+// Master Budget landmarks are found by their labels: row numbers differ between template versions. Version 2 added
+// letters to some ("INFRA COST - TOTAL (A)", "TOTAL COC (A + B)"); they're ignored when matching.
 const CRORE_LABELS = new Set(["Infra Cost/ Acre", "Non Infra Cost/ Acre", "Retaining Wall + Plot Levelling Cost/ Acre", "OSBL Cost/ Acre", "TOTAL COC", "Cost/ Acre", "ADD: 5% for Contingencies", "GRAND TOTAL - COC"]);
+const landmark = (s: string) => s.replace(/\s*\([A-Z](?:\s*\+\s*[A-Z])*\)\s*$/, "").trim();
 export interface Marks { gt: number | null; infra: number | null; noninfra: number | null; coc: number | null; cpa: number | null; crore: Set<number>; divider: number | null; acre: CellValue | null }
 const marksCache = new WeakMap<MasterRow[], Marks>();
 
@@ -79,7 +98,7 @@ export function rowKind(r: MasterRow): "skip" | "total" | "head" | "item" {
 export function marks(master: MasterRow[]): Marks {
   const hit = marksCache.get(master);
   if (hit) return hit;
-  const lab = (r: MasterRow) => (typeof r.c[0] === "string" ? r.c[0].trim() : "");
+  const lab = (r: MasterRow) => (typeof r.c[0] === "string" ? landmark(r.c[0]) : "");
   const find = (l: string) => master.find((r) => lab(r) === l)?.row ?? null;
   const gt = find("GRAND TOTAL - COC"), infra = find("INFRA COST - TOTAL"), noninfra = find("Non Infra - TOTAL"), coc = find("TOTAL COC");
   const out: Marks = {
@@ -93,13 +112,36 @@ export function marks(master: MasterRow[]): Marks {
   return out;
 }
 
+/** Version 2's Master Budget has its amounts (column G) in ₹ crore, rates (F) still in rupees. The app works in
+ *  rupees, with only the cost of construction block (CRORE_LABELS) in crores, as the earlier workbooks had it.
+ *  The template check refuses a workbook whose lines mix the two (amountUnitProblems). */
+function amountsInRupees(master: MasterRow[]) {
+  const crore = marks(master).crore;
+  for (const r of master) if (isNum(r.c[5]) && r.c[5] !== 0 && !crore.has(r.row)) r.c[5] = r.c[5] * 1e7;
+  marksCache.delete(master);
+}
+
+/** Lines of a ₹-crore Master Budget whose amount isn't quantity × rupee rate ÷ 1 crore but quantity × rate (an
+ *  amount still in rupees, or a rate in crores). Checked on the workbook's own sample values. */
+export function amountUnitProblems(master: MasterRow[]) {
+  const out: string[] = [];
+  for (const r of master) {
+    const [, item, , qty, rate, amt] = r.c;
+    if (!isNum(qty) || !isNum(rate) || !isNum(amt) || qty * rate === 0 || amt === 0) continue;
+    if (Math.abs((amt * 1e7) / (qty * rate) / 1e7 - 1) < 0.01) out.push(`row ${r.row} (${String(item ?? r.c[0] ?? "").trim()})`);
+  }
+  return out;
+}
+
 export function snapshot(m: Model, inputs: Record<string, unknown>, rates: Record<string, unknown> = {}): Snapshot {
   const eng = engineFor(m, inputs, rates);
   const master = m.layout.map(({ row, hidden }) => ({ row, hidden, c: ["B", "C", "D", "E", "F", "G"].map((col) => plain(eng.value("Master Budget", col + row))) }));
+  if (m.amounts === "crore") amountsInRupees(master);
   const calc: Record<string, CellValue> = {};
+  const sheet = inputSheetOf(m);
   for (const sec of m.sections) for (const f of sec.fields) {
-    if (f.kind === "calc") calc[f.cell] = plain(readRef(eng, f.cell));
-    for (const k of ["detail", "unit_cell", "length"] as const) { const ref = f[k]; if (typeof ref === "string") calc[ref] = plain(readRef(eng, ref)); }
+    if (f.kind === "calc") calc[f.cell] = plain(readRef(eng, f.cell, sheet));
+    for (const k of ["detail", "unit_cell", "length"] as const) { const ref = f[k]; if (typeof ref === "string") calc[ref] = plain(readRef(eng, ref, sheet)); }
   }
   const g = (r: number | null) => master.find((x) => x.row === r)?.c[5];
   const mk = marks(master);
@@ -231,10 +273,10 @@ export const rateName = (m: Model, ref: string) => { const r = rateIndex(m).find
 export function migrateRates(fromM: Model, toM: Model, rates: Record<string, unknown>) {
   if (!rates || fromM.stamp === toM.stamp) return { ...(rates || {}) };
   const where: Record<string, string> = {};
-  for (const r of rateIndex(fromM)) for (const [loc, ref] of Object.entries(r.cells)) where[ref] = `${r.sheet}|${r.item}|${loc}`;
+  for (const r of rateIndex(fromM)) for (const [loc, ref] of Object.entries(r.cells)) where[ref] = `${sheetNow(r.sheet)}|${r.item}|${loc}`;
   const target: Record<string, string> = {}, seen: Record<string, number> = {};
   for (const r of rateIndex(toM)) for (const [loc, ref] of Object.entries(r.cells)) {
-    const k = `${r.sheet}|${r.item}|${loc}`; seen[k] = (seen[k] || 0) + 1; if (seen[k] === 1) target[k] = ref;
+    const k = `${sheetNow(r.sheet)}|${r.item}|${loc}`; seen[k] = (seen[k] || 0) + 1; if (seen[k] === 1) target[k] = ref;
   }
   const out: Record<string, unknown> = {};
   for (const [ref, v] of Object.entries(rates)) { const k = where[ref]; if (k && target[k]) out[target[k]] = v; }
@@ -247,19 +289,20 @@ export function migrateInputs(fromM: Model, toM: Model, inputs: Record<string, u
   for (const sec of fromM.sections) for (const f of sec.fields) if (f.kind !== "calc" && f.cell in inputs) { byLabel[f.label] = inputs[f.cell]; unitOf[f.label] = f.unit; }
   const oldRoadType = byLabel["Road Type"]; // the original template had one road type for all roads
   const out: Record<string, CellValue> = { ...toM.defaults };
-  const moved: string[] = [], dropped: string[] = [];
+  const moved: string[] = [], dropped: string[] = [], fresh: string[] = [];
   for (const sec of toM.sections) for (const f of sec.fields) {
     if (f.kind === "calc") continue;
     let v = f.label in byLabel ? byLabel[f.label] : undefined;
     if (v === undefined && f.group === "roads" && oldRoadType !== undefined && toM.defaults[f.cell] !== "No") v = oldRoadType;
-    if (v === undefined) continue;
+    // a field the old template didn't have keeps the new template's sample value: worth a look before submitting
+    if (v === undefined) { if (!(f.label in byLabel) && !f.group) fresh.push(f.label); continue; }
     if (v === null) { if (f.optional) out[f.cell] = null; continue; }
     if (isNum(v) && unitOf[f.label] === "Sqm" && f.unit === "Sq.Ft") v = Math.round(v * 10.7639 * 100) / 100;
     if (f.kind === "select" && f.options && !f.options.map(String).includes(String(v))) { dropped.push(f.label); continue; }
     out[f.cell] = v as CellValue;
     moved.push(f.label);
   }
-  return { inputs: out, moved, dropped };
+  return { inputs: out, moved, dropped, fresh };
 }
 
 /** A new project's starting inputs: everything empty for the team to fill in (not the master workbook's sample

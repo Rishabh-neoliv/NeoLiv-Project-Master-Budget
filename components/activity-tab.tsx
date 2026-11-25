@@ -1,7 +1,7 @@
 "use client";
 // The Activity tab: every step, with the fields each save changed (from → to) and where applied values came
 // from. "Field history" narrows it to one input: who changed it, when, and from what to what. Each person's entries
-// are in their own colour (the same colour marks their changes on the Assumptions and Rates tabs), and the list can
+// are in their own colour (the same colour marks their changes on the Project Inputs and Rates tabs), and the list can
 // be narrowed to one person.
 import { useMemo, useState } from "react";
 import { Initials } from "@/components/initials";

@@ -8,13 +8,13 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import JSZip from "jszip";
 import { z } from "zod";
-import type { CellValue, Field, Model } from "@/lib/budget";
+import { inputSheetOf, type CellValue, type Field, type Model } from "@/lib/budget";
 import type { Extraction, FieldSuggestion } from "@/lib/extraction";
-import { isBudgetWorkbook, readWorkbook, workbookAsText, type Workbook } from "./xlsx-read";
+import { budgetInputSheet, isBudgetWorkbook, readWorkbook, workbookAsText, type Workbook } from "./xlsx-read";
 
 const MODEL = "claude-opus-5-5";
 const inputFields = (m: Model) => m.sections.flatMap((s) => s.fields.map((f) => ({ ...f, section: s.title }))).filter((f) => f.kind !== "calc");
-const sheetAndAddr = (cell: string): [string, string] => { const i = cell.lastIndexOf("!"); return i < 0 ? ["Assumptions", cell] : [cell.slice(0, i), cell.slice(i + 1)]; };
+const sheetAndAddr = (m: Model, cell: string): [string, string] => { const i = cell.lastIndexOf("!"); return i < 0 ? [inputSheetOf(m), cell] : [cell.slice(0, i), cell.slice(i + 1)]; };
 
 /** Make a value fit the field (percent as a fraction, numbers as numbers, drop-down values as offered). */
 export function coerce(f: Field, raw: unknown): CellValue | undefined {
@@ -39,18 +39,27 @@ export function coerce(f: Field, raw: unknown): CellValue | undefined {
 export function exactFromWorkbook(m: Model, wb: Workbook, fileName: string): Extraction {
   const suggestions: FieldSuggestion[] = [];
   const skipped: string[] = [];
+  const title = String(wb.cell("Master Budget", "B1") ?? "").trim();
+  // a workbook in the other input layout (Assumptions vs version 2's Project Inputs) has its inputs in other cells
+  const theirs = budgetInputSheet(wb), ours = inputSheetOf(m);
+  if (theirs !== ours) {
+    return {
+      method: "exact", doc_type: "Master Budget workbook", summary: `${title || fileName}: a Master Budget workbook in the ${theirs === "Project Inputs" ? "newer" : "older"} input layout (inputs on ${theirs}).`,
+      relevant: true, relevance_note: "", suggestions: [], decisions: [],
+      notes: [`This project's template keeps its inputs on ${ours}, so the values can't be read cell by cell. Move the draft to the matching master template first, or copy the values by hand.`],
+    };
+  }
   for (const f of inputFields(m)) {
-    const [sheet, addr] = sheetAndAddr(f.cell);
+    const [sheet, addr] = sheetAndAddr(m, f.cell);
     const raw = wb.cell(sheet, addr);
     if (raw === null) continue;
     const v = coerce(f, raw);
     if (v === undefined) { skipped.push(`${f.label} (${f.cell}): “${raw}” isn't a value this template accepts`); continue; }
     suggestions.push({ cell: f.cell, label: f.label, value: v, source: `${sheet}!${addr}`, confidence: "exact" });
   }
-  const title = String(wb.cell("Master Budget", "B1") ?? "").trim();
   return {
     method: "exact", doc_type: "Master Budget workbook",
-    summary: `${title || fileName}: ${suggestions.length} input values read from the Assumptions and Additional Inputs sheets.`,
+    summary: `${title || fileName}: ${suggestions.length} input values read from the ${ours} and Additional Inputs sheets.`,
     relevant: true, relevance_note: "", suggestions, decisions: [],
     notes: skipped.length ? [`Not read (${skipped.length}): ${skipped.slice(0, 6).join("; ")}${skipped.length > 6 ? " …" : ""}`] : [],
   };

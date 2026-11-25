@@ -1,10 +1,10 @@
 "use client";
-// The Assumptions inputs, section by section, with each field's Excel cell beside it. Road lines are one
+// The project inputs (the Project Inputs tab), section by section, with each field's Excel cell beside it. Road lines are one
 // table (width, road type, measurements). Calculated fields update as you type.
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import engineApi from "@/lib/engine/budget-engine";
-import { fmtCalc, fmtInput, inr, isNum, lineKey, parseInput, type CellValue, type Field, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
+import { fmtCalc, fmtInput, inputKey, inputSheetOf, inr, isNum, lineKey, parseInput, sheetRef, type CellValue, type Field, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
 import { tint, type Authored } from "@/lib/changes";
 import { fmtDateTime } from "@/lib/dates";
 
@@ -33,7 +33,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // Which road types the master Excel can cost (> ₹ 0) for each road line, given location and that line's measurements.
 const availCache = new Map<string, Set<string>>();
 function roadLineRow(m: Model, f: Field) {
-  const ref = "Assumptions!B" + f.cell.slice(1) + ",";
+  // the Master Budget line whose quantity formula reads this road line's width: LET(w, 'Project Inputs'!B21, …)
+  const ref = `${sheetRef(inputSheetOf(m))}!B${f.cell.slice(1)},`;
   const hit = Object.entries(m.cells["Master Budget"] || {}).find(([a, c]) => a.startsWith("E") && c.f && c.f.includes(ref));
   return hit ? hit[0].slice(1) : null;
 }
@@ -57,7 +58,7 @@ function roadAvailability(m: Model, inputs: Inputs) {
         // types this location and width can cost are offered before the length is typed
         for (const c of mine) if (c.col === "len" && !(isNum(vals[c.cell]) && (vals[c.cell] as number) > 0)) vals[c.cell] = 100;
         const k: Record<string, unknown> = {};
-        for (const [c, v] of Object.entries(vals)) k[c.includes("!") ? c : "Assumptions!" + c] = v;
+        for (const [c, v] of Object.entries(vals)) k[inputKey(m, c)] = v;
         eng ??= new engineApi.BudgetEngine(m);
         eng.setInputs(k);
         const t = eng.value("Master Budget", "G" + row);
@@ -169,7 +170,9 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, authors
     next[free.cell] = "No";
     for (const c of all.filter((x) => x.group === "roadcol" && x.road === free.cell && x.kind !== "calc")) {
       const same = from && all.find((x) => x.group === "roadcol" && x.road === from.cell && x.col === c.col);
-      next[c.cell] = same && (c.col === "saucer" || c.col === "path") ? draft[same.cell] : null;
+      // saucer drain, pathway and (version 2) the kerb stone multiplier follow the line it was added from; a new
+      // line's kerb multiplier starts from the template's
+      next[c.cell] = same && (c.col === "saucer" || c.col === "path" || c.col === "kerb") ? draft[same.cell] : c.col === "kerb" ? (m.defaults[c.cell] ?? null) : null;
     }
     setShown((s) => new Set(s).add(free.cell));
     onChange(next);
@@ -285,6 +288,17 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, authors
 
   return (
     <div className="grid gap-6">
+      {/* version 2's master workbook keeps notes on what its costs consider; read only, here for reference */}
+      {!!m.notes?.length && (
+        <details className="rounded-xl border border-line bg-sheet px-5 py-3">
+          <summary className="cursor-pointer font-medium">Considerations in the master workbook <span className="text-sm font-normal text-soft">({m.notes.length})</span></summary>
+          <ul className="mt-3 grid gap-2 text-sm">
+            {m.notes.map((n, i) => (
+              <li key={i}><b>{n.area}{n.item ? ` – ${n.item}` : ""}:</b> <span className="whitespace-pre-line text-soft">{n.text}</span></li>
+            ))}
+          </ul>
+        </details>
+      )}
       {m.sections.map((sec) => (
         <section key={sec.title} className="grid gap-3 rounded-xl border border-line bg-sheet p-5">
           <h3 className="text-lg font-semibold">{sec.title}</h3>

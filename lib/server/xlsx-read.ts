@@ -88,6 +88,11 @@ export function workbookAsText(wb: Workbook, maxChars = 200_000) {
   return { text: out, truncated: false };
 }
 
-/** Is this one of our Master Budget workbooks (the app's own export or the master template)? */
-export const isBudgetWorkbook = (wb: Workbook) =>
-  wb.sheets.includes("Assumptions") && wb.sheets.includes("Master Budget") && String(wb.cell("Assumptions", "B8") ?? "").trim().toUpperCase() === "LOCATION";
+/** If this is one of our Master Budget workbooks (the app's own export or a master template), the sheet its inputs
+ *  are on: "Project Inputs" from the version 2 master (25 Nov 2026), "Assumptions" before. Otherwise null. */
+export const budgetInputSheet = (wb: Workbook) => {
+  if (!wb.sheets.includes("Master Budget")) return null;
+  for (const s of ["Project Inputs", "Assumptions"]) if (wb.sheets.includes(s) && String(wb.cell(s, "B8") ?? "").trim().toUpperCase() === "LOCATION") return s;
+  return null;
+};
+export const isBudgetWorkbook = (wb: Workbook) => budgetInputSheet(wb) !== null;

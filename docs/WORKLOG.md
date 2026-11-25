@@ -5,6 +5,21 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
+- **Master template version 2: the app is ready, the workbook isn't yet.** Needs fixing in Excel (whoever
+  maintains it), then upload in Admin panel → Master templates (check first: `npx jiti scripts/check-template-v2.mts`):
+  1. Master Budget rate/amount units (the upload refuses until fixed): F42, F55, F82 are `=G/E` (crores per acre)
+     and need `*10000000` like F5; G93 (OSBL sub-line) is in rupees: make it `INDEX(…)/10000000` and G92 `=G93`.
+  2. Delete Master Budget columns K–M (they read other people's files: Dream Estate DD_R3, two Sonipat concept files).
+  3. Electrical LT Cable: unit "Rmt" → "Acre"; MMR formula divides by G33 instead of the acre.
+  4. Fire Fighting Lines, Pumps, OWC have a quantity but no NCR rate in the sample.
+  5. "Hard Rock %" returns the text "3%" (make it a number); leftover work notes in Project Inputs F53/H38/H53;
+     typos "Signanges", "Undergound"; check Signage/Street Furniture MMR (look swapped).
+  Comparison lists (real rates, git-ignored): `_legacy/compare/rates_current_vs_version2.csv`, `inputs_…csv`.
+  When it's current, open drafts on the old template get "Move to the new template"; 12 new fields start from the
+  workbook's sample values (Project Duration, Terrain Type, Saucer Drain, …), so Base Line should look them over.
+- **Move everything to Microsoft Azure** (user's decision 2026-11-18: company IT standard). Hosting, database, files,
+  sign-in, live updates and email all on Azure; Vercel and Supabase retired afterwards. Plan presented in chat,
+  waiting for the user's OK on the open choices and for IT to provide the Azure resources. Nothing built yet.
 - **Roles + Live/Test build: commit and push** (tested 2026-11-18, migration 0006 is run). After the push, the
   first real Live project is made from Admin panel → Live projects; make sub-admins from Team members.
 - **Directory search when adding a member** (user's idea, 2026-11-18; "not now"): type a name, pick from the NeoLiv
@@ -35,6 +50,26 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - **AI reading of documents** needs `ANTHROPIC_API_KEY` (user: "not now"). Waiting to be read: the
   (09-09-2026) MOM xlsx and the Guidelines PDF (partly scanned). `6071422233.PDF` is an SAP invoice, not a project doc.
 - Projects without a team (10, mostly the imported NCR ones): assign when needed.
+
+## 2026-11-25
+
+- **Version-2 master workbook supported** (user said "build it"; plan agreed: tab renamed Project Inputs, the
+  workbook's colour key decides what's typed vs calculated, its notes shown read-only, done before the Azure move):
+  - A template now says where its inputs are (`inputSheet`): Assumptions (older) or Project Inputs (version 2).
+    Engine keys, the frozen/draft Excel export (inputs written to Project Inputs as constants), exact reading of an
+    uploaded budget workbook (refuses the other layout politely) and the form all follow it. lib/engine unchanged.
+  - lib/template-forms.ts: the version-2 form (138 fields; new Project Duration, Terrain Type, Saucer Drain sides,
+    Kerb stone multiplier per road, STP placement, OSBL MSEDCL distance, Electrical utility space, Chain link
+    fencing, HT cables, Water supply OSBL), expected labels (70) and rate tables. Upload picks it for the first
+    version-2 workbook; drop-down choices come from the workbook's lists.
+  - Import: TRANSPOSE spills turned into plain formulas; Roadwork → Roadworks for rates and moving drafts; ₹ Cr
+    amounts converted to rupees in the app and lines mixing units refused; "INFRA COST - TOTAL (A)" / "TOTAL COC
+    (A + B)" recognised; the workbook's notes kept.
+  - Checks: engine 10/10 old frozen versions, reader 15/15 old templates, the current template's sample and every
+    line unchanged. Version 2 offline: 70 labels, 1,372 formulas = Excel, sample ₹44.2941 Cr = Excel, every line =
+    Excel, old draft moves (66 carried, 12 new), Excel export right. Browser: a throwaway Test project on a
+    non-current copy of version 2 (form, road table, notes, live total, save, Master Budget tab, draft Excel, R0
+    freeze and its Excel re-read); all test data deleted, current template untouched.
 
 ## 2026-11-18
 

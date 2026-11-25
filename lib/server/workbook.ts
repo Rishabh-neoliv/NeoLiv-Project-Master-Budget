@@ -4,7 +4,7 @@
 import "server-only";
 import JSZip from "jszip";
 import workbookApi from "@/lib/engine/workbook";
-import { engineFor, isNum, lineKey, marks, rowKind, type MasterRow } from "@/lib/budget";
+import { engineFor, inputKey, inputSheetOf, isNum, lineKey, marks, rowKind, type MasterRow } from "@/lib/budget";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { loadModel, loadTemplateXlsx, type ProjectRow, type VersionRow } from "./data";
 import { fmtDateTime } from "@/lib/dates";
@@ -23,7 +23,10 @@ async function render(project: Pick<ProjectRow, "id" | "name">, src: Source, all
   const eng = engineFor(m, src.inputs, src.rates);
   const overrides: Record<string, Record<string, unknown>> = {}, asmInputs: Record<string, unknown> = {};
   const put = (ref: string, v: unknown) => { const i = ref.lastIndexOf("!"); (overrides[ref.slice(0, i)] ||= {})[ref.slice(i + 1)] = v; };
-  for (const [ref, v] of Object.entries(src.inputs)) if (ref.includes("!")) put(ref, v); else asmInputs[ref] = v;
+  // plain cells ("C8") are on the template's input sheet; the Excel builder writes Assumptions inputs itself, any
+  // other sheet's (version 2's Project Inputs) as constants like the rate overrides
+  const onAssumptions = inputSheetOf(m) === "Assumptions";
+  for (const [ref, v] of Object.entries(src.inputs)) if (ref.includes("!")) put(ref, v); else if (onAssumptions) asmInputs[ref] = v; else put(inputKey(m, ref), v);
   for (const [ref, v] of Object.entries(src.rates || {})) put(ref, v);
 
   put("Master Budget!B1", `${project.name.toUpperCase()} - MASTER BUDGET - ${src.title.toUpperCase()}`);

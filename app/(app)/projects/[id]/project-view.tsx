@@ -182,7 +182,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
       if (out) { setDirty(false); toast.success(rev === 0 ? `R0 submitted to ${dn(to)} and frozen as the Base Line.` : `R${rev} draft sent to ${dn(to)}.`); }
     } else {
       if (pending.a.needsComment && !comment.trim()) return void toast.error("Please add a comment first.");
-      if (dirty && !window.confirm("You have unsaved changes on the Assumptions tab. Continue without saving them?")) return;
+      if (dirty && !window.confirm("You have unsaved changes on the Project Inputs tab. Continue without saving them?")) return;
       const out = await call(`/api/projects/${p.id}/action`, "POST", { key: pending.a.key, comment });
       if (out) toast.success(actionLabel(pending.a, p.last_rev) + " – done.");
     }
@@ -230,7 +230,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
 
   const memberCount = new Set(team.map((t) => t.user_id)).size;
   const rateCount = Object.keys((shownVersion ? shownVersion.rates : p.rates) || {}).length;
-  const tabs: [Tab, string][] = [["assumptions", "Assumptions"], ["budget", "Master Budget"], ["rates", `Rates${rateCount ? ` (${rateCount} changed)` : ""}`], ["analysis", "Rate analysis"], ["files", `Files (${data.files.length})`], ["revisions", `Revisions (${versions.length})`], ["team", `Team (${memberCount})`], ["activity", "Activity"]];
+  const tabs: [Tab, string][] = [["assumptions", "Project Inputs"], ["budget", "Master Budget"], ["rates", `Rates${rateCount ? ` (${rateCount} changed)` : ""}`], ["analysis", "Rate analysis"], ["files", `Files (${data.files.length})`], ["revisions", `Revisions (${versions.length})`], ["team", `Team (${memberCount})`], ["activity", "Activity"]];
   const submitTo = SUBMIT_TO[editDept(p.status)]?.[0];
   const peopleIn = (d: string) => team.filter((t) => t.dept === d).map((t) => t.name || t.email);
 
@@ -409,7 +409,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
               : <a className="font-medium text-brand hover:underline" href={`/api/projects/${p.id}/draft/excel`}>Download the R{rev} draft as Excel</a>}
             {!shownVersion && dirty && <span className="text-sm text-amber">The download has the draft as last saved. Save first to include your changes.</span>}
           </div>
-          {missing.length > 0 && <div className="rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-info">The draft still has {missing.length} empty input(s), so some lines can&apos;t be worked out yet. Fill them in on the Assumptions tab.</div>}
+          {missing.length > 0 && <div className="rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-info">The draft still has {missing.length} empty input(s), so some lines can&apos;t be worked out yet. Fill them in on the Project Inputs tab.</div>}
           <BudgetTable master={snap.master} baseline={baseline} title={`Master Budget – R${shownRev}${shownVersion ? "" : " draft"}`} />
         </div>
       )}

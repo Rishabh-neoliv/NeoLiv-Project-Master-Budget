@@ -1,8 +1,9 @@
 // Master templates: checking a newly uploaded master workbook against the current one, and adding it.
 // The workbook goes to the private "templates" bucket; its model (formulas, values, rate rows) to the templates table.
 import "server-only";
-import { isNum, rateIndex, snapshot, type Model } from "@/lib/budget";
-import { buildModel, formChanges, parseWorkbook, recalcCheck, type TplModel } from "@/lib/template-import";
+import { inputSheetOf, isNum, migrateInputs, rateIndex, sheetNow, snapshot, type Model } from "@/lib/budget";
+import { anchorChanges, buildModel, formChanges, layoutOf, parseWorkbook, recalcCheck, type TplModel } from "@/lib/template-import";
+import { V2_ANCHORS, v2Base } from "@/lib/template-forms";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { HttpError, loadTemplateXlsx } from "./data";
 
@@ -30,13 +31,18 @@ export async function checkTemplate(db: Db, bytes: Uint8Array, source: string): 
   const cur = await currentTemplate(db);
   let wb;
   try { wb = await parseWorkbook(bytes); } catch { throw new HttpError(400, "That file couldn't be opened as an Excel workbook (.xlsx)."); }
-  const prevWb = await parseWorkbook(await loadTemplateXlsx(cur.stamp));
-  const { model, errors, warnings } = buildModel(cur.model as unknown as TplModel, wb, source);
+  // which form the workbook is built on: the current template's, or (the first version-2 workbook, inputs on
+  // "Project Inputs") the version-2 form defined in lib/template-forms.ts
+  const layout = layoutOf(wb), curV2 = (cur.model as unknown as TplModel).sheetLayout === "V2";
+  if (!layout) throw new HttpError(400, "This doesn't look like a master budget workbook: neither Project Inputs nor Assumptions has “LOCATION” in B8.");
+  if (layout === "V1" && curV2) throw new HttpError(400, "This workbook has the older input layout (inputs on the Assumptions sheet), but the current master template is version 2 (inputs on Project Inputs). Upload a version-2 workbook.");
+  const base = layout === "V2" && !curV2 ? (v2Base() as unknown as TplModel) : (cur.model as unknown as TplModel);
+  const { model, errors, warnings } = buildModel(base, wb, source);
 
-  // the input form is set up for the current layout of the input sheets
-  const moved = formChanges(cur.model as unknown as TplModel, prevWb, wb);
+  // the input form writes into fixed cells: they must still hold what the form expects
+  const moved = layout === "V2" ? anchorChanges(V2_ANCHORS, wb) : formChanges(cur.model as unknown as TplModel, await parseWorkbook(await loadTemplateXlsx(cur.stamp)), wb);
   if (moved.length) errors.push(`The input sheets' layout changed (${moved.length} label(s) moved, added or renamed), e.g. ${moved.slice(0, 4).join("; ")}. `
-    + "The Assumptions form would write into the wrong cells, so this template needs the form updated by the developer first.");
+    + "The input form would write into the wrong cells, so this template needs the form updated by the developer first.");
 
   // the app's engine must give exactly what Excel gives, cell by cell
   const rc = errors.length ? { checked: 0, diffs: [] } : recalcCheck(model);
@@ -51,7 +57,7 @@ export async function checkTemplate(db: Db, bytes: Uint8Array, source: string): 
     const keyed = (list: ReturnType<typeof rateIndex>) => {
       const seen = new Map<string, number>();
       return new Map(list.map((r) => {
-        const k = `${r.sheet}|${r.item}`, n = (seen.get(k) ?? 0) + 1;
+        const k = `${sheetNow(r.sheet)}|${r.item}`, n = (seen.get(k) ?? 0) + 1;
         seen.set(k, n);
         return [n > 1 ? `${k}|${n}` : k, r] as const;
       }));
@@ -68,9 +74,11 @@ export async function checkTemplate(db: Db, bytes: Uint8Array, source: string): 
     }
     const named = (r: { sheet: string; item: string }) => `${r.sheet} – ${r.item}`;
     rates = { total: after.size, changed: rates.changed, added: [...after].filter(([k]) => !before.has(k)).map(([, r]) => named(r)), removed: [...before].filter(([k]) => !after.has(k)).map(([, r]) => named(r)) };
-    // the same sample project (the new workbook's sample inputs) costed on both
+    // the same sample project (the new workbook's sample inputs) costed on both; across input layouts the inputs
+    // are carried by field name, as "Move to the new template" does
     const inputs = next.defaults as Record<string, unknown>;
-    sample = { current: snapshot(cur.model, inputs).grandTotal, next: snapshot(next, inputs).grandTotal, currentStamp: cur.stamp, currentLabel: cur.label };
+    const onCurrent = inputSheetOf(cur.model) === inputSheetOf(next) ? inputs : migrateInputs(next, cur.model, inputs).inputs;
+    sample = { current: snapshot(cur.model, onCurrent).grandTotal, next: snapshot(next, inputs).grandTotal, currentStamp: cur.stamp, currentLabel: cur.label };
   }
   const { data: exists } = await db.from("templates").select("stamp").eq("stamp", model.stamp).maybeSingle();
   if (exists) errors.push(`A template saved at ${String(model.templateModified)} is already loaded (${model.stamp}). Save the workbook again in Excel if it has changed.`);

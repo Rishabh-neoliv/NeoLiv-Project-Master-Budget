@@ -51,7 +51,9 @@ set when it is created and never changes.
     checks it gives exactly what Excel saved, then shows what changes (each rate, old → new, and the effect on a
     sample project) before **Add and make current**. Older templates stay listed: download one, or make it current
     again. New projects use the current template; open drafts get "Move to the new template". A workbook whose
-    input rows moved, were added or renamed is refused: the Assumptions form has to be updated by a developer first.
+    input rows moved, were added or renamed is refused: the input form has to be updated by a developer first.
+    The master of 25 Nov 2026 ("version 2": inputs on Project Inputs, amounts in ₹ Cr) has its form in
+    lib/template-forms.ts; check such a workbook first with `npx jiti scripts/check-template-v2.mts "<file>"`.
 - **My overview** (`/overview`, everyone's landing page): what's waiting for you, the projects you're on (your role,
   revision, status, last change), recent changes on them (each person in their colour) and a few counts.
 - **My profile** (click your name in the top bar): change your name, department and password, see your username
@@ -151,7 +153,7 @@ Push to the private GitHub repo, import it in Vercel, and add the same environme
 
 | Tab | What it does |
 |---|---|
-| Assumptions | The inputs, with step guidance for whoever's turn it is, a summary and Save / Submit beside them |
+| Project Inputs | The inputs, with step guidance for whoever's turn it is, a summary and Save / Submit beside them (version 2: also the master workbook's notes) |
 | Master Budget | The budget lines with Delta vs R0; download the draft (as saved) or a frozen revision as Excel |
 | Rates | Project rates against the master rates. Anyone on the team can change them while a draft is open |
 | Rate analysis | Compare any two of: master template, R0..Rn, the draft. Splits each change into quantity and rate parts |

@@ -42,6 +42,7 @@ npx tsc --noEmit; npx eslint .; npm run build # checks before committing
 npx next typegen                              # after adding or renaming routes
 node scripts/check-engine.mjs "D:\OneDrive - NeoLiv\Rishabh\Project\NeoLiv Project Master Budget"
 node scripts/check-template-import.mts        # template upload reader vs the 16 legacy templates (after touching lib/template-import.ts)
+npx jiti scripts/check-template-v2.mts "<v2 master .xlsx>"  # a version-2 workbook offline: labels, recalc, units, totals, moving a draft, Excel export
 node --env-file=.env.local scripts/check-db.mjs       # tables and buckets exist
 node --env-file=.env.local scripts/check-access.mjs   # RLS (Live/Test, roles) + sign-ups off: 23 checks must pass (makes and removes its own test accounts)
 node --env-file=.env.local scripts/delete-user.mjs <email>
@@ -76,9 +77,18 @@ node --env-file=.env.local scripts/test-email.mjs
   `ACTIONS`). User's decision, 2026-11-13. The screen sends only changed fields, so parallel edits don't clash.
 - **Master templates** (Admin panel): admins upload a new master .xlsx; the model is built in the app
   (`lib/template-import.ts`, matches the old exporter on all 16 legacy templates) and refused unless every formula
-  recalculates exactly like Excel and the input sheets' labels are unchanged. The Assumptions form (sections, options)
+  recalculates exactly like Excel and the input sheets' labels are unchanged. The input form (sections, options)
   and the rate tables' columns are hand-made and carried over from the current template: new input rows need a
   developer. Rate columns are picked by name (NCR / ALL), since jsonb doesn't keep key order.
+- **Two input layouts** (`model.sheetLayout`): "V1" (inputs on Assumptions, all templates up to 2026-11-02) and
+  "V2" (master of 25 Nov 2026: inputs on **Project Inputs**, notes on Assumptions, Roadwork → Roadworks, Master
+  Budget amounts in ₹ Cr). A plain input key ("C8") means the model's `inputSheet` (`inputSheetOf`/`inputKey` in
+  lib/budget.ts); never hard-code "Assumptions". The first V2 workbook is built on the form in
+  `lib/template-forms.ts` (follows the workbook's colour key; labels match V1 so drafts move by name; anchors =
+  labels that must sit beside the inputs); V2 drop-down choices come from the workbook's lists. TRANSPOSE spills
+  become plain formulas at import (the engine has no TRANSPOSE). `model.amounts = "crore"`: snapshot() turns
+  line amounts into rupees (the app's unit), and the upload refuses lines mixing rupees and crores.
+  `SHEET_RENAMES` carries project rates across renamed sheets. Check a V2 workbook offline with check-template-v2.
 - **Who changed what** (`lib/changes.ts`): each person a colour (`--who-1..8` in globals.css); inputs, road cells
   and rates changed in the shown revision are tinted by whoever changed them last. Derived from `activity.details`
   (saves carry `rev`; rate changes by time), so every save must keep recording its field changes.
@@ -117,6 +127,7 @@ app/(admin)/admin/...          admin panel: overview, members, live/ and test/ (
 app/api/...                    projects, drafts, actions, team, rates, files, extract, admin users, auth, email feed
 lib/budget.ts, lib/workflow.ts shared logic (browser and server)
 lib/template-import.ts         reads a master .xlsx into a model (Admin panel → Master templates); lib/server/templates.ts checks it
+lib/template-forms.ts          the version-2 input form (Project Inputs), its expected labels and rate tables
 lib/server/                    data access, freeze, workbook, extract (Excel exact read + Claude), email
 lib/engine/                    original engine (see hard rules)
 supabase/migrations/           0001–0006 (all run)

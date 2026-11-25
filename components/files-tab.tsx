@@ -187,7 +187,7 @@ function Review({ file, ex, model, current, canApply, onApply }: { file: Project
               const vals = Object.fromEntries(rows.filter((r) => picked.has(r.cell)).map((r) => [r.cell, r.value]));
               onApply(vals, `${file.name}${ex.method === "ai" ? " (AI)" : ""}`);
             }}>Apply {picked.size} value(s) to the draft</Button>
-            <span className="text-sm text-soft">{canApply ? "They go into the Assumptions tab for you to check, then Save draft." : file.rev !== null ? "Values from a frozen revision's file can't be applied." : "Only the project's team can apply values to the draft."}</span>
+            <span className="text-sm text-soft">{canApply ? "They go into the Project Inputs tab for you to check, then Save draft." : file.rev !== null ? "Values from a frozen revision's file can't be applied." : "Only the project's team can apply values to the draft."}</span>
           </div>
         </div>
       )}
@@ -210,7 +210,7 @@ function Review({ file, ex, model, current, canApply, onApply }: { file: Project
               </tbody>
             </table>
           </div>
-          <p className="text-sm text-soft">Decisions don&apos;t change the budget by themselves. Use them as the reason for a new version, or as the basis for changes on the Assumptions and Rates tabs.</p>
+          <p className="text-sm text-soft">Decisions don&apos;t change the budget by themselves. Use them as the reason for a new version, or as the basis for changes on the Project Inputs and Rates tabs.</p>
         </div>
       )}
 
