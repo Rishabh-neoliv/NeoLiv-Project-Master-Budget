@@ -6,6 +6,7 @@ import { Initials } from "@/components/initials";
 import { RevTag, StatusBadge } from "@/components/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { crore } from "@/lib/budget";
+import { withoutBaseLine } from "@/lib/changes";
 import { kindOf } from "@/lib/roles";
 import { staffOrRedirect } from "@/lib/server/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -27,15 +28,17 @@ export default async function AdminOverview() {
     db.from("projects").select("*").order("updated_at", { ascending: false }),
     db.from("profiles").select("id, name"),
     db.auth.admin.listUsers({ perPage: 1000 }),
-    db.from("activity").select("id, at, by, dept, action, comment, project_id").order("at", { ascending: false }).limit(80),
+    db.from("activity").select("id, at, by, dept, action, comment, project_id, rev, kind:details->>kind").order("at", { ascending: false }).limit(200),
     db.from("project_members").select("project_id"),
     isAdmin ? setupStatus() : Promise.resolve([]),
   ]);
-  // a sub-admin's overview covers Live projects only
-  const rows = ((projects ?? []) as { id: string; name: string; status: Status; last_rev: number | null; grand_total: number | null; updated_at: string; kind?: string }[])
-    .filter((p) => isAdmin || kindOf(p) === "live");
+  // a sub-admin's overview covers the Live projects of their regions only
+  const rows = ((projects ?? []) as { id: string; name: string; region: string; status: Status; last_rev: number | null; grand_total: number | null; updated_at: string; kind?: string }[])
+    .filter((p) => isAdmin || (kindOf(p) === "live" && me.regions.includes(p.region)));
   const shown = new Set(rows.map((p) => p.id));
-  const activity = (recent ?? []).filter((a) => shown.has(a.project_id)).slice(0, 15);
+  // Base Line's work on R0 isn't listed (lib/changes.ts afterBaseLine)
+  const { data: r0 } = await db.from("versions").select("project_id, frozen_at").eq("rev", 0);
+  const activity = withoutBaseLine((recent ?? []).filter((a) => shown.has(a.project_id)), r0 ?? []).slice(0, 15);
   const users = auth?.users ?? [];
   const removed = users.filter((u) => u.banned_until && new Date(u.banned_until) > new Date()).length;
   const invited = users.filter((u) => !u.last_sign_in_at && !(u.banned_until && new Date(u.banned_until) > new Date())).length;
@@ -53,7 +56,7 @@ export default async function AdminOverview() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
-          <p className="text-soft">{isAdmin ? "Where every project stands, and who has access." : "Where every Live project stands, and who has access."}</p>
+          <p className="text-soft">{isAdmin ? "Where every project stands, and who has access." : `Where the Live projects of your regions (${me.regions.join(", ") || "none yet: ask an admin"}) stand.`}</p>
         </div>
         <div className="flex gap-2">
           <Link href="/admin/members" className={buttonVariants({ variant: "outline" })}>Add a team member</Link>

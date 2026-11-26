@@ -2,7 +2,8 @@
 // admins, and sub-admins for Live projects; anyone else gets "not found". Who can change what: lib/roles.ts.
 import { notFound } from "next/navigation";
 import type { Model } from "@/lib/budget";
-import { actsForAll, kindOf, ROLE_NAME, roleOf } from "@/lib/roles";
+import { afterBaseLine } from "@/lib/changes";
+import { actsForAll, kindOf, regionsOf, ROLE_NAME, roleOf } from "@/lib/roles";
 import { activeMembers } from "@/lib/server/people";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectView, type ProjectData } from "./project-view";
@@ -27,8 +28,11 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
     supabase.from("activity").select("by, at, rev, details").eq("project_id", id).not("details", "is", null).order("at").limit(5000),
   ]);
   if (!tpl) throw new Error(`Template ${project.template} isn't loaded. Run scripts/setup.mjs.`);
+  // Base Line's work on R0 is never shown: the history starts with Design (lib/changes.ts)
+  const shown = afterBaseLine((versions ?? []).find((v) => v.rev === 0)?.frozen_at);
+  const history = (activity ?? []).filter(shown), fieldChanges = (changes ?? []).filter(shown);
 
-  const ids = [...new Set([project.created_by, ...(activity ?? []).map((a) => a.by), ...(changes ?? []).map((a) => a.by), ...(versions ?? []).map((v) => v.frozen_by), ...(files ?? []).map((f) => f.uploaded_by)].filter(Boolean))] as string[];
+  const ids = [...new Set([project.created_by, ...history.map((a) => a.by), ...fieldChanges.map((a) => a.by), ...(versions ?? []).map((v) => v.frozen_by), ...(files ?? []).map((f) => f.uploaded_by)].filter(Boolean))] as string[];
   const { data: ppl } = ids.length ? await supabase.from("profiles").select("id, name").in("id", ids) : { data: [] };
   const teamRows = (team ?? []).map((t) => {
     const p = (Array.isArray(t.profiles) ? t.profiles[0] : t.profiles) as { name: string; email: string } | null;
@@ -36,15 +40,15 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   });
   // Base Line (and the admin) may change the team, so they get the list of onboarded members to pick from
   // an admin acts for every department on any project, a sub-admin on Live projects
-  const role = roleOf(me), kind = kindOf(project), all = actsForAll(role, kind);
+  const role = roleOf(me), kind = kindOf(project), all = actsForAll(role, kind, project.region, regionsOf(me));
   const isBaseLine = teamRows.some((t) => t.user_id === uid && t.dept === "BD");
 
   const data: ProjectData = {
     project,
     team: teamRows,
     versions: versions ?? [],
-    activity: activity ?? [],
-    changes: changes ?? [],
+    activity: history,
+    changes: fieldChanges,
     names: Object.fromEntries((ppl ?? []).map((p) => [p.id, p.name])),
     model: { ...(tpl.model as Model), stamp: tpl.stamp },
     templateDate: tpl.modified || tpl.stamp,

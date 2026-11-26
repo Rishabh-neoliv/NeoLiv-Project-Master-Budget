@@ -4,7 +4,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentUserId } from "@/lib/supabase/server";
 import type { MasterRow, Model } from "@/lib/budget";
-import { actsForAll, canSeeProject, kindOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
+import { actsForAll, canSeeProject, kindOf, regionsOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
 import { DEPTS, dn, type Dept, type Status } from "@/lib/workflow";
 
 export class HttpError extends Error {
@@ -24,7 +24,7 @@ export interface VersionRow {
   template: string | null; xlsx_path: string | null; frozen_by: string | null; frozen_at: string;
 }
 
-export interface Me { id: string; name: string; email: string; is_admin: boolean; is_subadmin: boolean; role: Role }
+export interface Me { id: string; name: string; email: string; is_admin: boolean; is_subadmin: boolean; role: Role; regions: string[] }
 
 export async function requireUser() {
   const id = await currentUserId();
@@ -32,11 +32,11 @@ export async function requireUser() {
   const db = createAdminClient();
   const { data: p } = await db.from("profiles").select("*").eq("id", id).single();
   if (!p) throw new HttpError(403, "Your account has no profile yet. Ask an admin to invite you again.");
-  const me: Me = { id: p.id, name: p.name, email: p.email, is_admin: !!p.is_admin, is_subadmin: !!p.is_subadmin, role: roleOf(p) };
+  const me: Me = { id: p.id, name: p.name, email: p.email, is_admin: !!p.is_admin, is_subadmin: !!p.is_subadmin, role: roleOf(p), regions: regionsOf(p) };
   return { db, me };
 }
 
-/** For reading a project (its pages, Excel and files). Admins see every project, sub-admins every Live project,
+/** For reading a project (its pages, Excel and files). Admins see every project, sub-admins the Live projects of their regions,
  *  everyone else only the projects they're on (lib/roles.ts). A project you can't see is simply "not found". */
 export async function requireViewer(projectId: string) {
   const { db, me } = await requireUser();
@@ -46,7 +46,7 @@ export async function requireViewer(projectId: string) {
   const { data: rows } = await db.from("project_members").select("user_id, dept").eq("project_id", projectId);
   const team = (rows ?? []) as { user_id: string; dept: Dept }[];
   const ownDepts = team.filter((r) => r.user_id === me.id).map((r) => r.dept);
-  if (!canSeeProject(me.role, project.kind, ownDepts.length > 0)) throw new HttpError(404, "Project not found.");
+  if (!canSeeProject(me.role, project.kind, ownDepts.length > 0, project.region, me.regions)) throw new HttpError(404, "Project not found.");
   return { db, me, project, team, ownDepts };
 }
 
@@ -54,7 +54,7 @@ export async function requireViewer(projectId: string) {
  *  every department on any project, a sub-admin on any Live project. */
 export async function requireMember(projectId: string) {
   const { db, me, project, team, ownDepts } = await requireViewer(projectId);
-  const all = actsForAll(me.role, project.kind);
+  const all = actsForAll(me.role, project.kind, project.region, me.regions);
   if (!ownDepts.length && !all) throw new HttpError(403, "Only the project's team can change it. Ask Base Line to add you to the team.");
   const myDepts: Dept[] = all ? [...DEPTS] : ownDepts;
   // how the person is named in the history and in emails: their own departments, or "Admin" / "Sub-admin"

@@ -42,9 +42,9 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/dr
     const rates = p.rates || {};
     const snap = snapshot(m, inputs, rates);
     const now = new Date().toISOString();
-    // the region follows the Location input when it is one of the regions (NCR / MMR), so the project is listed there
-    const region = inputs.C8 === "NCR" || inputs.C8 === "MMR" ? { region: inputs.C8 } : {};
-    const common = { inputs, rates, rates_template: m.stamp, grand_total: snap.grandTotal, location: inputs.C8 as string, acre: inputs.C9 as number, ...region, updated_by: me.id, updated_at: now, saved_at: now };
+    // the region stays the one picked at creation (it decides which sub-admins handle the project, 2026-11-26); the
+    // Location input only picks the rates
+    const common = { inputs, rates, rates_template: m.stamp, grand_total: snap.grandTotal, location: inputs.C8 as string, acre: inputs.C9 as number, updated_by: me.id, updated_at: now, saved_at: now };
     const dept = editDept(p.status), rev = nextRev(p.last_rev);
     // field history: every input that changed in this save, with its label
     const before = { ...m.defaults, ...p.inputs } as Record<string, unknown>;

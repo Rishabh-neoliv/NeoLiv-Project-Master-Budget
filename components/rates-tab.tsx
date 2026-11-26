@@ -1,13 +1,16 @@
 "use client";
 // The Rates tab: the master Excel's rate for every item at this project's location, and the project's own
-// rates where they differ. Anyone on the project's team changes them while a draft is open.
+// rates where they differ, with the workbook's Consideration for each line (Water Supply, Electrical, OSBL). Anyone on
+// the project's team changes them while a draft is open.
 import { useMemo, useState } from "react";
+import { useArmed } from "@/components/use-armed";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { crore, inr, isNum, masterRate, rateCellFor, rateIndex, snapshot, type CellValue, type Model } from "@/lib/budget";
 import { tint, type Authored } from "@/lib/changes";
+import { consideration } from "@/lib/sheet-links";
 import { fmtDateTime } from "@/lib/dates";
 
 interface Props {
@@ -28,7 +31,7 @@ export function RatesTab({ projectId, model: m, inputs, saved, editable, label, 
   const [q, setQ] = useState("");
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [armed, setArmed] = useState(false);
+  const [armed, setArmed] = useArmed(false);
   // a fresh copy from the server replaces local edits only when there are none
   const [seen, setSeen] = useState(saved);
   const key = (o: Record<string, number>) => JSON.stringify(Object.entries(o).sort(([a], [b]) => (a < b ? -1 : 1)));
@@ -37,10 +40,10 @@ export function RatesTab({ projectId, model: m, inputs, saved, editable, label, 
 
   const loc = inputs.C8;
   const bySheet = useMemo(() => {
-    const out = new Map<string, { item: string; uom: string; ref: string }[]>();
+    const out = new Map<string, { item: string; uom: string; ref: string; note: string }[]>();
     for (const r of rateIndex(m)) {
       const ref = rateCellFor(r, loc);
-      if (ref) out.set(r.sheet, [...(out.get(r.sheet) ?? []), { item: r.item, uom: r.uom, ref }]);
+      if (ref) out.set(r.sheet, [...(out.get(r.sheet) ?? []), { item: r.item, uom: r.uom, ref, note: consideration(m, r.sheet, r.row) }]);
     }
     return out;
   }, [m, loc]);
@@ -72,14 +75,15 @@ export function RatesTab({ projectId, model: m, inputs, saved, editable, label, 
           <p className="text-sm text-soft">{String(loc)} rates from the master Excel (template of {m.templateModified as string ?? m.stamp}). {editable ? "Type a project rate to replace the master rate for this project only; leave it empty to use the master rate." : who}</p>
         </section>
         {[...bySheet].map(([sheet, rows]) => {
-          const shown = rows.filter((r) => (!ql || `${sheet} ${r.item}`.toLowerCase().includes(ql)) && (!onlyChanged || r.ref in rates));
+          const shown = rows.filter((r) => (!ql || `${sheet} ${r.item} ${r.note}`.toLowerCase().includes(ql)) && (!onlyChanged || r.ref in rates));
           if (!shown.length) return null;
+          const notes = rows.some((r) => r.note);
           return (
             <section key={sheet} className="grid gap-2 rounded-xl border border-line bg-sheet p-4">
               <h3 className="text-lg font-semibold">{sheet}</h3>
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[620px]">
-                  <thead className="bg-well text-left text-xs uppercase tracking-wide text-soft"><tr><th className="px-3 py-2">Item</th><th className="px-3 py-2">UOM</th><th className="px-3 py-2 text-right">Master rate (₹)</th><th className="px-3 py-2 text-right">Project rate (₹)</th><th className="w-16" /></tr></thead>
+                <table className={`w-full ${notes ? "min-w-[760px]" : "min-w-[620px]"}`}>
+                  <thead className="bg-well text-left text-xs uppercase tracking-wide text-soft"><tr><th className="px-3 py-2">Item</th>{notes && <th className="px-3 py-2">Consideration</th>}<th className="px-3 py-2">UOM</th><th className="px-3 py-2 text-right">Master rate (₹)</th><th className="px-3 py-2 text-right">Project rate (₹)</th><th className="w-16" /></tr></thead>
                   <tbody>
                     {shown.map((r) => {
                       const master = masterRate(m, r.ref), mine = rates[r.ref], changed = r.ref in rates, a = authors?.get(r.ref);
@@ -88,6 +92,7 @@ export function RatesTab({ projectId, model: m, inputs, saved, editable, label, 
                         <tr key={r.ref} style={a ? tint(a.by.colour) : undefined} className={`border-t border-line ${changed && !a ? "bg-amber-soft/50" : ""}`}
                           title={a ? `${a.by.name} · ${fmtDateTime(a.at)}: ${money(a.from)} → ${money(a.to)}${a.count > 1 ? ` (changed ${a.count} times)` : ""}` : undefined}>
                           <td className="px-3 py-2">{r.item || "(unnamed)"}{a && <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium" style={{ color: a.by.colour }}><span aria-hidden className="size-2 rounded-full" style={{ background: a.by.colour }} />{a.by.name}</span>}</td>
+                          {notes && <td className="max-w-72 px-3 py-2 text-sm text-soft">{r.note}</td>}
                           <td className="px-3 py-2 text-sm text-soft">{r.uom}</td>
                           <td className="px-3 py-2 text-right">{fmt(master)}</td>
                           <td className="w-40 px-3 py-1.5 text-right">
@@ -123,7 +128,7 @@ export function RatesTab({ projectId, model: m, inputs, saved, editable, label, 
         </section>
         {editable && (
           <section className="grid gap-3 rounded-xl border border-line bg-sheet p-5">
-            <Button disabled={!dirty || busy} onClick={save}>{busy ? "Saving…" : armed ? "Confirm: save rates" : dirty ? "Save rates" : "Rates saved"}</Button>
+            <Button data-armable disabled={!dirty || busy} onClick={save}>{busy ? "Saving…" : armed ? "Confirm: save rates" : dirty ? "Save rates" : "Rates saved"}</Button>
             {dirty && <Button variant="ghost" onClick={() => setRates({ ...saved })}>Undo changes</Button>}
             <p className="text-sm text-soft">Saving updates the {label} and lists each change in Activity. It is frozen when Management approves it.</p>
           </section>

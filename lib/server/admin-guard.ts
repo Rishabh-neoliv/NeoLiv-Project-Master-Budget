@@ -3,10 +3,10 @@
 //   adminOrRedirect  admins only (Test projects, Master templates)
 import "server-only";
 import { redirect } from "next/navigation";
-import { isStaff, roleOf, type Role } from "@/lib/roles";
+import { isStaff, regionsOf, roleOf, type Role } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
-export interface PanelUser { id: string; name: string; email: string; role: Role }
+export interface PanelUser { id: string; name: string; email: string; role: Role; regions: string[] }
 
 async function me(): Promise<PanelUser> {
   const supabase = await createClient();
@@ -15,7 +15,7 @@ async function me(): Promise<PanelUser> {
   if (!uid) redirect("/login");
   // "*": is_subadmin exists only after migration 0006
   const { data: p } = await supabase.from("profiles").select("*").eq("id", uid).single();
-  return { id: uid, name: p?.name ?? "", email: p?.email ?? "", role: roleOf(p) };
+  return { id: uid, name: p?.name ?? "", email: p?.email ?? "", role: roleOf(p), regions: regionsOf(p) };
 }
 
 export async function staffOrRedirect() {

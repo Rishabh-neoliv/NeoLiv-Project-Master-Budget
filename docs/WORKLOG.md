@@ -26,6 +26,10 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - **MMR rates:** the master workbook (template 20261102-1146) has 64 items with an NCR rate and a blank MMR rate,
   so they cost ₹0 in MMR projects (sample project: NCR ₹41.83 Cr vs MMR ₹11.89 Cr). Fix in the workbook and upload
   via Master templates; offered the user a list of the 64.
+- **Rate names on the Rates tab** take the nearest line above without an NCR rate as their heading ("Excavation –
+  25 mm dia", "Water Supply Main Line … – Sluice Valve Chamber"); and lines rated only for MMR aren't rate rows. Both
+  come from the rate reader (rateIndex / rateRows); the names are also the keys that carry project rates to a new
+  template, so a fix needs care. Raised with the user 2026-11-26: **keep as it is, don't fix until he says so.**
 - **Security review 2026-11-17** (docs/Security review 2026-11-17.md): open redirect + two low robustness items all
   fixed; three hardening recs left (CSP/X-Frame headers; set Supabase min password length ≥ 8; keep the feed token
   out of logs).
@@ -48,8 +52,56 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   (09-09-2026) MOM xlsx and the Guidelines PDF (partly scanned). `6071422233.PDF` is an SAP invoice, not a project doc.
 - Projects without a team (10, mostly the imported NCR ones): assign when needed.
 
+## 2026-11-26
+
+- **Base Line's work on R0 isn't shown** (user: "show nothing in base line history"; history starts with Design):
+  activity from before R0 freezes, and R0's own steps (creation, saves, submit), is left out of the project's
+  Activity tab, the who-changed-what colours, My overview and the Admin overview; R0 shows no tints and "Base Line"
+  instead of a name. `afterBaseLine` / `withoutBaseLine` in lib/changes.ts; nothing is deleted from the database.
+- **Input descriptions from the workbook** (user: show the Particulars where C39 was): lib/sheet-links.ts follows the
+  template's formulas from each input to the working-sheet lines it feeds and names them by Particulars, with their
+  heading and description rows (Sluice Valve Chamber → "Domestic Water Supply › Sluice Valve Chamber - 75x 75 x 120 cm
+  – 1200 x 650 mm (Depth 1200 mm)"; Secondary Gate → "Entrance Gate - Others"). 102 of the version-2 form's 138
+  inputs get one; inputs that feed none, more than 5 lines (Location, Project Area) or a line of the same name keep
+  the plain-words text (lib/field-help.ts). The template's own note shows under it. Consideration not included (user).
+- **Consideration column on the Rates tab**: the workbook's "Consideration" beside each line (Water Supply,
+  Electrical, OSBL; 30 lines in version 2), searchable. Lines with no NCR rate (e.g. Water Supply Excavation, Main
+  Line, which have only an MMR rate) aren't rate rows, so they and their considerations aren't on the Rates tab.
+- Tested with throwaway accounts (Rishabh +tags) on a Live project: at Base Line no tints and an empty history; after
+  the R0 submit only Design's steps listed (also on My overview), Design's changes tinted, R0 untinted; descriptions
+  and the Consideration column shown. Accounts and project deleted (the R0-submit emails were left queued).
+  tsc, eslint, template checks (15/15, version 2 clean) pass.
+
+- **Sub-admins limited to regions** (user said "build it", recommendations taken): a project's region (NCR, MMR,
+  Alibaug, Nagpur — the four rate locations) is picked at creation and no longer follows the Location input; an admin
+  ticks each sub-admin's regions on Team members; a sub-admin sees, acts on, lists and creates Live projects only in
+  those regions (none: only their own teams). "Domain" (departments) left out. lib/roles.ts takes the region;
+  migration 0007 (profiles.regions, can_see_project; run by the user); check-access gains 3 region checks.
+  Tested: check-access 26/26; 17 API checks with +tag accounts (no region → can't create; admin sets NCR+Alibaug;
+  creates in NCR not MMR; MMR/Nagpur projects "not found"; Location change keeps the region; removing the role clears
+  the regions); browser as sub-admin (Live list, Overview and New project show only NCR) and admin (region chips
+  toggle and save). Test data deleted.
+- Fixed: a two-press button left showing "Confirm: …" (e.g. Make sub-admin) now goes back as soon as you click
+  anywhere else, press Escape, or after a few seconds. One helper (components/use-armed.ts) for all 9 such buttons:
+  make/remove admin and sub-admin, make template current, delete Test project, submit from the side panel,
+  recalculate a revision, save rates. Checked in the browser on a throwaway member (nothing changed).
+- Project Inputs: the Excel cell codes (C39, C40 …) beside each field are replaced by a plain-words description
+  under its name (lib/field-help.ts, ~60 fields, matched by name so old templates get them too); the cell is still
+  in a small ⓘ beside the name (hover). The road table's column headings explain themselves on hover.
+
 ## 2026-11-25
 
+- **Whole-system test** (user asked; version 2 already current, uploaded by the user): tsc, eslint, engine 10/10,
+  old templates 15/15, version 2 check passed, check-access 23/23. End-to-end on localhost with 7 +tag accounts (tag
+  sc51d2c): 47 API checks (one was a test mistake: a file download answers with a redirect to a signed link, confirmed
+  working; the outsider gets "not found"): create Live/Test by role, visibility, R0 draft save, project rate, draft
+  Excel (inputs on Project Inputs), a budget workbook uploaded and read exactly (92 values), the full workflow R0 →
+  design → operations → sent back → approve R1 → new version R2 → sent back to Base Line with every refusal for the
+  wrong department, R0/R1 Excel (Delta vs R0, revision history), an old-template draft moved onto version 2 (66
+  carried). 8 workflow emails, each To the next department and Cc only the person who acted; none for creating
+  projects or moving templates (left queued for the user's inbox). Browser as member and admin: every page and
+  project tab, frozen R1 read-only, admin panel, templates page; no server or console errors. All test data deleted
+  (15 projects, 5 people, version 2 current, as before). Fixed a stale comment in the file download route.
 - **Version 2 accepted as it is** (the user didn't want a corrected copy; the copy I'd made was deleted): lines mixing ₹
   and ₹ Cr are now a warning, not a refusal. Each is classed from the sample (amount ≥ 1,000 → still in ₹, else the
   rate is in ₹ Cr) and kept in `model.rupeeAmountRows` / `croreRateRows`; the app shows them in the right units.

@@ -3,13 +3,13 @@
 import { z } from "zod";
 import { isNum, snapshot, startInputs } from "@/lib/budget";
 import { errorResponse, HttpError, readJson, loadModel, requireUser } from "@/lib/server/data";
-import { canCreateProject, ROLE_NAME } from "@/lib/roles";
+import { canCreateProject, REGIONS, ROLE_NAME } from "@/lib/roles";
 import { assertActiveMembers } from "@/lib/server/people";
 import { DEPTS, dn } from "@/lib/workflow";
 
 const Body = z.object({
   name: z.string().trim().min(1, "Give the project a name.").max(120),
-  region: z.enum(["NCR", "MMR"]),
+  region: z.enum(REGIONS),
   team: z.array(z.object({ user_id: z.uuid(), dept: z.enum(DEPTS) })).min(1),
   kind: z.enum(["live", "test"]),
 });
@@ -21,7 +21,8 @@ export async function POST(req: Request) {
     const team = [...new Map(body.team.map((t) => [`${t.user_id}|${t.dept}`, t])).values()];
     const missing = DEPTS.filter((d) => !team.some((t) => t.dept === d));
     if (missing.length) throw new HttpError(400, `Add someone for ${missing.map(dn).join(", ")}.`);
-    if (!canCreateProject(me.role, body.kind)) throw new HttpError(403, body.kind === "test" ? "Only an admin can create a Test project." : "Only an admin or sub-admin can create a project.");
+    if (!canCreateProject(me.role, body.kind, body.region, me.regions)) throw new HttpError(403, body.kind === "test" ? "Only an admin can create a Test project."
+      : me.role === "subadmin" ? `You can create projects only in your regions (${me.regions.join(", ") || "none yet: ask an admin"}).` : "Only an admin or sub-admin can create a project.");
     await assertActiveMembers(db, team.map((t) => t.user_id));
 
     const { data: dupe } = await db.from("projects").select("id").ilike("name", body.name).maybeSingle();

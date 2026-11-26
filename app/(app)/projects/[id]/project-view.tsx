@@ -1,6 +1,7 @@
 "use client";
 
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useArmed } from "@/components/use-armed";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -139,6 +140,8 @@ export function ProjectView({ data }: { data: ProjectData }) {
   const saved = useMemo(() => ({ ...m.defaults, ...p.inputs }) as Record<string, CellValue>, [m.defaults, p.inputs]);
   const [focus, setFocus] = useState<string | null>(null);
   const authors = useMemo(() => {
+    // R0 is Base Line's: who changed what isn't shown (lib/changes.ts afterBaseLine), not even unsaved edits
+    if (shownRev === 0) return new Map<string, Authored>();
     const out = authorship(data.changes, shownRev, winAfter, shownVersion ? shownVersion.frozen_at : null, people);
     // your own edits that aren't saved yet show in your colour straight away
     if (!shownVersion && dirty) {
@@ -190,8 +193,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
   }
   // submit from the side panel: press twice (the second press confirms), like the original app
   const [note, setNote] = useState("");
-  const [armed, setArmed] = useState(false);
-  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 5000); return () => clearTimeout(t); }, [armed]);
+  const [armed, setArmed] = useArmed(false, 5000);
   async function submitFromSide() {
     if (!armed) return setArmed(true);
     setArmed(false);
@@ -211,7 +213,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
 
   // a frozen revision costed on an older master template: Base Line can recalculate it with the current one
   const [rebaseWhy, setRebaseWhy] = useState("");
-  const [rebaseArmed, setRebaseArmed] = useState(false);
+  const [rebaseArmed, setRebaseArmed] = useArmed(false);
   async function rebase(r: number) {
     if (!rebaseWhy.trim()) return void toast.error("Please give a reason first.");
     if (!rebaseArmed) return setRebaseArmed(true);
@@ -239,7 +241,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
   const holderNames = holder ? peopleIn(holder).join(", ") : "";
   let notice: React.ReactNode = null;
   if (shownVersion) notice = <>
-    <b>R{shownVersion.rev}{shownVersion.rev === 0 ? " – Base Line" : ""}</b>, frozen on {fmtDate(shownVersion.frozen_at)}{shownVersion.frozen_by && names[shownVersion.frozen_by] ? ` by ${names[shownVersion.frozen_by]}` : ""}{shownVersion.reason ? ` (${shownVersion.reason})` : ""}. Frozen: these values can&apos;t change.
+    <b>R{shownVersion.rev}{shownVersion.rev === 0 ? " – Base Line" : ""}</b>, frozen on {fmtDate(shownVersion.frozen_at)}{shownVersion.rev > 0 && shownVersion.frozen_by && names[shownVersion.frozen_by] ? ` by ${names[shownVersion.frozen_by]}` : ""}{shownVersion.reason ? ` (${shownVersion.reason})` : ""}. Frozen: these values can&apos;t change.
     {shownVersion.rev > 0 && " Changes against the Base Line (R0) are highlighted."}
     {!draftOpen && shownVersion.rev === p.last_rev && <> Base Line, Design or Operations can press <b>Create new version R{rev}</b> when the drawings change.</>}
     {recalcs.map((a) => <span key={a.id} className="block text-sm text-soft">{a.action} on {fmtDate(a.at)}{a.by && names[a.by] ? ` by ${names[a.by]}` : ""}: {a.comment}</span>)}
@@ -348,7 +350,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
                 {myDepts.includes("BD") ? <>
                   <div className="flex flex-wrap items-center gap-2">
                     <Input className="h-9 min-w-64 flex-1 bg-sheet text-ink" value={rebaseWhy} onChange={(e) => { setRebaseWhy(e.target.value); setRebaseArmed(false); }} placeholder={`Reason for recalculating R${shownVersion.rev} (required)`} />
-                    <Button variant="outline" disabled={busy} onClick={() => rebase(shownVersion.rev)}>{rebaseArmed ? `Confirm: recalculate R${shownVersion.rev}` : `Recalculate R${shownVersion.rev} with the current template`}</Button>
+                    <Button data-armable variant="outline" disabled={busy} onClick={() => rebase(shownVersion.rev)}>{rebaseArmed ? `Confirm: recalculate R${shownVersion.rev}` : `Recalculate R${shownVersion.rev} with the current template`}</Button>
                   </div>
                   <small className="text-amber/90">Keeps R{shownVersion.rev}&apos;s own inputs and project rates; only the calculation rules change. The old total is kept in the Activity log{shownVersion.rev === 0 ? ", and every Delta vs R0 follows the new total" : ""}.</small>
                 </> : <span className="text-sm">Until it is recalculated it shows the old template&apos;s rules. Only Base Line ({peopleIn("BD").join(", ") || "nobody yet"}) can recalculate it.</span>}
@@ -378,7 +380,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
                 {submittable ? <>
                   <label htmlFor="sideNote" className="text-sm font-medium">Note for {dn(submitTo!)} (optional)</label>
                   <Input id="sideNote" className="bg-sheet" value={note} onChange={(e) => setNote(e.target.value)} placeholder="e.g. Layout v3 is in the Files tab" />
-                  <Button disabled={busy} onClick={submitFromSide}>{armed ? `Confirm: submit R${rev}` : `Submit R${rev} to ${dn(submitTo!)}`}</Button>
+                  <Button data-armable disabled={busy} onClick={submitFromSide}>{armed ? `Confirm: submit R${rev}` : `Submit R${rev} to ${dn(submitTo!)}`}</Button>
                   <p className="text-sm text-soft">{rev === 0 ? "Submitting freezes these numbers as R0, the Base Line. It can't be changed afterwards." : `R${rev} stays a draft through Design and Operations; it is frozen when Management approves it.`}</p>
                 </> : <p className="text-sm text-soft">Your changes go into the R{rev} draft. {holder ? `${dn(holder)} ${holder === "Management" ? "approves it" : "submits it on"}.` : ""}</p>}
               </section>
@@ -458,7 +460,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
                     className="cursor-pointer border-t border-line hover:bg-tint focus-visible:bg-tint focus-visible:outline-none">
                     <td className="px-4 py-3"><RevTag>R{v.rev}</RevTag> <span className="text-sm text-soft">{v.rev === 0 ? "Base Line" : v.dept === "Management" ? "Approved" : "Frozen"}</span></td>
                     <td className="px-4 py-3">{fmtDate(v.frozen_at)}</td>
-                    <td className="px-4 py-3">{(v.frozen_by && names[v.frozen_by]) || "–"} <span className="text-sm text-soft">{v.dept}</span></td>
+                    <td className="px-4 py-3">{v.rev === 0 ? "Base Line" : <>{(v.frozen_by && names[v.frozen_by]) || "–"} <span className="text-sm text-soft">{v.dept}</span></>}</td>
                     <td className="px-4 py-3">{v.reason}</td>
                     <td className="px-4 py-3 text-right font-medium">{crore(v.grand_total)}</td>
                     <td className="px-4 py-3 text-right">{v.rev === 0 || r0?.grand_total == null || v.grand_total == null ? "" : crore(v.grand_total - r0.grand_total, true)}</td>
@@ -498,7 +500,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
         </div>
       ))}
 
-      {tab === "activity" && <ActivityTab activity={activity} names={names} model={m} people={people} />}
+      {tab === "activity" && <ActivityTab activity={activity} names={names} model={m} people={people} empty={p.last_rev === null ? "The history starts when Base Line submits R0 to Design." : undefined} />}
     </div>
   );
 }

@@ -44,7 +44,7 @@ node scripts/check-engine.mjs "D:\OneDrive - NeoLiv\Rishabh\Project\NeoLiv Proje
 node scripts/check-template-import.mts        # template upload reader vs the 16 legacy templates (after touching lib/template-import.ts)
 npx jiti scripts/check-template-v2.mts "<v2 master .xlsx>"  # a version-2 workbook offline: labels, recalc, units, totals, moving a draft, Excel export
 node --env-file=.env.local scripts/check-db.mjs       # tables and buckets exist
-node --env-file=.env.local scripts/check-access.mjs   # RLS (Live/Test, roles) + sign-ups off: 23 checks must pass (makes and removes its own test accounts)
+node --env-file=.env.local scripts/check-access.mjs   # RLS (Live/Test, roles, regions) + sign-ups off: 26 checks must pass (makes and removes its own test accounts)
 node --env-file=.env.local scripts/delete-user.mjs <email>
 node --env-file=.env.local scripts/make-admin.mjs <email> --only  # change who the admin is (also: Admin panel → Make admin)
 node --env-file=.env.local scripts/test-email.mjs
@@ -56,10 +56,12 @@ node --env-file=.env.local scripts/test-email.mjs
   Roles: **admin** (`profiles.is_admin`; several allowed, at least one always kept), **sub-admin**
   (`profiles.is_subadmin`, given by admins), **member**. Projects are **Live** or **Test** (`projects.kind`), fixed at
   creation; only admins create Test, admins and sub-admins create Live; only Test can be deleted (admins).
-- **Who sees a project** is RLS (`can_see_project`): admins all; sub-admins every Live + Test they're on; members only
-  projects they're on. `requireViewer` applies the same rule (404 otherwise).
+- **Who sees a project** is RLS (`can_see_project`): admins all; sub-admins the Live projects of **their regions**
+  (`profiles.regions`, set by an admin on Team members; migration 0007, 2026-11-26) + any project they're on; members
+  only projects they're on. `requireViewer` applies the same rule (404 otherwise). A project's region (NCR, MMR,
+  Alibaug, Nagpur) is picked at creation and never changes (the Location input only picks rates).
 - **Who acts for every department without being on the team** (`actsForAll`): admins on any project, sub-admins on
-  Live ones (recorded as "Admin" / "Sub-admin"). Everyone else acts as their own departments on their team.
+  Live ones of their regions (recorded as "Admin" / "Sub-admin"). Sub-admins create Live projects only in their regions. Everyone else acts as their own departments on their team.
 - **Admin panel** (`app/(admin)/admin/`): admins see Overview (+ Security and setup), Team members, Live projects,
   Test projects, Master templates; sub-admins see Overview (Live only), Team members, Live projects
   (`staffOrRedirect` / `adminOrRedirect` in `lib/server/admin-guard.ts`). **My overview** (`/overview`) is everyone's
@@ -92,6 +94,8 @@ node --env-file=.env.local scripts/test-email.mjs
 - **Who changed what** (`lib/changes.ts`): each person a colour (`--who-1..8` in globals.css); inputs, road cells
   and rates changed in the shown revision are tinted by whoever changed them last. Derived from `activity.details`
   (saves carry `rev`; rate changes by time), so every save must keep recording its field changes.
+  **Base Line's work on R0 is never shown** (no names, changes or tints; user, 2026-11-26): pages filter activity with
+  `afterBaseLine` / `withoutBaseLine`, so the history starts with Design.
 - Workflow: **Base Line → Design → Operations → Management**. R0 freezes when Base Line submits; R1+ freeze on
   Management approval; Delta is always against R0. Rules live in `lib/workflow.ts`.
 
@@ -128,9 +132,10 @@ app/api/...                    projects, drafts, actions, team, rates, files, ex
 lib/budget.ts, lib/workflow.ts shared logic (browser and server)
 lib/template-import.ts         reads a master .xlsx into a model (Admin panel → Master templates); lib/server/templates.ts checks it
 lib/template-forms.ts          the version-2 input form (Project Inputs), its expected labels and rate tables
+lib/sheet-links.ts             from the template's formulas: what each input feeds (form descriptions), Consideration per rate line
 lib/server/                    data access, freeze, workbook, extract (Excel exact read + Claude), email
 lib/engine/                    original engine (see hard rules)
-supabase/migrations/           0001–0006 (all run)
+supabase/migrations/           0001–0007 (all run)
 scripts/                       setup, checks, test helpers
 docs/                          email guides, WORKLOG.md
 ```

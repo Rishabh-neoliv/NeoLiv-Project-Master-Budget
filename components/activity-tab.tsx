@@ -2,7 +2,7 @@
 // The Activity tab: every step, with the fields each save changed (from → to) and where applied values came
 // from. "Field history" narrows it to one input: who changed it, when, and from what to what. Each person's entries
 // are in their own colour (the same colour marks their changes on the Project Inputs and Rates tabs), and the list can
-// be narrowed to one person.
+// be narrowed to one person. Base Line's work on R0 isn't listed (the page leaves it out: lib/changes.ts afterBaseLine).
 import { useMemo, useState } from "react";
 import { Initials } from "@/components/initials";
 import { fmtCalc, fmtInput, inr, isNum, type CellValue, type Field, type Model } from "@/lib/budget";
@@ -15,7 +15,7 @@ export interface ActivityRow {
 }
 const fmtDate = fmtDateTime;
 
-export function ActivityTab({ activity, names, model, people }: { activity: ActivityRow[]; names: Record<string, string>; model: Model; people?: Map<string, Person> }) {
+export function ActivityTab({ activity, names, model, people, empty }: { activity: ActivityRow[]; names: Record<string, string>; model: Model; people?: Map<string, Person>; empty?: string }) {
   const [field, setField] = useState("");
   const [who, setWho] = useState("");
   const [open, setOpen] = useState<Set<number>>(new Set());
@@ -77,7 +77,7 @@ export function ActivityTab({ activity, names, model, people }: { activity: Acti
             </li>
           );
         })}
-        {!rows.length && <li className="text-soft">Nothing yet.</li>}
+        {!rows.length && <li className="text-soft">{empty ?? "Nothing yet."}</li>}
       </ol>
     </div>
   );

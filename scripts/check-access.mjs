@@ -1,5 +1,6 @@
 // Checks the access rules against Supabase (migration 0006, lib/roles.ts):
-//   * a Live project is seen by its team, sub-admins and admins; a Test project only by its team and admins;
+//   * a Live project is seen by its team, admins and the sub-admins of its region (migration 0007); a Test project
+//     only by its team and admins;
 //     members never see projects they're not on; signed-out visitors see nothing
 //   * nobody can write from the browser (every change goes through the app's API), nor make themselves admin or
 //     sub-admin
@@ -33,9 +34,9 @@ const person = async (tag, flags = {}) => {
   if (Object.keys(flags).length) await admin.from("profiles").update(flags).eq("id", data.user.id);
   return { id: data.user.id, email };
 };
-const project = async (kind, teamId) => {
+const project = async (kind, teamId, region = "NCR") => {
   const { data: tpl } = await admin.from("templates").select("stamp").eq("is_current", true).single();
-  const { data: p, error } = await admin.from("projects").insert({ name: `Access check ${kind} ${stamp}`, region: "NCR", template: tpl.stamp, kind }).select("id").single();
+  const { data: p, error } = await admin.from("projects").insert({ name: `Access check ${kind} ${region} ${stamp}`, region, template: tpl.stamp, kind }).select("id").single();
   if (error) throw new Error(`${error.message} (has migration 0006 been run?)`);
   projects.push(p.id);
   await admin.from("project_members").insert({ project_id: p.id, user_id: teamId, dept: "BD" });
@@ -44,17 +45,19 @@ const project = async (kind, teamId) => {
 };
 try {
   const onTeam = await person("team"), outsider = await person("outsider");
-  const sub = await person("subadmin", { is_subadmin: true }), boss = await person("admin", { is_admin: true });
-  const live = await project("live", onTeam.id), test = await project("test", onTeam.id);
+  const sub = await person("subadmin", { is_subadmin: true, regions: ["NCR"] }), boss = await person("admin", { is_admin: true });
+  const live = await project("live", onTeam.id), test = await project("test", onTeam.id), mmr = await project("live", onTeam.id, "MMR");
   const t = await signIn(onTeam.email), o = await signIn(outsider.email), s = await signIn(sub.email), a = await signIn(boss.email);
 
   check("Live: its team member sees it", await sees(t, "projects", "id", live));
   check("Live: a member not on the team can't see it", !(await sees(o, "projects", "id", live)));
   check("Live: ...nor its team list", !(await sees(o, "project_members", "project_id", live)));
   check("Live: ...nor its history", !(await sees(o, "activity", "project_id", live)));
-  check("Live: a sub-admin not on the team sees it", await sees(s, "projects", "id", live));
+  check("Live: a sub-admin of its region (not on the team) sees it", await sees(s, "projects", "id", live));
   check("Live: ...and its team list", await sees(s, "project_members", "project_id", live));
   check("Live: an admin sees it", await sees(a, "projects", "id", live));
+  check("Live MMR: a sub-admin for NCR only can't see it", !(await sees(s, "projects", "id", mmr)));
+  check("Live MMR: …nor its history", !(await sees(s, "activity", "project_id", mmr)));
   check("Test: its team member sees it", await sees(t, "projects", "id", test));
   check("Test: a sub-admin not on the team can't see it", !(await sees(s, "projects", "id", test)));
   check("Test: ...nor its history", !(await sees(s, "activity", "project_id", test)));
@@ -77,6 +80,8 @@ try {
   check("nobody can make themselves admin", self.is_admin === false);
   check("nobody can make themselves sub-admin", self.is_subadmin === false);
   await s.from("profiles").update({ is_admin: true }).eq("id", sub.id);
+  await s.from("profiles").update({ regions: ["NCR", "MMR", "Alibaug", "Nagpur"] }).eq("id", sub.id);
+  check("a sub-admin can't give themselves more regions", JSON.stringify((await admin.from("profiles").select("regions").eq("id", sub.id).single()).data.regions) === '["NCR"]');
   check("a sub-admin can't make themselves admin", (await admin.from("profiles").select("is_admin").eq("id", sub.id).single()).data.is_admin === false);
   check("templates bucket isn't readable from the browser", ((await s.storage.from("templates").list()).data ?? []).length === 0);
   // the publishable key is public, so open sign-up would let anyone make an account (and see master rates

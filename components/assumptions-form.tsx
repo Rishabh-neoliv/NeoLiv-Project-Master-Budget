@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import engineApi from "@/lib/engine/budget-engine";
 import { fmtCalc, fmtInput, inputKey, inputSheetOf, inr, isNum, lineKey, parseInput, sheetRef, type CellValue, type Field, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
 import { tint, type Authored } from "@/lib/changes";
+import { fieldHelp } from "@/lib/field-help";
+import { fieldUses } from "@/lib/sheet-links";
 import { fmtDateTime } from "@/lib/dates";
 
 type Inputs = Record<string, CellValue>;
@@ -24,7 +26,22 @@ function deltaText(f: Field, now: unknown, was: unknown): { up: boolean | null; 
   }
   return String(now ?? "") === String(was ?? "") ? null : { up: null, head: "Changed", tail: ` vs R0 (R0: ${blank(was) ? "–" : String(was)})` };
 }
-const shortRef = (cell: string) => cell.replace(/^Additional Inputs!/, "AI ");
+// The Excel cell of a field, out of the way: a small ⓘ beside its name, the cell on hover (or a long press). The
+// description under the name says what the field feeds, by the workbook's own Particulars (lib/sheet-links.ts), else
+// what it means in plain words (lib/field-help.ts).
+function CellInfo({ m, cell }: { m: Model; cell: string }) {
+  const where = cell.includes("!") ? cell.replace("!", " ") : `${inputSheetOf(m)} ${cell}`;
+  return <span title={`Excel cell: ${where}`} aria-label={`Excel cell ${where}`} className="ml-1.5 inline-flex size-4 cursor-help items-center justify-center rounded-full border border-line align-[1px] text-[10px] font-semibold not-italic text-soft">i</span>;
+}
+// what each column of the road table means (shown when you hover its heading)
+const ROAD_COL_HELP: Record<string, string> = {
+  len: "Length of this road line, in metres.",
+  saucer: "Width of the saucer drain, in metres.",
+  path: "Footpath width for this road, in metres (total of both sides).",
+  kerb: "How many lines of kerb stone run along this road (2 = both edges).",
+  cut: "Earth cut for this road, in cubic metres (worked out from the terrain).",
+  fill: "Earth filled for this road, in cubic metres (worked out from the terrain).",
+};
 const numericChoices = (f: Field) => Array.isArray(f.options) && f.options.length > 0 && f.options.every((o) => /^\d+$/.test(String(o).trim()));
 const inputCls = "h-9 w-full rounded-md border border-input bg-sheet px-2.5 tabular-nums text-ink focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30";
 const changedCls = "bg-amber-soft/60";
@@ -85,6 +102,7 @@ interface Props {
 
 export function AssumptionsForm({ model: m, draft, snap, editable, base, authors, onChange }: Props) {
   const all = useMemo(() => m.sections.flatMap((s) => s.fields), [m]);
+  const uses = useMemo(() => fieldUses(m), [m]);
   const [shown, setShown] = useState<Set<string>>(new Set());
   const lengths = useMemo(() => all.filter((x) => x.group === "roadcol" && x.col === "len"), [all]);
   const totalField = useMemo(() => all.find((x) => x.road_total), [all]);
@@ -214,15 +232,33 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, authors
     );
   }
 
+  // under the name: the budget lines this input feeds, as the workbook names them ("Domestic Water Supply › Sluice
+  // Valve Chamber - 75x 75 x 120 cm"), then the template's own note; an input that feeds none or many (Location)
+  // gets a plain-words description instead (lib/field-help.ts)
+  function describe(f: Field) {
+    // a line named just like the input ("Boom Barrier") says nothing new
+    const same = (a: string) => a.replace(/[^a-z0-9]/gi, "").toLowerCase();
+    const lines = (uses[f.cell] ?? []).filter((l) => same(l.line) !== same(f.label));
+    const note = f.note && f.note !== fieldHelp(f.label) ? f.note : "";
+    if (!lines.length) return (fieldHelp(f.label) || f.note) ? <small className="block text-sm text-soft">{fieldHelp(f.label) || f.note}</small> : null;
+    return (
+      <small className="block text-sm text-soft">
+        {lines.map((l, i) => <span key={l.sheet + l.line}>{i > 0 && <span aria-hidden> · </span>}<span title={`${l.sheet} sheet`}>{l.line}</span></span>)}
+        {note && <span className="block text-xs">{note}</span>}
+      </small>
+    );
+  }
+
   function fieldRow(f: Field) {
     if (lightHidden(f)) return null;
     const lbl = typeof f.lightWidth === "string" && isNum(draft[f.lightWidth]) ? `External Lights – ${draft[f.lightWidth]} m road (line ${f.label.replace(/\D+/g, "")})` : f.label;
     return (
       <div key={f.cell} title={hover(f.cell)} style={f.kind !== "calc" ? paint(f.cell) : undefined} className={`grid grid-cols-1 gap-1 border-b border-line/70 px-2 py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_280px] sm:items-center ${f.kind === "calc" ? "bg-tint" : ""} ${f.kind !== "calc" && changed(f.cell) ? changedCls : ""}`}>
         <label htmlFor={"in-" + f.cell.replace(/[^A-Za-z0-9]/g, "_")}>
-          <span className="font-medium">{lbl}</span> <span className="ml-1 font-mono text-xs text-soft">{shortRef(f.cell)}</span>{f.kind !== "calc" && byChip(f.cell)}
+          <span className="font-medium">{lbl}</span><CellInfo m={m} cell={f.cell} />{f.kind !== "calc" && byChip(f.cell)}
           {f.kind === "calc" && <span className="ml-2 text-xs text-soft">calculated</span>}
-          {f.note && <small className="block text-sm text-soft">{f.note}</small>}          {typeof f.detail === "string" && <small className="block text-sm text-soft">{fmtCalc({} as Field, snap.calc[f.detail])}</small>}
+          {describe(f)}
+          {typeof f.detail === "string" && <small className="block text-sm text-soft">{fmtCalc({} as Field, snap.calc[f.detail])}</small>}
         </label>
         <div>{control(f)}{fieldDelta(f)}</div>
       </div>
@@ -240,7 +276,7 @@ export function AssumptionsForm({ model: m, draft, snap, editable, base, authors
           <table className="w-full min-w-[720px] text-sm">
             <thead className="bg-well text-xs uppercase tracking-wide text-soft">
               <tr><th className="px-2 py-1.5 text-right">Width{typed ? " (m)" : ""}</th><th className="px-2 py-1.5 text-left">Road type and specification</th>
-                {heads.map(([k, h]) => <th key={k} className="px-2 py-1.5 text-right">{h}</th>)}{base && <th className="min-w-36 px-2 py-1.5 text-right">Delta vs Base Line (R0)</th>}{typed && <th />}</tr>
+                {heads.map(([k, h]) => <th key={k} className="px-2 py-1.5 text-right" title={ROAD_COL_HELP[k]}>{h}{ROAD_COL_HELP[k] && <span aria-hidden className="ml-1 cursor-help normal-case">ⓘ</span>}</th>)}{base && <th className="min-w-36 px-2 py-1.5 text-right">Delta vs Base Line (R0)</th>}{typed && <th />}</tr>
             </thead>
             <tbody>
               {!lines.length && <tr><td colSpan={heads.length + 4} className="px-2 py-3 text-soft">No roads yet. Press “Add road”.</td></tr>}

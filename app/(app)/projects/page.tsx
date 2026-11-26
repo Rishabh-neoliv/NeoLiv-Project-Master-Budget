@@ -7,7 +7,7 @@ import { ClickableRow } from "@/components/clickable-row";
 import { RevTag, StatusBadge } from "@/components/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { crore, numCell } from "@/lib/budget";
-import { actsForAll, isStaff, kindOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
+import { actsForAll, isStaff, kindOf, regionsOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 
@@ -16,7 +16,7 @@ const placeOf = (p: Row) => (p.location || p.region).trim();
 
 const INTRO: Record<Role, string> = {
   admin: "Every project, Live and Test. As admin you can open any of them and take any step. Click a row to open it.",
-  subadmin: "Every Live project, plus the Test projects you're on the team of. You can act for any department on a Live project. Click a row to open it.",
+  subadmin: "The Live projects of your regions, plus any project you're on the team of. You can act for any department on a Live project of your regions. Click a row to open it.",
   member: "The projects you're on the team of. Click a row to open it.",
 };
 
@@ -36,7 +36,7 @@ export default async function ProjectsPage() {
   const waiting = rows.filter((p) => { const d = STATUS[p.status][1]; return d && deptsOf.get(p.id)?.includes(d); });
   const live = rows.filter((p) => !waiting.includes(p) && p.kind === "live");
   const test = rows.filter((p) => !waiting.includes(p) && p.kind === "test");
-  const roleIn = (p: Row) => (deptsOf.get(p.id) ?? []).map(dn).join(" + ") || (actsForAll(role, p.kind) ? ROLE_NAME[role] : "View only");
+  const roleIn = (p: Row) => (deptsOf.get(p.id) ?? []).map(dn).join(" + ") || (actsForAll(role, p.kind, p.region, regionsOf(me)) ? ROLE_NAME[role] : "View only");
 
   return (
     <div className="grid gap-8">

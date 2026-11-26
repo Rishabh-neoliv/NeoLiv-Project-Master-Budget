@@ -11,22 +11,23 @@
 // POST /api/admin/users/:id  { action: "make_admin" }       they become an admin too (there can be several)
 // POST /api/admin/users/:id  { action: "remove_admin" }     they become an ordinary member (also on yourself); there
 //                                                            is always at least one admin left
-// POST /api/admin/users/:id  { action: "make_subadmin" }    they become a sub-admin
+// POST /api/admin/users/:id  { action: "make_subadmin" }    they become a sub-admin (no regions yet: see nothing more)
+// POST /api/admin/users/:id  { action: "set_regions", regions: ["NCR", …] }  the regions a sub-admin handles
 // POST /api/admin/users/:id  { action: "remove_subadmin" }  they become an ordinary member
 import { z } from "zod";
 import { errorResponse, HttpError, readJson, requireUser } from "@/lib/server/data";
 import { sendInvite } from "@/lib/server/email";
 import { mailProvider } from "@/lib/server/mailer";
 import { appUrlFor, linkFor } from "@/lib/server/links";
-import { roleOf } from "@/lib/roles";
+import { REGIONS, roleOf } from "@/lib/roles";
 
-const Body = z.object({ action: z.enum(["link", "remove", "restore", "make_admin", "remove_admin", "make_subadmin", "remove_subadmin"]) });
+const Body = z.object({ action: z.enum(["link", "remove", "restore", "make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_regions"]), regions: z.array(z.enum(REGIONS)).max(REGIONS.length).optional() });
 
 export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id]">) {
   try {
     const { id } = await ctx.params;
     const { db, me } = await requireUser();
-    const { action } = Body.parse(await readJson(req));
+    const { action, regions } = Body.parse(await readJson(req));
     if (id === me.id && action !== "remove_admin") throw new HttpError(400, "That's your own account.");
     const { data: person } = await db.from("profiles").select("*").eq("id", id).single();
     if (!person) throw new HttpError(404, "Member not found.");
@@ -35,7 +36,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
     const manages = me.role === "admin" || (me.role === "subadmin" && theirs === "member");
     if (["remove", "restore"].includes(action) && !manages)
       throw new HttpError(403, me.role === "subadmin" ? `${person.name} is ${theirs === "admin" ? "an admin" : "a sub-admin"}. Only an admin can do this.` : "Only an admin or sub-admin can do this.");
-    if (["make_admin", "remove_admin", "make_subadmin", "remove_subadmin"].includes(action) && me.role !== "admin") throw new HttpError(403, "Only an admin can do this.");
+    if (["make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_regions"].includes(action) && me.role !== "admin") throw new HttpError(403, "Only an admin can do this.");
     const { data: { user } } = await db.auth.admin.getUserById(id);
     if (!user) throw new HttpError(404, "Member not found.");
     const removed = !!user.banned_until && new Date(user.banned_until) > new Date();
@@ -63,10 +64,17 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
       if (error) throw new HttpError(400, error.message);
       return Response.json({ ok: true });
     }
+    if (action === "set_regions") {
+      if (theirs !== "subadmin") throw new HttpError(400, `${person.name} isn't a sub-admin.`);
+      const { error } = await db.from("profiles").update({ regions: [...new Set(regions ?? [])] }).eq("id", id);
+      if (error) throw new HttpError(400, error.message.includes("regions") ? "Run supabase/migrations/0007_subadmin_regions.sql in Supabase first." : error.message);
+      return Response.json({ ok: true });
+    }
     if (action === "remove_subadmin") {
       if (theirs !== "subadmin") throw new HttpError(400, `${person.name} isn't a sub-admin.`);
       const { error } = await db.from("profiles").update({ is_subadmin: false }).eq("id", id);
       if (error) throw new HttpError(400, error.message);
+      await db.from("profiles").update({ regions: [] }).eq("id", id); // a later sub-admin role starts with none
       return Response.json({ ok: true });
     }
     if (action === "remove_admin") {

@@ -15,7 +15,8 @@ import { DeleteProject } from "./delete-project";
 
 interface Row { id: string; name: string; region: string; status: Status; last_rev: number | null; grand_total: number | null; base_total: number | null; location: string | null; acre: number | null; updated_at: string }
 
-export async function ProjectsList({ kind, title, intro, canDelete }: { kind: Kind; title: string; intro: string; canDelete: boolean }) {
+/** regions: only these regions' projects (a sub-admin); left out, every project */
+export async function ProjectsList({ kind, title, intro, canDelete, regions }: { kind: Kind; title: string; intro: string; canDelete: boolean; regions?: string[] }) {
   const db = createAdminClient();
   const [{ data: projects }, { data: teams }, { data: people }] = await Promise.all([
     db.from("projects").select("id, name, region, status, last_rev, grand_total, base_total, location, acre, updated_at").eq("kind", kind).order("location").order("name"),
@@ -23,7 +24,7 @@ export async function ProjectsList({ kind, title, intro, canDelete }: { kind: Ki
     db.from("profiles").select("id, name"),
   ]);
   const names = new Map((people ?? []).map((p) => [p.id, p.name]));
-  const rows = (projects ?? []) as Row[];
+  const rows = ((projects ?? []) as Row[]).filter((p) => !regions || regions.includes(p.region));
   const teamOf = (pid: string) => (teams ?? []).filter((t) => t.project_id === pid);
   const th = "px-3 py-2.5 font-semibold";
 

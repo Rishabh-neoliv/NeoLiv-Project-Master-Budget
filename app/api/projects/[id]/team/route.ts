@@ -18,7 +18,7 @@ export async function PUT(req: Request, ctx: RouteContext<"/api/projects/[id]/te
     const team = [...new Map(body.team.map((t) => [`${t.user_id}|${t.dept}`, t])).values()];
     const missing = DEPTS.filter((d) => !team.some((t) => t.dept === d));
     if (missing.length) throw new HttpError(400, `Keep at least one person in ${missing.map(dn).join(", ")}.`);
-    if (!actsForAll(me.role, project.kind) && before.some((t) => t.user_id === me.id && t.dept === "BD") && !team.some((t) => t.user_id === me.id && t.dept === "BD")) throw new HttpError(400, "You can't take yourself off Base Line here. Ask another Base Line member to do it.");
+    if (!actsForAll(me.role, project.kind, project.region, me.regions) && before.some((t) => t.user_id === me.id && t.dept === "BD") && !team.some((t) => t.user_id === me.id && t.dept === "BD")) throw new HttpError(400, "You can't take yourself off Base Line here. Ask another Base Line member to do it.");
     await assertActiveMembers(db, team.map((t) => t.user_id));
 
     const key = (t: { user_id: string; dept: string }) => `${t.user_id}|${t.dept}`;

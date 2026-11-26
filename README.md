@@ -27,12 +27,12 @@ set when it is created and never changes.
 
 | | Admin | Sub-admin | Member |
 |---|---|---|---|
-| See Live projects | all | all | only the ones they're on |
+| See Live projects | all | those of their regions (set by an admin) | only the ones they're on |
 | See Test projects | all | only the ones they're on | only the ones they're on |
-| Create a project | Live and Test | Live | no |
+| Create a project | Live and Test | Live, in their regions | no |
 | Delete a project | Test only | no | no |
-| Edit drafts, take workflow steps | any project, any department | any Live project, any department; Test ones they're on, as their department | their projects, as their department |
-| Change a project's team | any | any Live project | as Base Line |
+| Edit drafts, take workflow steps | any project, any department | Live projects of their regions, any department; Test ones they're on, as their department | their projects, as their department |
+| Change a project's team | any | Live projects of their regions | as Base Line |
 | Add people | yes, gets the sign-up link | yes, gets the sign-up link | yes, the link goes only by email |
 | Remove / restore people | anyone but the last admin | ordinary members only | no |
 | Make or remove admins and sub-admins | yes | no | no |

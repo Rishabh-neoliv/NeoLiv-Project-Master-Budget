@@ -10,6 +10,23 @@ export interface ChangeRow {
   details?: { changes?: { cell: string; label?: string; from: CellValue; to: CellValue }[]; kind?: string } | null;
 }
 
+/** Base Line's work on R0 isn't shown to anyone: no names, no list of changes, no colours (user, 2026-11-26). The
+ *  history starts once R0 is frozen and goes to Design. True for what may be shown: after R0's freeze, and not
+ *  R0's own steps (its creation, saves and submit carry rev 0; a later recalculation of R0 is shown). Nothing is
+ *  shown while R0 is still a draft. */
+export const afterBaseLine = (r0FrozenAt: string | null | undefined) => {
+  const t = r0FrozenAt ? Date.parse(r0FrozenAt) : NaN;
+  return (a: { at: string; rev?: number | null; details?: { kind?: string } | null }) =>
+    Number.isFinite(t) && Date.parse(a.at) > t && (a.rev !== 0 || a.details?.kind === "recalc" || a.details?.kind === "template");
+};
+
+/** afterBaseLine across projects: activity rows (with project_id, rev and the kind of change) that may be shown,
+ *  given each project's R0 freeze time. */
+export function withoutBaseLine<T extends { project_id: string; at: string; rev?: number | null; kind?: string | null }>(rows: T[], r0: { project_id: string; frozen_at: string }[]) {
+  const ok = new Map(r0.map((v) => [v.project_id, afterBaseLine(v.frozen_at)]));
+  return rows.filter((a) => ok.get(a.project_id)?.({ at: a.at, rev: a.rev, details: { kind: a.kind ?? undefined } }) ?? false);
+}
+
 const COLOURS = 8;
 /** A colour per person, in team order (people who aren't on the team, e.g. an admin, come after). */
 export function colours(teamIds: string[], others: string[], names: Record<string, string>) {

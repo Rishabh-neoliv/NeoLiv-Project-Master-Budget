@@ -2,6 +2,7 @@
 
 // Upload a new master workbook → the app checks it → the admin sees what changes → add it (and make it current).
 import { useState } from "react";
+import { useArmed } from "@/components/use-armed";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ export function TemplatesAdmin({ rows }: { rows: TemplateRow[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [upload, setUpload] = useState<{ path: string; name: string; report: TemplateReport } | null>(null);
-  const [armed, setArmed] = useState<string | null>(null);
+  const [armed, setArmed] = useArmed<string | null>(null);
   const [showAll, setShowAll] = useState(false);
 
   async function post(url: string, body: unknown) {
@@ -166,7 +167,7 @@ export function TemplatesAdmin({ rows }: { rows: TemplateRow[] }) {
                   <td className="whitespace-nowrap px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
                       <a href={`/api/admin/templates/${t.stamp}`} className="rounded-md px-2.5 py-1.5 text-sm text-brand hover:bg-well">Download</a>
-                      {!t.current && <Button size="sm" variant={armed === t.stamp ? "default" : "ghost"} disabled={!!busy} onClick={() => makeCurrent(t)}
+                      {!t.current && <Button data-armable size="sm" variant={armed === t.stamp ? "default" : "ghost"} disabled={!!busy} onClick={() => makeCurrent(t)}
                         title="New projects use it; open drafts can move to it">{armed === t.stamp ? "Confirm: make current" : "Make current"}</Button>}
                     </div>
                   </td>

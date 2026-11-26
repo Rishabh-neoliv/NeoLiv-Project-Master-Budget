@@ -1,19 +1,20 @@
 // My overview: everyone's landing page. What's waiting for you, the projects you're on the team of, and the latest
 // changes on them (each person in the colour the project screen gives them, lib/changes.ts). Reads with the
-// signed-in person's own session, so row-level security decides what's visible (migration 0006).
+// signed-in person's own session, so row-level security decides what's visible (migration 0006). Base Line's work on
+// R0 isn't listed or counted (lib/changes.ts afterBaseLine).
 import Link from "next/link";
 import { ClickableRow } from "@/components/clickable-row";
 import { Initials } from "@/components/initials";
 import { RevTag, StatusBadge } from "@/components/status-badge";
 import { buttonVariants } from "@/components/ui/button";
-import { colours } from "@/lib/changes";
+import { colours, withoutBaseLine } from "@/lib/changes";
 import { fmtShortDateTime } from "@/lib/dates";
-import { isStaff, kindOf, ROLE_NAME, roleOf } from "@/lib/roles";
+import { isStaff, kindOf, regionsOf, ROLE_NAME, roleOf } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, nextRev, revLabel, STATUS, type Status } from "@/lib/workflow";
 
 interface Project { id: string; name: string; status: Status; last_rev: number | null; location: string | null; region: string; updated_at: string; kind?: string }
-interface Activity { id: string; at: string; by: string | null; dept: string | null; action: string; comment: string | null; project_id: string }
+interface Activity { id: string; at: string; by: string | null; dept: string | null; action: string; comment: string | null; project_id: string; rev: number | null; kind: string | null }
 
 // what the department whose turn it is has to do next
 const NEXT: Record<Status, (rev: number) => string> = {
@@ -43,17 +44,19 @@ export default async function MyOverview() {
   for (const m of mine ?? []) deptsOf.set(m.project_id, [...(deptsOf.get(m.project_id) ?? []), m.dept]);
   const ids = [...deptsOf.keys()];
 
-  const [{ data: projects }, { data: teams }, { data: recent }, { count: weekCount }] = ids.length
+  const [{ data: projects }, { data: teams }, { data: recent }, { data: week }, { data: r0 }] = ids.length
     ? await Promise.all([
       supabase.from("projects").select("id, name, region, status, last_rev, location, updated_at, kind").in("id", ids).order("updated_at", { ascending: false }),
       supabase.from("project_members").select("project_id, user_id").in("project_id", ids),
-      supabase.from("activity").select("id, at, by, dept, action, comment, project_id").in("project_id", ids).order("at", { ascending: false }).limit(40),
-      supabase.from("activity").select("id", { count: "exact", head: true }).in("project_id", ids).neq("by", uid).gte("at", weekAgo()),
+      supabase.from("activity").select("id, at, by, dept, action, comment, project_id, rev, kind:details->>kind").in("project_id", ids).order("at", { ascending: false }).limit(150),
+      supabase.from("activity").select("at, project_id, rev, kind:details->>kind").in("project_id", ids).neq("by", uid).gte("at", weekAgo()).limit(2000),
+      supabase.from("versions").select("project_id, frozen_at").in("project_id", ids).eq("rev", 0),
     ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { count: 0 }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }, { data: [] }];
+  const weekCount = withoutBaseLine((week ?? []) as { at: string; project_id: string; rev: number | null; kind: string | null }[], r0 ?? []).length;
 
   const rows = (projects ?? []) as Project[];
-  const activity = (recent ?? []) as Activity[];
+  const activity = withoutBaseLine((recent ?? []) as Activity[], r0 ?? []).slice(0, 40);
   const waiting = rows.filter((p) => { const d = STATUS[p.status][1]; return d && deptsOf.get(p.id)?.includes(d); });
   const approved = rows.filter((p) => !STATUS[p.status][1]).length;
   const tests = rows.filter((p) => kindOf(p) === "test").length;
@@ -89,7 +92,7 @@ export default async function MyOverview() {
         <p className="rounded-xl border border-info/30 bg-info-soft px-4 py-3 text-sm text-info">
           <b>{ROLE_NAME[role]}.</b> {role === "admin"
             ? "Below are only the projects you're on the team of. You can open and act on every project, Live and Test: see Projects or the Admin panel."
-            : "Below are only the projects you're on the team of. You can also open and act on every Live project: see Projects or the Admin panel."}
+            : `Below are only the projects you're on the team of. You can also open and act on the Live projects of your regions (${regionsOf(me).join(", ") || "none yet: ask an admin"}): see Projects or the Admin panel.`}
         </p>
       )}
 

@@ -8,7 +8,7 @@ async function findFile(db: ReturnType<typeof createAdminClient>, id: string, fi
   if (!file) throw new HttpError(404, "File not found.");
   return file;
 }
-// removing needs the team; downloading only needs a signed-in member (everyone can view every project)
+// removing needs the team; downloading needs to see the project (requireViewer: its team, admins, sub-admins on Live)
 async function fileOf(id: string, fileId: string) {
   const ctx = await requireMember(id);
   return { ...ctx, file: await findFile(ctx.db, id, fileId) };
