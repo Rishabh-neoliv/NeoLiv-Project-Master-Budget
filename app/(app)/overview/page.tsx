@@ -92,7 +92,7 @@ export default async function MyOverview() {
         <p className="rounded-xl border border-info/30 bg-info-soft px-4 py-3 text-sm text-info">
           <b>{ROLE_NAME[role]}.</b> {role === "admin"
             ? "Below are only the projects you're on the team of. You can open and act on every project, Live and Test: see Projects or the Admin panel."
-            : `Below are only the projects you're on the team of. You can also open and act on the Live projects of your regions (${regionsOf(me).join(", ") || "none yet: ask an admin"}): see Projects or the Admin panel.`}
+            : `Below are only the projects you're on the team of. You can also open and act on the Live projects of your region (${regionsOf(me).join(", ") || "none yet: ask an admin"}): see Projects or the Admin panel.`}
         </p>
       )}
 

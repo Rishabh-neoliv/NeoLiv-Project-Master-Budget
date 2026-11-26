@@ -11,8 +11,9 @@
 // POST /api/admin/users/:id  { action: "make_admin" }       they become an admin too (there can be several)
 // POST /api/admin/users/:id  { action: "remove_admin" }     they become an ordinary member (also on yourself); there
 //                                                            is always at least one admin left
-// POST /api/admin/users/:id  { action: "make_subadmin" }    they become a sub-admin (no regions yet: see nothing more)
-// POST /api/admin/users/:id  { action: "set_regions", regions: ["NCR", …] }  the regions a sub-admin handles
+// POST /api/admin/users/:id  { action: "make_subadmin", region: "NCR" }  they become a sub-admin for that region (one
+//                                                         region each, picked when made: user, 2026-11-26)
+// POST /api/admin/users/:id  { action: "set_region", region: "MMR" }      move a sub-admin to another region
 // POST /api/admin/users/:id  { action: "remove_subadmin" }  they become an ordinary member
 import { z } from "zod";
 import { errorResponse, HttpError, readJson, requireUser } from "@/lib/server/data";
@@ -21,13 +22,13 @@ import { mailProvider } from "@/lib/server/mailer";
 import { appUrlFor, linkFor } from "@/lib/server/links";
 import { REGIONS, roleOf } from "@/lib/roles";
 
-const Body = z.object({ action: z.enum(["link", "remove", "restore", "make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_regions"]), regions: z.array(z.enum(REGIONS)).max(REGIONS.length).optional() });
+const Body = z.object({ action: z.enum(["link", "remove", "restore", "make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_region"]), region: z.enum(REGIONS).optional() });
 
 export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id]">) {
   try {
     const { id } = await ctx.params;
     const { db, me } = await requireUser();
-    const { action, regions } = Body.parse(await readJson(req));
+    const { action, region } = Body.parse(await readJson(req));
     if (id === me.id && action !== "remove_admin") throw new HttpError(400, "That's your own account.");
     const { data: person } = await db.from("profiles").select("*").eq("id", id).single();
     if (!person) throw new HttpError(404, "Member not found.");
@@ -36,7 +37,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
     const manages = me.role === "admin" || (me.role === "subadmin" && theirs === "member");
     if (["remove", "restore"].includes(action) && !manages)
       throw new HttpError(403, me.role === "subadmin" ? `${person.name} is ${theirs === "admin" ? "an admin" : "a sub-admin"}. Only an admin can do this.` : "Only an admin or sub-admin can do this.");
-    if (["make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_regions"].includes(action) && me.role !== "admin") throw new HttpError(403, "Only an admin can do this.");
+    if (["make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_region"].includes(action) && me.role !== "admin") throw new HttpError(403, "Only an admin can do this.");
     const { data: { user } } = await db.auth.admin.getUserById(id);
     if (!user) throw new HttpError(404, "Member not found.");
     const removed = !!user.banned_until && new Date(user.banned_until) > new Date();
@@ -60,13 +61,15 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
       if (removed) throw new HttpError(400, `${person.name} is removed. Restore them first.`);
       if (action === "make_subadmin" && theirs === "admin") throw new HttpError(400, `${person.name} is an admin. Remove their admin role first.`);
       // one role at a time: an admin isn't also flagged sub-admin
-      const { error } = await db.from("profiles").update(action === "make_admin" ? { is_admin: true, is_subadmin: false } : { is_subadmin: true }).eq("id", id);
+      if (action === "make_subadmin" && !region) throw new HttpError(400, "Pick the region they'll handle.");
+      const { error } = await db.from("profiles").update(action === "make_admin" ? { is_admin: true, is_subadmin: false, regions: [] } : { is_subadmin: true, regions: [region] }).eq("id", id);
       if (error) throw new HttpError(400, error.message);
       return Response.json({ ok: true });
     }
-    if (action === "set_regions") {
+    if (action === "set_region") {
       if (theirs !== "subadmin") throw new HttpError(400, `${person.name} isn't a sub-admin.`);
-      const { error } = await db.from("profiles").update({ regions: [...new Set(regions ?? [])] }).eq("id", id);
+      if (!region) throw new HttpError(400, "Pick a region.");
+      const { error } = await db.from("profiles").update({ regions: [region] }).eq("id", id);
       if (error) throw new HttpError(400, error.message.includes("regions") ? "Run supabase/migrations/0007_subadmin_regions.sql in Supabase first." : error.message);
       return Response.json({ ok: true });
     }

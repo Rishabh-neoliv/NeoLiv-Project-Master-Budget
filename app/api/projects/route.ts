@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const missing = DEPTS.filter((d) => !team.some((t) => t.dept === d));
     if (missing.length) throw new HttpError(400, `Add someone for ${missing.map(dn).join(", ")}.`);
     if (!canCreateProject(me.role, body.kind, body.region, me.regions)) throw new HttpError(403, body.kind === "test" ? "Only an admin can create a Test project."
-      : me.role === "subadmin" ? `You can create projects only in your regions (${me.regions.join(", ") || "none yet: ask an admin"}).` : "Only an admin or sub-admin can create a project.");
+      : me.role === "subadmin" ? `You can create projects only in your region (${me.regions.join(", ") || "none yet: ask an admin"}).` : "Only an admin or sub-admin can create a project.");
     await assertActiveMembers(db, team.map((t) => t.user_id));
 
     const { data: dupe } = await db.from("projects").select("id").ilike("name", body.name).maybeSingle();

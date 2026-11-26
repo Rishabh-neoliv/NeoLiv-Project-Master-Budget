@@ -56,7 +56,7 @@ export default async function AdminOverview() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
-          <p className="text-soft">{isAdmin ? "Where every project stands, and who has access." : `Where the Live projects of your regions (${me.regions.join(", ") || "none yet: ask an admin"}) stand.`}</p>
+          <p className="text-soft">{isAdmin ? "Where every project stands, and who has access." : `Where the Live projects of your region (${me.regions.join(", ") || "none yet: ask an admin"}) stand.`}</p>
         </div>
         <div className="flex gap-2">
           <Link href="/admin/members" className={buttonVariants({ variant: "outline" })}>Add a team member</Link>

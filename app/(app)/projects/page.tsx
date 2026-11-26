@@ -16,7 +16,7 @@ const placeOf = (p: Row) => (p.location || p.region).trim();
 
 const INTRO: Record<Role, string> = {
   admin: "Every project, Live and Test. As admin you can open any of them and take any step. Click a row to open it.",
-  subadmin: "The Live projects of your regions, plus any project you're on the team of. You can act for any department on a Live project of your regions. Click a row to open it.",
+  subadmin: "The Live projects of your region, plus any project you're on the team of. You can act for any department on a Live project of your region. Click a row to open it.",
   member: "The projects you're on the team of. Click a row to open it.",
 };
 

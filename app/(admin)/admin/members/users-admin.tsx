@@ -34,6 +34,8 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
   const manages = (m: Member) => isAdmin || (role === "subadmin" && !m.isAdmin && !m.isSubadmin);
   // "Make admin" / "Remove admin" ask for a second press, like the app's other one-way steps
   const [armed, setArmed] = useArmed<string | null>(null);
+  // "Make sub-admin" first asks which region they'll handle (one each; user, 2026-11-26); a click elsewhere cancels
+  const [pick, setPick] = useArmed<{ id: string; region: string | null } | null>(null, 120000);
   const admins = members.filter((m) => m.isAdmin && m.status !== "removed").length;
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -71,18 +73,23 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
     if (!make && m.id === meId) { toast.success("You're no longer an admin."); router.replace("/overview"); return; }
     toast.success(make ? `${m.name} is now an admin too.` : `${m.name} is no longer an admin.`);
   }
-  async function setSubadmin(m: Member, make: boolean) {
-    const key = (make ? "sub:" : "unsub:") + m.id;
+  async function removeSubadmin(m: Member) {
+    const key = "unsub:" + m.id;
     if (armed !== key) { setArmed(key); return; }
     setArmed(null);
-    if (!(await call(`/api/admin/users/${m.id}`, "POST", { action: make ? "make_subadmin" : "remove_subadmin" }))) return;
-    toast.success(make ? `${m.name} is now a sub-admin.` : `${m.name} is no longer a sub-admin.`);
+    if (await call(`/api/admin/users/${m.id}`, "POST", { action: "remove_subadmin" })) toast.success(`${m.name} is no longer a sub-admin.`);
   }
-  // a sub-admin's regions: an admin ticks them on the member's row; the sub-admin sees and manages only the Live
-  // projects of those regions (lib/roles.ts, migration 0007)
-  async function toggleRegion(m: Member, region: string) {
-    const regions = m.regions.includes(region) ? m.regions.filter((r) => r !== region) : [...m.regions, region];
-    if (await call(`/api/admin/users/${m.id}`, "POST", { action: "set_regions", regions })) toast.success(`${m.name} now handles ${regions.length ? regions.join(", ") : "no region"}.`);
+  async function makeSubadmin(m: Member, region: string) {
+    setPick(null);
+    if (await call(`/api/admin/users/${m.id}`, "POST", { action: "make_subadmin", region })) toast.success(`${m.name} is now the sub-admin for ${region}.`);
+  }
+  // a sub-admin's region: one each; the sub-admin sees and manages only that region's Live projects (lib/roles.ts,
+  // migration 0007). Moving them to another region asks for a second press.
+  async function moveRegion(m: Member, region: string) {
+    const key = `reg:${m.id}:${region}`;
+    if (armed !== key) { setArmed(key); return; }
+    setArmed(null);
+    if (await call(`/api/admin/users/${m.id}`, "POST", { action: "set_region", region })) toast.success(`${m.name} now handles ${region}.`);
   }
   async function newLink(m: Member) {
     const out = await call(`/api/admin/users/${m.id}`, "POST", { action: "link" });
@@ -143,17 +150,33 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
                   <div className="text-soft">{m.email}</div>
                   {m.department && <div className="text-xs text-soft">{m.department}</div>}
                   {m.isSubadmin && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1 text-xs">
-                      <span className="text-soft">Regions:</span>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1 text-xs" role={isAdmin ? "radiogroup" : undefined} aria-label={`${m.name}'s region`}>
+                      <span className="text-soft">Region:</span>
                       {isAdmin
                         ? REGIONS.map((r) => {
-                          const on = m.regions.includes(r);
-                          return <button key={r} type="button" disabled={busy} onClick={() => toggleRegion(m, r)} aria-pressed={on}
-                            title={on ? `Stop ${m.name} handling ${r}` : `Let ${m.name} handle ${r}'s Live projects`}
-                            className={`rounded-full border px-2 py-0.5 ${on ? "border-brand bg-brand text-accent-ink" : "border-line text-soft hover:border-brand hover:text-brand"}`}>{on ? "✓ " : ""}{r}</button>;
+                          const on = m.regions.includes(r), asking = armed === `reg:${m.id}:${r}`;
+                          return <button key={r} type="button" role="radio" aria-checked={on} data-armable disabled={busy || on} onClick={() => moveRegion(m, r)}
+                            title={on ? `${m.name} handles ${r}'s Live projects` : `Move ${m.name} to ${r} (they stop handling ${m.regions.join(", ") || "their region"})`}
+                            className={`rounded-full border px-2 py-0.5 ${on ? "border-brand bg-brand text-accent-ink disabled:opacity-100" : asking ? "border-brand bg-brand-soft font-medium text-brand" : "border-line text-soft hover:border-brand hover:text-brand"}`}>{on ? "✓ " : ""}{asking ? `Confirm: move to ${r}` : r}</button>;
                         })
                         : <span className="font-medium">{m.regions.join(", ") || "none"}</span>}
                       {!m.regions.length && <span className="text-amber">no region yet: sees no Live projects</span>}
+                    </div>
+                  )}
+                  {pick?.id === m.id && (
+                    <div data-armable className="mt-2 grid gap-2 rounded-lg border border-brand bg-brand-soft/60 p-2.5 text-xs">
+                      <span className="font-medium">Which region will {m.name} handle as sub-admin?</span>
+                      <div className="flex flex-wrap items-center gap-1" role="radiogroup" aria-label="Region">
+                        {REGIONS.map((r) => {
+                          const on = pick.region === r;
+                          return <button key={r} type="button" role="radio" aria-checked={on} onClick={() => setPick({ id: m.id, region: r })}
+                            className={`rounded-full border px-2.5 py-0.5 ${on ? "border-brand bg-brand text-accent-ink" : "border-line bg-sheet text-soft hover:border-brand hover:text-brand"}`}>{on ? "✓ " : ""}{r}</button>;
+                        })}
+                      </div>
+                      <div className="flex gap-1.5">
+                        <Button size="sm" disabled={busy || !pick.region} onClick={() => pick.region && makeSubadmin(m, pick.region)}>{pick.region ? `Make sub-admin for ${pick.region}` : "Pick a region"}</Button>
+                        <Button size="sm" variant="ghost" onClick={() => setPick(null)}>Cancel</Button>
+                      </div>
                     </div>
                   )}
                 </td>
@@ -174,10 +197,10 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
                         <Button data-armable size="sm" variant={armed === "make:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setAdmin(m, true)}
                           title="They get the whole Admin panel too; you stay admin">{armed === "make:" + m.id ? "Confirm: make admin" : "Make admin"}</Button>
                         {m.isSubadmin
-                          ? <Button data-armable size="sm" variant={armed === "unsub:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setSubadmin(m, false)}
+                          ? <Button data-armable size="sm" variant={armed === "unsub:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => removeSubadmin(m)}
                               title="They become an ordinary member">{armed === "unsub:" + m.id ? "Confirm: remove sub-admin" : "Remove sub-admin"}</Button>
-                          : <Button data-armable size="sm" variant={armed === "sub:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setSubadmin(m, true)}
-                              title="They can create Live projects, open and act on every Live project, and remove or restore ordinary members">{armed === "sub:" + m.id ? "Confirm: make sub-admin" : "Make sub-admin"}</Button>}
+                          : <Button data-armable size="sm" variant={pick?.id === m.id ? "default" : "ghost"} disabled={busy} onClick={() => setPick(pick?.id === m.id ? null : { id: m.id, region: null })}
+                              title="Pick the region they'll handle: they can create Live projects there, open and act on its Live projects, and remove or restore ordinary members">Make sub-admin</Button>}
                       </>)}
                     {m.id !== meId && m.status !== "removed" && <Button size="sm" variant="outline" disabled={busy} onClick={() => newLink(m)}>New link</Button>}
                     {!m.isAdmin && m.id !== meId && (m.status === "removed"

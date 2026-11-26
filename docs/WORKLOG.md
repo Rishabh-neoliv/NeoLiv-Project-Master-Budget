@@ -54,6 +54,13 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-26
 
+- **One region per sub-admin, picked when made** (user): "Make sub-admin" opens a region picker on the member's row
+  (NCR, MMR, Alibaug, Nagpur; a click elsewhere cancels) and only "Make sub-admin for <region>" gives the role. On a
+  sub-admin's row the region chips act as a choice of one; moving to another region asks for a second press. API:
+  `make_subadmin` needs `region`, `set_region` replaces `set_regions` (one region; the column stays `regions`, no new
+  migration). Wording "your regions" → "your region". Tested: 5 API checks (no region / two regions refused, make,
+  move, non-sub-admin) and the picker in the browser (opens, closes on a click elsewhere, saves MMR); check-access
+  26/26. Throwaway accounts deleted.
 - **Base Line's work on R0 isn't shown** (user: "show nothing in base line history"; history starts with Design):
   activity from before R0 freezes, and R0's own steps (creation, saves, submit), is left out of the project's
   Activity tab, the who-changed-what colours, My overview and the Admin overview; R0 shows no tints and "Base Line"

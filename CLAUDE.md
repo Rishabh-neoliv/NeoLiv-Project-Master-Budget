@@ -56,12 +56,12 @@ node --env-file=.env.local scripts/test-email.mjs
   Roles: **admin** (`profiles.is_admin`; several allowed, at least one always kept), **sub-admin**
   (`profiles.is_subadmin`, given by admins), **member**. Projects are **Live** or **Test** (`projects.kind`), fixed at
   creation; only admins create Test, admins and sub-admins create Live; only Test can be deleted (admins).
-- **Who sees a project** is RLS (`can_see_project`): admins all; sub-admins the Live projects of **their regions**
-  (`profiles.regions`, set by an admin on Team members; migration 0007, 2026-11-26) + any project they're on; members
+- **Who sees a project** is RLS (`can_see_project`): admins all; sub-admins the Live projects of **their region**
+  (one each, picked when an admin makes them sub-admin; `profiles.regions`, migration 0007, 2026-11-26) + any project they're on; members
   only projects they're on. `requireViewer` applies the same rule (404 otherwise). A project's region (NCR, MMR,
   Alibaug, Nagpur) is picked at creation and never changes (the Location input only picks rates).
 - **Who acts for every department without being on the team** (`actsForAll`): admins on any project, sub-admins on
-  Live ones of their regions (recorded as "Admin" / "Sub-admin"). Sub-admins create Live projects only in their regions. Everyone else acts as their own departments on their team.
+  Live ones of their region (recorded as "Admin" / "Sub-admin"). Sub-admins create Live projects only in their region. Everyone else acts as their own departments on their team.
 - **Admin panel** (`app/(admin)/admin/`): admins see Overview (+ Security and setup), Team members, Live projects,
   Test projects, Master templates; sub-admins see Overview (Live only), Team members, Live projects
   (`staffOrRedirect` / `adminOrRedirect` in `lib/server/admin-guard.ts`). **My overview** (`/overview`) is everyone's
