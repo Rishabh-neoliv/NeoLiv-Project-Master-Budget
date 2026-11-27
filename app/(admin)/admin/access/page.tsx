@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowRight, Check, ChevronRight, Crown, FolderKanban, History, Mail, Minus, ShieldCheck, UserRound, Users, type LucideIcon } from "lucide-react";
 import { staffOrRedirect } from "@/lib/server/admin-guard";
 import { ACCESS_HELP, ACCESS_LEVELS, ACCESS_NAME, PERMISSIONS, ROLE_NAME, ROLE_POINTS, type Can, type Role } from "@/lib/roles";
+import { PageHeader } from "@/components/page-header";
 
 const ROLES: [Role, LucideIcon, string, string][] = [
   ["admin", Crown, "Full access", "bg-info-soft text-info"],
@@ -35,13 +36,9 @@ export default async function AccessPage() {
 
   return (
     <div className="grid gap-8">
-      <div className="flex items-start gap-4">
-        <span className="grid size-14 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><ShieldCheck className="size-7" aria-hidden /></span>
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Roles &amp; access</h1>
-          <p className="text-soft">Who can do what in the app. The rules are fixed and the database enforces them too; a person&apos;s role and project access are changed on Team members.</p>
-        </div>
-      </div>
+      <PageHeader title="Roles & access"
+        icon={<span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><ShieldCheck className="size-6" aria-hidden /></span>}
+        description="Who can do what in the app. The rules are fixed and the database enforces them too; a person's role and project access are changed on Team members." />
 
       <section className="grid gap-4 lg:grid-cols-3">
         {ROLES.map(([role, Icon, tag, tone]) => (

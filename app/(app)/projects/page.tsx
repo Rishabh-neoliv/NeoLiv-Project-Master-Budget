@@ -8,6 +8,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { actsForAll, isStaff, kindOf, REGIONS, regionsOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, revLabel, STATUS, type Status } from "@/lib/workflow";
+import { PageHeader } from "@/components/page-header";
 
 interface Row { id: string; name: string; region: string; status: Status; last_rev: number | null; grand_total: number | null; location: string | null; acre: number | null; updated_at: string; created_at: string; created_by: string | null; kind: Kind }
 const placeOf = (p: Row) => (p.location || p.region).trim();
@@ -58,13 +59,8 @@ export default async function ProjectsPage() {
 
   return (
     <div className="grid gap-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Projects</h1>
-          <p className="text-soft">{INTRO[role]}</p>
-        </div>
-        {isStaff(role) && <Link href="/admin/live" className={buttonVariants({ variant: "outline" })}>Manage Live projects</Link>}
-      </div>
+      <PageHeader title="Projects" description={INTRO[role]}
+        actions={isStaff(role) ? <Link href="/admin/live" className={buttonVariants({ variant: "outline" })}>Manage Live projects</Link> : undefined} />
       {!rows.length && <p className="rounded-xl border border-line bg-sheet p-5 text-soft">{isStaff(role) ? "No projects yet. New projects are made in Administration → Live projects." : "You're not on any project's team yet. When someone adds you to one, it shows here."}</p>}
       <ProjectGroups groups={groups} />
     </div>

@@ -13,6 +13,7 @@ import { REGIONS, type Kind } from "@/lib/roles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEPTS, dn, revLabel, type Status } from "@/lib/workflow";
 import { DeleteProject } from "./delete-project";
+import { PageHeader } from "@/components/page-header";
 
 interface Row { id: string; name: string; region: string; status: Status; last_rev: number | null; grand_total: number | null; base_total: number | null; location: string | null; acre: number | null; updated_at: string; created_at: string; created_by: string | null }
 // the region a project is listed under: its rates location ("NCR rates"), else the region it was set up in
@@ -35,13 +36,7 @@ export async function ProjectsList({ kind, title, intro, canDelete, regions }: {
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
-          <p className="max-w-3xl text-soft">{intro}</p>
-        </div>
-        <Link href={`/admin/${kind}/new`} className={buttonVariants()}>New {kind === "test" ? "Test" : "Live"} project</Link>
-      </div>
+      <PageHeader title={title} description={intro} actions={<Link href={`/admin/${kind}/new`} className={buttonVariants()}>New {kind === "test" ? "Test" : "Live"} project</Link>} />
       {!rows.length && <p className="rounded-xl border border-line bg-sheet p-5 text-soft">No {kind === "test" ? "Test" : "Live"} projects yet.</p>}
       {places.map((place) => (
         <section key={place} className="grid gap-2">

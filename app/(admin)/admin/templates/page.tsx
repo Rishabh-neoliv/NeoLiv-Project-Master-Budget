@@ -3,6 +3,7 @@
 import { adminOrRedirect } from "@/lib/server/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { TemplatesAdmin, type TemplateRow } from "./templates-admin";
+import { PageHeader } from "@/components/page-header";
 
 export default async function TemplatesPage() {
   await adminOrRedirect();
@@ -22,12 +23,9 @@ export default async function TemplatesPage() {
   }));
 
   return (
-    <div className="grid max-w-5xl gap-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Master templates</h1>
-        <p className="text-soft">The master Excel workbook with the rates and formulas every budget is costed on. Upload a new version here: the app reads it, checks that it calculates exactly like Excel, and shows what changes before you make it current.</p>
-      </div>
-      <TemplatesAdmin rows={rows} />
+    <div className="grid gap-6">
+      <PageHeader title="Master templates" description="The master Excel workbook with the rates and formulas every budget is costed on. Upload a new version here: the app reads it, checks that it calculates exactly like Excel, and shows what changes before you make it current." />
+      <div className="max-w-5xl"><TemplatesAdmin rows={rows} /></div>
     </div>
   );
 }

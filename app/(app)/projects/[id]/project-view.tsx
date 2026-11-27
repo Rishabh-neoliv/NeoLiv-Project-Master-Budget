@@ -18,6 +18,7 @@ import { TeamEditor, teamFromRows, teamToRows, type Person, type Team } from "@/
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { InfoTip, SumLines } from "@/components/info-tip";
+import { TopTools } from "@/components/top-tools";
 import { crore, grandTotalLines, isNum, marks, missingInputs, numCell, problems, snapFromVersion, snapshot, type CellValue, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
 import { authorship, colours, type Authored, type ChangeRow } from "@/lib/changes";
 import { createClient } from "@/lib/supabase/client";
@@ -275,7 +276,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
     <div className="grid gap-5">
       {/* header */}
       <section className="grid gap-4 rounded-xl border border-line bg-sheet p-5">
-        <Link href="/projects" className="w-fit text-sm text-brand hover:underline">← All projects</Link>
+        <div className="flex flex-wrap items-center justify-between gap-3"><Link href="/projects" className="w-fit text-sm text-brand hover:underline">← All projects</Link><TopTools /></div>
         <div className="grid gap-2">
           <h1 className="text-3xl font-semibold tracking-tight">{p.name}</h1>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -381,7 +382,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
             <AssumptionsForm model={m} draft={shownInputs} snap={snap} editable={editable && !shownVersion}
               base={formBase} authors={shownAuthors} onChange={(d) => { setDraft(d); setDirty(true); }} />
           </div>
-          <div className="order-first grid items-start gap-4 md:grid-cols-2 xl:order-none xl:sticky xl:top-[72px] xl:grid-cols-1">
+          <div className="order-first grid items-start gap-4 md:grid-cols-2 xl:order-none xl:sticky xl:top-4 xl:grid-cols-1">
             <Summary snap={snap} r0={shownRev !== 0 ? r0?.grand_total ?? null : null} label={shownVersion ? `R${shownRev}` : `R${rev} draft`} templateDate={data.templateDate} live={editable && !shownVersion} incomplete={missing.length} />
             {editable && !shownVersion && (
               <section className="grid gap-3 rounded-xl border border-line bg-sheet p-5">

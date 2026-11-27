@@ -6,6 +6,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Crown, Mail, ShieldCheck } from "lucide-react";
 import { Initials } from "@/components/initials";
+import { TopTools } from "@/components/top-tools";
 import { RevTag, StatusBadge } from "@/components/status-badge";
 import { crore } from "@/lib/budget";
 import { fmtDateTime, fmtShortDateTime } from "@/lib/dates";
@@ -56,7 +57,7 @@ export default async function MemberPage({ params }: PageProps<"/admin/members/[
 
   return (
     <div className="grid max-w-6xl gap-6">
-      <Link href="/admin/members" className="w-fit text-sm text-brand hover:underline">← Team members</Link>
+      <div className="flex flex-wrap items-center justify-between gap-3"><Link href="/admin/members" className="w-fit text-sm text-brand hover:underline">← Team members</Link><TopTools /></div>
       <section className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-sheet p-5">
         <span className="scale-150 p-2"><Initials name={m.name || m.email} /></span>
         <div className="min-w-0 flex-1">

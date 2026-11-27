@@ -15,6 +15,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { DEPTS, dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 import { fmtShortDateTime } from "@/lib/dates";
 import { setupStatus } from "@/lib/server/setup-status";
+import { PageHeader } from "@/components/page-header";
 
 const fmtDate = fmtShortDateTime;
 
@@ -80,16 +81,12 @@ export default async function AdminOverview() {
   const card = "rounded-xl border border-line bg-sheet p-5";
   return (
     <div className="grid gap-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Admin dashboard</h1>
-          <p className="text-soft">{isAdmin ? "Where every project stands, and who has access." : `Where the Live projects of your region (${me.regions.join(", ") || "none yet: ask an admin"}) stand.`}</p>
-        </div>
-        <div className="flex gap-2">
-          <Link href="/admin/members" className={buttonVariants({ variant: "outline" })}>Add a team member</Link>
+      <PageHeader title="Admin dashboard"
+        description={isAdmin ? "Where every project stands, and who has access." : `Where the Live projects of your region (${me.regions.join(", ") || "none yet: ask an admin"}) stand.`}
+        actions={<>
+          <Link href="/admin/members?invite=1" className={buttonVariants({ variant: "outline" })}>Add a team member</Link>
           <Link href="/admin/live/new" className={buttonVariants()}>New Live project</Link>
-        </div>
-      </div>
+        </>} />
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Link href="/admin/members" className={`${card} hover:border-brand`}>

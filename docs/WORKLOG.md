@@ -76,11 +76,11 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-27
 
-- **Slim top bar on every page** (user: search and the bell sat in a row of their own above each heading):
-  `components/top-bar.tsx`, used by both layouts: the page's name on the left ("Administration /" in front on admin
-  pages), search and the bell on the right; it stays at the top while scrolling (a same-height placeholder while it
-  loads). The Rates tab's total and the project page's summary now stick below it. tsc, eslint, build clean; not
-  checked in a browser.
+- **Search and the bell on each page's heading line** (user rejected the slim top bar tried first: name shown twice,
+  extra strip): `components/page-header.tsx` on all 15 pages: title with search and bell at the right end of its line,
+  then the description with the page's buttons to its right. Narrow pages keep their narrow content below a
+  full-width heading; the project and member pages put search and bell on their "← back" row. The top bar is removed.
+  tsc, eslint, build clean; not checked in a browser.
 
 - **Settings in tabs** (user picked the "worth doing" suggestions): General (version, environment, address, current
   template, currency and time, contingency, sign-in, email), Security & access (sign-up / sign-in status, who has

@@ -14,6 +14,7 @@ import { staffOrRedirect } from "@/lib/server/admin-guard";
 import { loadModel } from "@/lib/server/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dn, revLabel, STATUS, type Status } from "@/lib/workflow";
+import { PageHeader } from "@/components/page-header";
 
 interface P { id: string; name: string; region: string; location: string | null; kind: Kind; status: Status; last_rev: number | null; grand_total: number | null; base_total: number | null; acre: number | null; template: string | null; rates: Record<string, unknown> | null; created_at: string; updated_at: string }
 
@@ -93,11 +94,10 @@ export default async function ReportsPage() {
   const rateCsv: CsvCell[][] = rateRows.map((r) => [r.p.name, r.p.kind === "test" ? "Test" : "Live", r.item, r.loc, r.master, r.own, r.diff === null ? null : +(r.diff * 100).toFixed(2)]);
 
   return (
-    <div className="grid max-w-7xl gap-8">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Reports</h1>
-        <p className="text-soft">{isAdmin ? "Every project, Live and Test." : `The Live projects of your region (${me.regions.join(", ") || "none yet"}).`} Read-only; each report downloads as a CSV that opens in Excel.</p>
-        <nav aria-label="Reports" className="mt-3 flex flex-wrap gap-1.5">
+    <div className="grid gap-8">
+      <div className="grid gap-3">
+        <PageHeader title="Reports" description={<>{isAdmin ? "Every project, Live and Test." : `The Live projects of your region (${me.regions.join(", ") || "none yet"}).`} Read-only; each report downloads as a CSV that opens in Excel.</>} />
+        <nav aria-label="Reports" className="flex flex-wrap gap-1.5">
           {[["#budget", "Budget summary"], ["#workflow", "Workflow"], ["#rates", "Rates"]].map(([h, l]) => <a key={h} href={h} className="rounded-full border border-line px-3 py-1 text-sm text-soft hover:border-brand hover:text-brand">{l}</a>)}
         </nav>
       </div>

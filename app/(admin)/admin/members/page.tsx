@@ -4,6 +4,7 @@ import { staffOrRedirect } from "@/lib/server/admin-guard";
 import { inviteProjects, listMembers } from "@/lib/server/members";
 import { authSettings, microsoftReady } from "@/lib/server/setup-status";
 import { UsersAdmin } from "./users-admin";
+import { PageHeader } from "@/components/page-header";
 
 export default async function MembersPage() {
   const me = await staffOrRedirect();
@@ -11,10 +12,7 @@ export default async function MembersPage() {
 
   return (
     <div className="grid max-w-[1400px] gap-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Team members</h1>
-        <p className="text-soft">Onboard people here: only admins and sub-admins invite people. Who works on which project, and in which department, is set on each project&apos;s Team tab.{me.role === "admin" ? " There can be several admins and sub-admins." : " As sub-admin you can send sign-up links to, remove and restore ordinary members; admins and sub-admins are managed by an admin."}</p>
-      </div>
+      <PageHeader title="Team members" description={<>Onboard people here: only admins and sub-admins invite people. Who works on which project, and in which department, is set on each project&apos;s Team tab.{me.role === "admin" ? " There can be several admins and sub-admins." : " As sub-admin you can send sign-up links to, remove and restore ordinary members; admins and sub-admins are managed by an admin."}</>} />
       <UsersAdmin members={members} microsoft={microsoftReady(settings)} meId={me.id} role={me.role} projects={projects} />
     </div>
   );

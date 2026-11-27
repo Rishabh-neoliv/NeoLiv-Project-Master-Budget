@@ -131,7 +131,7 @@ export function RatesTab({ projectId, model: m, inputs, saved, editable, label, 
           );
         })}
       </div>
-      <aside className="grid gap-4 lg:sticky lg:top-[72px]">
+      <aside className="grid gap-4 lg:sticky lg:top-4">
         <section className="grid gap-3 rounded-xl border border-line bg-sheet p-5">
           <div className="text-xs font-semibold uppercase tracking-wider text-soft">Grand total – COC · {label}</div>
           <div className="text-3xl font-semibold">{crore(liveTotal)}</div>

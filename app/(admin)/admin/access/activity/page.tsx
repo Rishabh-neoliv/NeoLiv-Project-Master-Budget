@@ -6,6 +6,7 @@ import { Lock } from "lucide-react";
 import { adminOrRedirect } from "@/lib/server/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { RoleActivity, type AuditRow } from "./role-activity";
+import { PageHeader } from "@/components/page-header";
 
 export default async function RoleActivityPage() {
   await adminOrRedirect();
@@ -14,17 +15,13 @@ export default async function RoleActivityPage() {
     .order("at", { ascending: false }).limit(3000);
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-soft"><Link href="/admin/access" className="text-brand hover:underline">Roles &amp; access</Link> / Role activity</p>
-          <h1 className="text-3xl font-semibold tracking-tight">Role activity</h1>
-          <p className="text-soft">Every change to a person&apos;s role, project access, invite or details, who made it and when, with what it was before and after.</p>
-        </div>
-        <div className="flex items-start gap-3 rounded-xl border border-good/30 bg-good-soft px-4 py-3 text-good">
+      <PageHeader title="Role activity"
+        above={<><Link href="/admin/access" className="text-brand hover:underline">Roles &amp; access</Link> / Role activity</>}
+        description="Every change to a person's role, project access, invite or details, who made it and when, with what it was before and after."
+        actions={<div className="flex items-start gap-3 rounded-xl border border-good/30 bg-good-soft px-4 py-3 text-good">
           <Lock className="mt-0.5 size-5 shrink-0" aria-hidden />
           <div><b>Read-only audit log</b><div className="text-sm">Records can&apos;t be edited or deleted, by anyone.</div></div>
-        </div>
-      </div>
+        </div>} />
       {error
         ? <p className="rounded-xl border border-amber/40 bg-amber-soft p-5 text-amber"><b>Role activity isn&apos;t switched on yet.</b> Run <code>supabase/migrations/0008_access_levels_audit.sql</code> in Supabase → SQL Editor; from then on every role and access change is recorded here.</p>
         : <RoleActivity rows={(data ?? []) as AuditRow[]} />}

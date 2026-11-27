@@ -13,6 +13,7 @@ import { fmtDateTime, fmtShortDateTime } from "@/lib/dates";
 import { isStaff, kindOf, regionsOf, ROLE_NAME, roleOf } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, nextRev, revLabel, STATUS, type Status } from "@/lib/workflow";
+import { PageHeader } from "@/components/page-header";
 
 interface Project { id: string; name: string; status: Status; last_rev: number | null; location: string | null; region: string; updated_at: string; created_at: string; created_by: string | null; kind?: string }
 interface Activity { id: string; at: string; by: string | null; dept: string | null; action: string; comment: string | null; project_id: string; rev: number | null; kind: string | null }
@@ -81,16 +82,12 @@ export default async function MyOverview() {
 
   return (
     <div className="grid gap-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">{first ? `Hello, ${first}` : "My overview"}</h1>
-          <p className="text-soft">What&apos;s waiting for you, the projects you&apos;re on, and what changed on them.</p>
-        </div>
-        <div className="flex gap-2">
+      <PageHeader title={first ? `Hello, ${first}` : "My overview"}
+        description="What's waiting for you, the projects you're on, and what changed on them."
+        actions={<>
           {isStaff(role) && <Link href="/admin" className={buttonVariants({ variant: "outline" })}>Admin dashboard</Link>}
           <Link href="/projects" className={buttonVariants({ variant: isStaff(role) ? "default" : "outline" })}>{role === "member" ? "My projects" : "All projects"}</Link>
-        </div>
-      </div>
+        </>} />
       {isStaff(role) && (
         <p className="flex items-start gap-2 rounded-lg border border-info/30 bg-info-soft px-3 py-2 text-sm text-info">
           <Info className="mt-0.5 size-4 shrink-0" aria-hidden />

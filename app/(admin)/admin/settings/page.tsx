@@ -22,6 +22,7 @@ import { authSettings, microsoftReady, setupStatus } from "@/lib/server/setup-st
 import { createAdminClient } from "@/lib/supabase/admin";
 import { APP_VERSION } from "@/lib/version";
 import { revLabel, STATUS, type Status } from "@/lib/workflow";
+import { PageHeader } from "@/components/page-header";
 
 type Tab = "general" | "security" | "notifications" | "templates" | "health" | "data";
 const TABS: [Tab, string, LucideIcon][] = [
@@ -222,10 +223,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/admin/s
 
   return (
     <div className="grid gap-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-        <p className="text-soft">How this copy of the app is set up. Each check says where its setting is changed (Supabase, Vercel or Power Automate); nothing here changes data.</p>
-      </div>
+      <PageHeader title="Settings" description="How this copy of the app is set up. Each check says where its setting is changed (Supabase, Vercel or Power Automate); nothing here changes data." />
       <nav aria-label="Settings" className="flex flex-wrap gap-1.5 border-b border-line pb-3">
         {TABS.map(([t, label, Icon]) => (
           <Link key={t} href={`/admin/settings?tab=${t}`} aria-current={tab === t ? "page" : undefined}

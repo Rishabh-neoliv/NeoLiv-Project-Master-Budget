@@ -6,6 +6,7 @@ import { isStaff, roleOf } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 import { ProfileForm } from "./profile-form";
+import { PageHeader } from "@/components/page-header";
 
 export default async function ProfilePage() {
   const supabase = await createClient();
@@ -30,11 +31,9 @@ export default async function ProfilePage() {
   const projects = [...byProject.values()].sort((a, b) => a.name.localeCompare(b.name));
 
   return (
-    <div className="grid max-w-3xl gap-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">My profile</h1>
-        <p className="text-soft">Your details in NeoLiv Master Budget.{isStaff(roleOf(me)) ? ` You are ${roleOf(me) === "admin" ? "an admin" : "a sub-admin"}.` : ""}</p>
-      </div>
+    <div className="grid gap-6">
+      <PageHeader title="My profile" description={<>Your details in NeoLiv Master Budget.{isStaff(roleOf(me)) ? ` You are ${roleOf(me) === "admin" ? "an admin" : "a sub-admin"}.` : ""}</>} />
+      <div className="grid max-w-3xl gap-6">
       <ProfileForm name={me?.name ?? ""} department={(me?.department as string | undefined) ?? ""} email={me?.email ?? user.email ?? ""} microsoft={microsoft} />
       <section className="grid gap-3 rounded-xl border border-line bg-sheet p-5">
         <h2 className="text-lg font-semibold">My projects</h2>
@@ -53,6 +52,7 @@ export default async function ProfilePage() {
           </div>
         ) : <p className="text-soft">You aren&apos;t on any project&apos;s team yet. You can still view every project.</p>}
       </section>
+      </div>
     </div>
   );
 }
