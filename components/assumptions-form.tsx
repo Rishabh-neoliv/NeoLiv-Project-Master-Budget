@@ -3,6 +3,7 @@
 // table (width, road type, measurements). Calculated fields update as you type.
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { InfoTip } from "@/components/info-tip";
 import engineApi from "@/lib/engine/budget-engine";
 import { fmtCalc, fmtInput, inputKey, inputSheetOf, inr, isNum, lineKey, parseInput, sheetRef, type CellValue, type Field, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
 import { tint, type Authored } from "@/lib/changes";
@@ -31,7 +32,8 @@ function deltaText(f: Field, now: unknown, was: unknown): { up: boolean | null; 
 // what it means in plain words (lib/field-help.ts).
 function CellInfo({ m, cell }: { m: Model; cell: string }) {
   const where = cell.includes("!") ? cell.replace("!", " ") : `${inputSheetOf(m)} ${cell}`;
-  return <span title={`Excel cell: ${where}`} aria-label={`Excel cell ${where}`} className="ml-1.5 inline-flex size-4 cursor-help items-center justify-center rounded-full border border-line align-[1px] text-[10px] font-semibold not-italic text-soft">i</span>;
+  // the same ⓘ as everywhere else in the app (components/info-tip.tsx)
+  return <span className="ml-1 inline-flex align-[-3px] not-italic"><InfoTip label={`Excel cell ${where}`}>Excel cell: <b>{where}</b></InfoTip></span>;
 }
 // what each column of the road table means (shown when you hover its heading)
 const ROAD_COL_HELP: Record<string, string> = {

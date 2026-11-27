@@ -22,7 +22,8 @@ async function UserBar() {
   const role = roleOf(me);
   return (
     <>
-      <span className="hidden text-sm text-soft md:inline">Rates: template of {tpl?.modified || tpl?.stamp || "–"} · {APP_VERSION}</span>
+      {/* the app version is for whoever supports the app: on hover only */}
+      <span className="hidden text-sm text-soft md:inline" title={APP_VERSION}>Rates: template of {tpl?.modified || tpl?.stamp || "–"}</span>
       <nav className="flex gap-4 text-sm">
         <Link href="/overview" className="text-soft hover:text-ink">Overview</Link>
         <Link href="/projects" className="text-soft hover:text-ink">Projects</Link>

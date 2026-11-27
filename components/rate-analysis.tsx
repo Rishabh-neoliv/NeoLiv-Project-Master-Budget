@@ -2,43 +2,16 @@
 // Rate analysis (from the original app): how a revision differs from the Base Line (R0), line by line, and how
 // much of each change comes from quantities (assumption changes, at the old rates) and how much from rates.
 // The current assumptions are priced at the base's rates through the same Excel formulas, so the split is exact.
+// The calculation is in lib/rate-analysis.ts.
 import { useMemo, useState } from "react";
-import { crore, fmtCalc, fmtInput, inr, isNum, lineKey, masterRate, rateName, rowKind, snapshot, type CellValue, type MasterRow, type Model } from "@/lib/budget";
+import { crore, inr, isNum, rateName, type CellValue, type Model } from "@/lib/budget";
+import { analyse, type Side } from "@/lib/rate-analysis";
 
-export interface Side { label: string; inputs: Record<string, CellValue>; rates: Record<string, unknown>; master: MasterRow[]; calc: Record<string, CellValue>; grandTotal: number | null }
+export type { Side };
 
 export function RateAnalysis({ model: m, base, cur }: { model: Model; base: Side; cur: Side }) {
   const [only, setOnly] = useState(true);
-  const a = useMemo(() => {
-    const n = (v: unknown) => (isNum(v) ? v : 0);
-    const atBase = snapshot(m, cur.inputs, base.rates as Record<string, unknown>);
-    const aKey = Object.fromEntries(atBase.master.map((r) => [r.row, r.c[5]]));
-    const bKey = lineKey(base.master), cKey = lineKey(cur.master);
-    const bRows = Object.fromEntries(base.master.map((r) => [bKey[r.row], r]));
-    let sumQ = 0, sumR = 0;
-    const lines: { head: boolean; item: string; uom: string; qb: CellValue; qn: CellValue; rb: CellValue; rn: CellValue; ab: number; an: number; d: number; dq: number; dr: number }[] = [];
-    for (const r of cur.master) {
-      const sumOnly = rowKind(r) === "item" && /^SUM\(G\d+:G\d+\)$/.test(String(m.cells["Master Budget"]?.["G" + r.row]?.f || ""));
-      const k = sumOnly ? "head" : rowKind(r);
-      if (k !== "item" && k !== "head") continue;
-      const o = bRows[cKey[r.row]]?.c || [], c = r.c;
-      const ab = n(o[5]), an = n(c[5]), d = an - ab;
-      const label = k === "head" ? `${isNum(c[0]) ? String(+c[0].toFixed(2)) : c[0] ?? ""} ${c[1] ?? ""}` : String(c[1] ?? "");
-      if (k === "head") { lines.push({ head: true, item: label, uom: "", qb: null, qn: null, rb: null, rn: null, ab, an, d, dq: 0, dr: 0 }); continue; }
-      const dq = n(aKey[r.row]) - ab, dr = an - n(aKey[r.row]);
-      sumQ += dq; sumR += dr;
-      lines.push({ head: false, item: label, uom: String(c[2] ?? ""), qb: o[3] ?? null, qn: c[3], rb: o[4] ?? null, rn: c[4], ab, an, d, dq, dr });
-    }
-    const gd = isNum(base.grandTotal) && isNum(cur.grandTotal) ? (cur.grandTotal - base.grandTotal) * 1e7 : null;
-    // assumption changes behind the numbers
-    const asm = m.sections.flatMap((s) => s.fields.map((f) => ({ f, sec: s.title }))).map(({ f, sec }) => {
-      const show = (side: Side) => (f.kind === "calc" ? fmtCalc(f, side.calc?.[f.cell]) : fmtInput(f, side.inputs[f.cell] ?? null) + (f.kind === "percent" ? "%" : ""));
-      return { sec, f, a: show(base), b: show(cur) };
-    }).filter((x) => x.a !== x.b);
-    const refs = [...new Set([...Object.keys(base.rates || {}), ...Object.keys(cur.rates || {})])];
-    const rateRows = refs.map((ref) => ({ ref, a: (base.rates?.[ref] as number) ?? masterRate(m, ref), b: (cur.rates?.[ref] as number) ?? masterRate(m, ref) })).filter((x) => x.a !== x.b);
-    return { lines, sumQ, sumR, gd, cont: gd === null ? null : gd - sumQ - sumR, asm, rateRows };
-  }, [m, base, cur]);
+  const a = useMemo(() => analyse(m, base, cur), [m, base, cur]);
 
   const money = (x: number | null) => (x === null ? "–" : `${x > 0 ? "+" : ""}${inr(x)}`);
   const tone = (x: number) => (Math.abs(x) < 0.5 ? "text-soft" : x > 0 ? "text-bad" : "text-good");

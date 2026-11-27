@@ -235,7 +235,8 @@ export function fmtCalc(f: Field, v: CellValue | undefined) {
   return isNum(v) ? (Number.isInteger(v) ? inr(v) : inr(v, 2)) : String(v);
 }
 export const crore = (v: unknown, signed = false) =>
-  isNum(v) ? `₹ ${signed && v > 0 ? "+" : ""}${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Cr` : "–";
+  // non-breaking spaces ( ): "₹ 42.79 Cr" stays on one line in narrow table columns
+  isNum(v) ? `₹ ${signed && v > 0 ? "+" : ""}${v.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Cr` : "–";
 
 // Lines matched across revisions by kind + label, so the Delta works when rows move between templates
 export function lineKey(rows: MasterRow[]) {

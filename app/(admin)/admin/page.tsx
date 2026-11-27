@@ -136,7 +136,7 @@ export default async function AdminOverview() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="flex items-center gap-2">
                   <Initials name={(a.by && names.get(a.by)) || "?"} />
-                  <span><b>{(a.by && names.get(a.by)) || "Someone"}</b>{a.dept ? <span className="text-soft"> ({a.dept})</span> : ""}: {a.action} · <Link href={`/projects/${a.project_id}`} className="font-medium text-brand hover:underline">{projectName.get(a.project_id) ?? "project"}</Link></span>
+                  <span><b>{(a.by && names.get(a.by)) || "Former member"}</b>{a.dept ? <span className="text-soft"> ({a.dept})</span> : ""}: {a.action} · <Link href={`/projects/${a.project_id}`} className="font-medium text-brand hover:underline">{projectName.get(a.project_id) ?? "project"}</Link></span>
                 </span>
                 <span className="text-sm text-soft">{fmtDate(a.at)}</span>
               </div>

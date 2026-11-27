@@ -17,7 +17,9 @@ const LINKS: [href: string, label: string, adminOnly: boolean][] = [
 export function AdminNav({ role }: { role: Role }) {
   const path = usePathname();
   return (
-    <nav className="flex flex-wrap gap-1 md:flex-col">
+    // narrow screens: one row that scrolls sideways, so the menu doesn't fill the first screen; md+: a column
+    <nav className="-mx-1 flex gap-1 overflow-x-auto px-1 md:mx-0 md:flex-col md:overflow-visible md:px-0 [&>a]:shrink-0 [&>a]:whitespace-nowrap">
+
       {LINKS.filter(([, , adminOnly]) => role === "admin" || !adminOnly).map(([href, label]) => {
         const on = href === "/admin" ? path === "/admin" : path.startsWith(href);
         return (

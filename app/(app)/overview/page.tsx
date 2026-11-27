@@ -135,7 +135,7 @@ export default async function MyOverview() {
                       <td className="px-4 py-3"><Name p={p} /><div className="text-sm text-soft">as {dn(STATUS[p.status][1]!)}</div></td>
                       <td className="px-4 py-3"><RevTag>{revLabel(p.status, p.last_rev)}</RevTag></td>
                       <td className="px-4 py-3 font-medium">{NEXT[p.status](nextRev(p.last_rev))}</td>
-                      <td className="px-4 py-3 text-sm text-soft">{a ? <>{(a.by && names[a.by]) || "Someone"}: {a.action} · {fmtShortDateTime(a.at)}{a.comment && <div className="text-ink">“{a.comment}”</div>}</> : fmtShortDateTime(p.updated_at)}</td>
+                      <td className="px-4 py-3 text-sm text-soft">{a ? <>{(a.by && names[a.by]) || "Former member"}: {a.action} · {fmtShortDateTime(a.at)}{a.comment && <div className="text-ink">“{a.comment}”</div>}</> : fmtShortDateTime(p.updated_at)}</td>
                     </ClickableRow>
                   );
                 })}
@@ -161,7 +161,7 @@ export default async function MyOverview() {
                       <td className="px-4 py-3"><RevTag>{revLabel(p.status, p.last_rev)}</RevTag></td>
                       <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                       <td className="px-4 py-3 text-soft">{STATUS[p.status][1] ? dn(STATUS[p.status][1]!) : "–"}</td>
-                      <td className="px-4 py-3 text-right text-sm text-soft">{fmtShortDateTime(a?.at ?? p.updated_at)}{a?.by && <div>{names[a.by] || "Someone"}</div>}</td>
+                      <td className="px-4 py-3 text-right text-sm text-soft">{fmtShortDateTime(a?.at ?? p.updated_at)}{a?.by && <div>{names[a.by] || "Former member"}</div>}</td>
                     </ClickableRow>
                   );
                 })}
@@ -177,7 +177,8 @@ export default async function MyOverview() {
           <ol className="grid gap-2">
             {activity.slice(0, 15).map((a) => {
               const person = a.by ? colourOf.get(a.project_id)?.get(a.by) : undefined;
-              const name = (a.by && names[a.by]) || "Someone";
+              // no name: the account was deleted (every signed-in user can read every name)
+              const name = (a.by && names[a.by]) || "Former member";
               return (
                 <li key={a.id} className="rounded-lg border border-line bg-sheet px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">

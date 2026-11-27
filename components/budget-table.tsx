@@ -23,7 +23,7 @@ export function BudgetTable({ master, baseline, title = "Master Budget" }: { mas
   const money = (v: CellValue, dec = 2) => (isErrV(v) ? <span className="text-bad">{v.e}</span> : isNum(v) ? inr(v, dec) : numCell(v));
   // the Total column is in ₹ crore, as in the master Excel (the app keeps line amounts in rupees)
   const inCrore = (v: CellValue) => (isErrV(v) ? <span className="text-bad">{v.e}</span> : isNum(v) ? crTxt(v / 1e7) : numCell(v));
-  const perAcre = (v: CellValue, inCrore = false) => (!isNum(v) || !isNum(acre) || !acre ? "" : `${crTxt((inCrore ? v : v / 1e7) / acre)} Cr`);
+  const perAcre = (v: CellValue, inCrore = false) => (!isNum(v) || !isNum(acre) || !acre ? "" : `${crTxt((inCrore ? v : v / 1e7) / acre)} Cr`);
   const base = (r: MasterRow) => (bRows && mKey ? bRows[mKey[r.row]]?.c?.[5] : undefined);
   const vsBase = (r: MasterRow, onDark = false) => {
     if (!bRows) return null;
@@ -34,8 +34,8 @@ export function BudgetTable({ master, baseline, title = "Master Budget" }: { mas
     const sg = d > 0 ? "+" : "", inCr = mk.crore.has(r.row);
     return (
       <td className={`px-3 py-2 text-right tabular-nums ${onDark ? "font-semibold" : d > 0 ? "text-bad" : "text-good"}`}>
-        {inCr ? `${sg}${d.toFixed(2)} Cr` : `${sg}${inr(d)}`}
-        <small className="block text-xs opacity-80">{inCr ? `${sg}₹ ${inr(d * 1e7)}` : `${sg}${crTxt(d / 1e7)} Cr`}</small>
+        {inCr ? `${sg}${d.toFixed(2)} Cr` : `${sg}${inr(d)}`}
+        <small className="block text-xs opacity-80">{inCr ? `${sg}₹ ${inr(d * 1e7)}` : `${sg}${crTxt(d / 1e7)} Cr`}</small>
       </td>
     );
   };

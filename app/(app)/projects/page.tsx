@@ -1,22 +1,16 @@
 // The project list: what's waiting for you first, then the Live projects by place, then Test projects. Who sees
 // what is set by the database (migration 0006, lib/roles.ts): members see the projects they're on the team of,
 // sub-admins every Live project plus Test ones they're on, admins everything. New projects are made in the Admin
-// panel. Click anywhere on a row to open the project.
+// panel. Click anywhere on a row to open the project. The tables and search box are components/project-groups.tsx.
 import Link from "next/link";
-import { ClickableRow } from "@/components/clickable-row";
-import { RevTag, StatusBadge } from "@/components/status-badge";
+import { ProjectGroups, type ProjectGroup, type ProjectRow } from "@/components/project-groups";
 import { buttonVariants } from "@/components/ui/button";
-import { InfoTip, SumLines } from "@/components/info-tip";
-import { CONTINGENCY, crore, isNum, numCell } from "@/lib/budget";
 import { actsForAll, isStaff, kindOf, regionsOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 
 interface Row { id: string; name: string; region: string; status: Status; last_rev: number | null; grand_total: number | null; location: string | null; acre: number | null; updated_at: string; kind: Kind }
 const placeOf = (p: Row) => (p.location || p.region).trim();
-// only the grand total is stored per project: the total before the master template's contingency is worked back from it
-const beforeContingency = (gt: number | null) => (isNum(gt) ? gt / (1 + CONTINGENCY) : null);
-const pct = `${+(CONTINGENCY * 100).toFixed(2)}%`;
 
 const INTRO: Record<Role, string> = {
   admin: "Every project, Live and Test. As admin you can open any of them and take any step. Click a row to open it.",
@@ -41,6 +35,14 @@ export default async function ProjectsPage() {
   const live = rows.filter((p) => !waiting.includes(p) && p.kind === "live");
   const test = rows.filter((p) => !waiting.includes(p) && p.kind === "test");
   const roleIn = (p: Row) => (deptsOf.get(p.id) ?? []).map(dn).join(" + ") || (actsForAll(role, p.kind, p.region, regionsOf(me)) ? ROLE_NAME[role] : "View only");
+  const view = (p: Row): ProjectRow => ({ id: p.id, name: p.name, status: p.status, rev: revLabel(p.status, p.last_rev), grand_total: p.grand_total, location: p.location, acre: p.acre, kind: p.kind, role: roleIn(p) });
+
+  const groups: ProjectGroup[] = [
+    ...(waiting.length ? [{ title: "Waiting for you", rows: waiting.map(view), highlight: true }] : []),
+    // grouped by the rates location (the Location input), not the region picked when the project was set up
+    ...[...new Set(["NCR", "MMR", ...live.map(placeOf).sort()])].map((place) => ({ title: place, rows: live.filter((p) => placeOf(p) === place).map(view) })).filter((g) => g.rows.length),
+    ...(test.length ? [{ title: "Test projects", rows: test.map(view), test: true }] : []),
+  ];
 
   return (
     <div className="grid gap-8">
@@ -52,58 +54,7 @@ export default async function ProjectsPage() {
         {isStaff(role) && <Link href="/admin/live" className={buttonVariants({ variant: "outline" })}>Admin panel</Link>}
       </div>
       {!rows.length && <p className="rounded-xl border border-line bg-sheet p-5 text-soft">{isStaff(role) ? "No projects yet. New projects are made in the Admin panel → Live projects." : "You're not on any project's team yet. When someone adds you to one, it shows here."}</p>}
-      {waiting.length > 0 && <Group title="Waiting for you" rows={waiting} roleIn={roleIn} highlight />}
-      {/* grouped by the rates location (the Location input), not the region picked when the project was set up */}
-      {[...new Set(["NCR", "MMR", ...live.map(placeOf).sort()])].map((place) => {
-        const list = live.filter((p) => placeOf(p) === place);
-        return list.length ? <Group key={place} title={place} rows={list} roleIn={roleIn} /> : null;
-      })}
-      {test.length > 0 && <Group title="Test projects" rows={test} roleIn={roleIn} />}
+      <ProjectGroups groups={groups} />
     </div>
-  );
-}
-
-function Group({ title, rows, roleIn, highlight = false }: { title: string; rows: Row[]; roleIn: (p: Row) => string; highlight?: boolean }) {
-  return (
-    <section className="grid gap-2">
-      <h2 className={`text-sm font-semibold uppercase tracking-wider ${highlight ? "text-brand" : "text-soft"}`}>{title} <span className="font-normal">({rows.length})</span></h2>
-      <div className={`overflow-x-auto rounded-xl border bg-sheet ${highlight ? "border-brand/50" : "border-line"}`}>
-        <table className="w-full">
-          <thead className="bg-well text-left text-xs uppercase tracking-wide text-soft">
-            <tr><th className="px-4 py-2.5">Project</th><th className="px-4 py-2.5">Revision</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5">Your role</th><th className="px-4 py-2.5 text-right">Area (acre)</th><th className="px-4 py-2.5 text-right">Cost / acre <span className="font-normal normal-case">(before {pct})</span></th><th className="px-4 py-2.5 text-right">Grand total</th></tr>
-          </thead>
-          <tbody>
-            {rows.map((p) => (
-              <ClickableRow key={p.id} href={`/projects/${p.id}`} label={`Open ${p.name}`} className="border-t border-line">
-                <td className="px-4 py-3">
-                  <Link href={`/projects/${p.id}`} className="font-semibold text-brand hover:underline">{p.name}</Link>
-                  {p.kind === "test" && <span className="ml-2 rounded bg-amber-soft px-1.5 py-0.5 text-xs font-medium text-amber">Test</span>}
-                  <div className="text-sm text-soft">{p.location} rates</div>
-                </td>
-                <td className="px-4 py-3"><RevTag>{revLabel(p.status, p.last_rev)}</RevTag></td>
-                <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
-                <td className="px-4 py-3 text-soft">{roleIn(p)}</td>
-                <td className="px-4 py-3 text-right">{numCell(p.acre)}</td>
-                <td className="px-4 py-3 text-right tabular-nums">{(() => { const coc = beforeContingency(p.grand_total); return isNum(coc) && isNum(p.acre) && p.acre > 0 ? crore(coc / p.acre) : "–"; })()}</td>
-                <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                  <span className="inline-flex items-center justify-end gap-1">
-                    {isNum(p.grand_total) && (
-                      <InfoTip label={`How the grand total of ${p.name} is made up`}>
-                        <SumLines lines={[
-                          ["Total COC (A + B)", crore(beforeContingency(p.grand_total))],
-                          [`+ ${pct} for contingencies`, crore(p.grand_total - (beforeContingency(p.grand_total) as number))],
-                          ["Grand total", crore(p.grand_total)],
-                        ]} />
-                      </InfoTip>
-                    )}
-                    {crore(p.grand_total)}
-                  </span>
-                </td>
-              </ClickableRow>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
   );
 }

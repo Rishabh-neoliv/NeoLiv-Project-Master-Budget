@@ -13,6 +13,9 @@ import { tint, type Authored } from "@/lib/changes";
 import { consideration } from "@/lib/sheet-links";
 import { fmtDateTime } from "@/lib/dates";
 
+// an id for a sheet's section, for the quick links ("Signage + Furniture" → "rates-signage-furniture")
+const sheetId = (sheet: string) => "rates-" + sheet.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
 interface Props {
   projectId: string;
   model: Model;
@@ -73,13 +76,24 @@ export function RatesTab({ projectId, model: m, inputs, saved, editable, label, 
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={onlyChanged} onChange={(e) => setOnlyChanged(e.target.checked)} /> Only project rates</label>
           </div>
           <p className="text-sm text-soft">{String(loc)} rates from the master Excel (template of {m.templateModified as string ?? m.stamp}). {editable ? "Type a project rate to replace the master rate for this project only; leave it empty to use the master rate." : who}</p>
+          {/* jump to a sheet; the count is how many project rates it has */}
+          <nav aria-label="Rate sheets" className="flex flex-wrap gap-1.5 pt-1">
+            {[...bySheet].map(([sheet, rows]) => {
+              const n = rows.filter((r) => r.ref in rates).length;
+              return (
+                <a key={sheet} href={`#${sheetId(sheet)}`} className={`rounded-full border px-2.5 py-0.5 text-sm ${n ? "border-amber/50 bg-amber-soft text-amber" : "border-line text-soft hover:border-brand hover:text-brand"}`}>
+                  {sheet}{n ? ` · ${n} project rate${n > 1 ? "s" : ""}` : ""}
+                </a>
+              );
+            })}
+          </nav>
         </section>
         {[...bySheet].map(([sheet, rows]) => {
           const shown = rows.filter((r) => (!ql || `${sheet} ${r.item} ${r.note}`.toLowerCase().includes(ql)) && (!onlyChanged || r.ref in rates));
           if (!shown.length) return null;
           const notes = rows.some((r) => r.note);
           return (
-            <section key={sheet} className="grid gap-2 rounded-xl border border-line bg-sheet p-4">
+            <section key={sheet} id={sheetId(sheet)} className="grid scroll-mt-4 gap-2 rounded-xl border border-line bg-sheet p-4">
               <h3 className="text-lg font-semibold">{sheet}</h3>
               <div className="overflow-x-auto">
                 <table className={`w-full ${notes ? "min-w-[760px]" : "min-w-[620px]"}`}>
@@ -91,14 +105,15 @@ export function RatesTab({ projectId, model: m, inputs, saved, editable, label, 
                       return (
                         <tr key={r.ref} style={a ? tint(a.by.colour) : undefined} className={`border-t border-line ${changed && !a ? "bg-amber-soft/50" : ""}`}
                           title={a ? `${a.by.name} · ${fmtDateTime(a.at)}: ${money(a.from)} → ${money(a.to)}${a.count > 1 ? ` (changed ${a.count} times)` : ""}` : undefined}>
-                          <td className="px-3 py-2">{r.item || "(unnamed)"}{a && <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium" style={{ color: a.by.colour }}><span aria-hidden className="size-2 rounded-full" style={{ background: a.by.colour }} />{a.by.name}</span>}</td>
+                          {/* a project rate: an amber bar at the row's left edge, besides the tint */}
+                          <td className={`border-l-4 px-3 py-2 ${changed ? "border-l-amber" : "border-l-transparent"}`}>{r.item || "(unnamed)"}{a && <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium" style={{ color: a.by.colour }}><span aria-hidden className="size-2 rounded-full" style={{ background: a.by.colour }} />{a.by.name}</span>}</td>
                           {notes && <td className="max-w-72 px-3 py-2 text-sm text-soft">{r.note}</td>}
                           <td className="px-3 py-2 text-sm text-soft">{r.uom}</td>
                           <td className="px-3 py-2 text-right">{fmt(master)}</td>
                           <td className="w-40 px-3 py-1.5 text-right">
                             {editable ? (
-                              <input type="number" step="any" min={0} aria-label={`Project rate for ${r.item}`} placeholder={isNum(master) ? String(+master.toFixed(2)) : "no rate"}
-                                className="h-9 w-full rounded-md border border-input bg-sheet px-2.5 text-right" value={changed ? String(mine) : ""}
+                              <input type="number" step="any" min={0} aria-label={`Project rate for ${r.item}`} placeholder={isNum(master) ? "Use master" : "no rate"} title={isNum(master) ? `Empty: the master rate (${fmt(master)}) is used` : undefined}
+                                className={`h-9 w-full rounded-md border bg-sheet px-2.5 text-right placeholder:italic ${changed ? "border-amber font-semibold" : "border-input"}`} value={changed ? String(mine) : ""}
                                 onChange={(e) => {
                                   const raw = e.target.value.trim(), n = Number(raw);
                                   setRates((cur) => { const next = { ...cur }; if (raw === "" || !Number.isFinite(n) || (isNum(master) && Math.abs(n - master) < 1e-9)) delete next[r.ref]; else next[r.ref] = n; return next; });

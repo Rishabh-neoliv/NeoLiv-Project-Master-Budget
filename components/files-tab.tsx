@@ -117,7 +117,7 @@ export function FilesTab({ projectId, files, names, meId, canRemoveAny, canUploa
                   <div className="flex flex-wrap items-center gap-3 px-4 py-3">
                     <div className="min-w-0 flex-1">
                       <a href={`/api/projects/${projectId}/files/${f.id}`} className="font-semibold text-brand hover:underline">{f.name}</a>
-                      <div className="text-sm text-soft">{fmtSize(f.size)} · {(f.uploaded_by && names[f.uploaded_by]) || "someone"} · {fmtDate(f.uploaded_at)}</div>
+                      <div className="text-sm text-soft">{fmtSize(f.size)} · {(f.uploaded_by && names[f.uploaded_by]) || "Former member"} · {fmtDate(f.uploaded_at)}</div>
                     </div>
                     {f.kind === "budget_excel" && <span className="rounded bg-good-soft px-2 py-0.5 text-xs font-medium text-good">Budget workbook · read exactly</span>}
                     {ex && !ex.relevant && <span className="rounded bg-bad-soft px-2 py-0.5 text-xs font-medium text-bad">Doesn&apos;t look like a project document</span>}

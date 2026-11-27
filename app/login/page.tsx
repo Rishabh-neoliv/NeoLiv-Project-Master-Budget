@@ -76,7 +76,8 @@ function LoginForm() {
           {error && <p className="text-sm text-bad">{error}</p>}
           {info && <p className="text-sm text-good">{info}</p>}
           <Button type="submit" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
-          <button type="button" onClick={reset} className="text-sm text-soft underline-offset-4 hover:underline" disabled={busy}>Forgot password?</button>
+          {/* styled as a link (brand colour, underlined) so it's clear it can be pressed */}
+          <button type="button" onClick={reset} className="w-fit justify-self-center text-sm font-medium text-brand underline underline-offset-4 hover:opacity-80 disabled:opacity-50" disabled={busy}>Forgot password?</button>
         </form>
       </CardContent>
     </Card>

@@ -31,7 +31,7 @@ const COLOURS = 8;
 /** A colour per person, in team order (people who aren't on the team, e.g. an admin, come after). */
 export function colours(teamIds: string[], others: string[], names: Record<string, string>) {
   const ids = [...new Set([...teamIds, ...others])];
-  return new Map(ids.map((id, i) => [id, { id, name: names[id] || "Someone", colour: `var(--who-${(i % COLOURS) + 1})` } as Person]));
+  return new Map(ids.map((id, i) => [id, { id, name: names[id] || "Former member", colour: `var(--who-${(i % COLOURS) + 1})` } as Person]));
 }
 
 /** For each cell, the last change made to revision `rev`, and by whom. Saves and submits carry their revision
@@ -44,7 +44,7 @@ export function authorship(rows: ChangeRow[], rev: number, after: string | null,
   const sorted = rows.filter(mine).sort((a, b) => a.at.localeCompare(b.at));
   for (const r of sorted) {
     if (!r.by || r.details?.kind === "template" || r.details?.kind === "recalc") continue;
-    const by = people.get(r.by) ?? { id: r.by, name: "Someone", colour: "var(--soft)" };
+    const by = people.get(r.by) ?? { id: r.by, name: "Former member", colour: "var(--soft)" };
     for (const c of r.details?.changes ?? []) {
       const prev = out.get(c.cell);
       // "from" stays the value before the first change in the window, so the hover shows the whole change

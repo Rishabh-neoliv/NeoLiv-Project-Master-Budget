@@ -283,7 +283,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
           <p className="flex flex-wrap items-center gap-x-1.5 text-soft">
             {p.region !== p.location && <span>{p.region} region ·</span>}
             <span>{p.location} rates · {numCell(p.acre)} acre</span>
-            {p.created_by && <span className="flex items-center gap-1.5">· created by <Initials name={names[p.created_by] || "?"} /> <span className="text-ink">{names[p.created_by] || "someone"}</span> on {fmtDate(p.created_at)}</span>}
+            {p.created_by && <span className="flex items-center gap-1.5">· created by <Initials name={names[p.created_by] || "?"} /> <span className="text-ink">{names[p.created_by] || "a former member"}</span> on {fmtDate(p.created_at)}</span>}
           </p>
         </div>
         {draftOpen && p.revision_reason && <div className="rounded-lg bg-amber-soft px-4 py-2.5 text-amber"><b>Revision R{rev}:</b> {p.revision_reason}</div>}
@@ -313,6 +313,14 @@ export function ProjectView({ data }: { data: ProjectData }) {
         )}
       </section>
 
+      {/* a newer master template: shown above the tabs, so it's seen on every tab */}
+      {draftOpen && data.currentTemplate && data.currentTemplate.stamp !== p.template && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-info">
+          <span className="flex-1">This draft is on the master template of <b>{data.templateDate}</b>. A newer master template ({data.currentTemplate.date}) is available.{editable ? " Moving carries every value across by field name; check them afterwards, especially the road table." : ""}</span>
+          {editable && <Button variant="outline" disabled={busy || dirty} title={dirty ? "Save the draft first" : undefined} onClick={moveTemplate}>Move to the new template</Button>}
+        </div>
+      )}
+
       {/* tabs */}
       <nav role="tablist" className="flex flex-wrap gap-1 border-b border-line">
         {tabs.map(([k, l]) => (
@@ -338,12 +346,6 @@ export function ProjectView({ data }: { data: ProjectData }) {
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
           <div className="grid gap-4">
             {guide && <div className="rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-info">{guide}</div>}
-            {!shownVersion && draftOpen && data.currentTemplate && data.currentTemplate.stamp !== p.template && (
-              <div className="flex flex-wrap items-center gap-3 rounded-lg border border-info/30 bg-info-soft px-4 py-3 text-info">
-                <span className="flex-1">This draft is on the master template of <b>{data.templateDate}</b>. A newer master template ({data.currentTemplate.date}) is available.{editable ? " Moving carries every value across by field name; check them afterwards, especially the road table." : ""}</span>
-                {editable && <Button variant="outline" disabled={busy || dirty} title={dirty ? "Save the draft first" : undefined} onClick={moveTemplate}>Move to the new template</Button>}
-              </div>
-            )}
             {notice && <div className={`rounded-lg border px-4 py-3 ${shownVersion ? "border-line bg-tint text-ink" : "border-amber/30 bg-amber-soft text-amber"}`}>{shownVersion ? "🔒 " : ""}{notice}</div>}
             {shownVersion && olderTemplate && (
               <div className="grid gap-2 rounded-lg border border-amber/30 bg-amber-soft px-4 py-3 text-amber">

@@ -5,15 +5,19 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
-- **Upload master workbook version 3.2** (Downloads) in Admin panel → Master templates once the 2026-11-27 fixes
-  (Water Supply → PHE, Landscape & Amenities → Signage + Furniture, "CCTV (Nos)") are pushed and deployed. Expected:
-  one warning (5 mixed-unit lines). Read the changed-rates list before "Add and make current".
-- **3.4 (checked offline 2026-11-27, not uploaded): don't upload yet.** The 5 unit fixes are in (no warning), but
-  Master Budget G90 = G91/10000000 now divides OSBL twice → OSBL ₹0 (fix: G90 = G91; total −1.27 Cr). Preliminaries
-  F48 (Survey rate) now links to a file on Parth's PC (Sonipat Infra ConceptCost …DataSheet!C8): Excel on any other PC
-  shows #REF! for the grand total; the app keeps the saved 17.97, which looks like an acreage, not a rate (fix: type the
-  rate). PHE!N18 = L16+#REF! (stray, not in the budget). PHE edits: Domestic Water Supply 0.74 → 1.21 Cr (NCR), 4 PHE
-  rate lines renamed (project rates on them won't carry). Sample: NCR 42.2793, MMR 40.5472 Cr.
+- **Current master template: 3.4 saved 15:39** (OSBL fixed, G90 = G91; checked 2026-11-27: no errors or warnings,
+  NCR 43.5498 / MMR 41.8177 Cr). Two earlier 3.4 saves with the OSBL bug (G90 = G91/10000000 → OSBL ₹0, about
+  ₹1.27 Cr short) are also loaded: **13:56 ("3.4f", 1 open draft) and 14:09 (3 open drafts, 1 frozen revision)**.
+  Open drafts on them should "Move to the new template"; the frozen revision needs Base Line's "Recalculate". The
+  upload now refuses this bug (2026-11-27).
+- **For Parth, in the 3.4 workbook:** Survey rate (Preliminaries F48) links to a file on his PC (Sonipat Infra
+  ConceptCost …DataSheet!C8): Excel on any other PC shows #REF! for the grand total; the app keeps the saved 17.97,
+  which looks like an acreage, not a rate (type the rate). Alibaug/Nagpur have no total (Master Budget G58 Storm Water
+  rate "" for them → #VALUE!). PHE!N18 = L16+#REF! (stray). UOM spelling (M3/m3), blank UOMs on Avenue Plantation, OWC
+  has a quantity but no rate.
+- **UI review 2026-11-27, item 8 on hold (user):** "Submit R0 to Design" shows twice on the project page (header and
+  side panel). Keep it until the user says otherwise. Not done yet either: a phone layout for the project list (cards
+  instead of a wide table) and project tabs in one scrolling row (review items 4 and 5).
 - **3.2 has no total for Alibaug or Nagpur, in Excel too** (checked 2026-11-27 by recalculating a copy in Excel: NCR
   43.055735 / MMR 41.817657 Cr = the app; Alibaug/Nagpur #VALUE! in both). PHE!I39/J39 (Storm Water, Alibaug/Nagpur)
   = SUMPRODUCT(...)/F39 with F39 = FALSE → #DIV/0!, which reaches Master Budget G58 and the grand total. Alibaug/Nagpur
@@ -67,6 +71,31 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - Projects without a team (10, mostly the imported NCR ones): assign when needed.
 
 ## 2026-11-27
+
+- **UI review of the live site, changes the user approved one by one (no Excel or data changes):**
+  - **Rate analysis summary fixed** (`lib/rate-analysis.ts`, used by `components/rate-analysis.tsx`): Sonipat 1 showed
+    Quantities +₹4.96 Cr and contingency −₹4.45 Cr for a +₹0.51 Cr change. Two causes: lines were paired by name, so a
+    road line renamed by a width change ("10 m" → "9 m - Bitumen Road") counted in full and the old one was never
+    subtracted; and heading rows were skipped even when their amount is their own calculation (1 Retaining wall =
+    E85*F85/10000000). Now lines pair by row when both sides have the same layout (by name otherwise, with lines that
+    disappeared subtracted), subtotals are any line adding up other Master Budget amounts, and heading rows with their
+    own formula count. Checked offline on 3.4 with Sonipat 1's 40 changed inputs: +₹0.2343 quantities + ₹0.0117
+    contingency (5.0%) = +₹0.2461 Cr; simple cases and a 3.2-vs-3.4 comparison also 5.0%. Only the Rate analysis tab.
+  - **Money on one line:** `crore()` and the Master Budget table use non-breaking spaces ("₹ 42.79 Cr" no longer wraps).
+  - **"Newer master template" banner** above the tabs (every tab), not inside Project Inputs.
+  - **One ⓘ style:** the form's Excel-cell "i" uses `InfoTip` like the totals.
+  - **Members:** role changes and Remove in a "⋯" menu (Remove last, red; each asks to confirm, admin changes now by
+    a confirm dialog instead of a second press); search by name, email or department.
+  - **Projects list:** search box; "–" for empty values; no "Test" tag inside the Test projects section. Tables moved
+    to `components/project-groups.tsx` (the page still decides who sees what).
+  - **Rates tab:** empty boxes say "Use master", project rates bold with an amber border and an amber bar on the row,
+    quick links to each sheet with its count of project rates.
+  - **Admin panel** compact on narrow screens (menu in one scrolling row, one-line user card).
+  - **Developer text:** "web v4" only as a hover tooltip; Security and setup without "docs/…md" names; "Someone" →
+    "Former member" (every signed-in user reads every name, so a missing one is a deleted account).
+  - **Sign-in:** "Forgot password?" kept, styled as a link.
+  - Item 9 (Overview vs Projects "Waiting for you") needed no change: same rule, both 1. Build, tsc, eslint clean;
+    not checked in a browser (no .env.local here).
 
 - **Totals display (user's 5 points, confirmed):** (1) Projects list: "Cost / acre (before 5%)" column = grand total
   ÷ 1.05 ÷ area (only the grand total is stored per project; `CONTINGENCY` in lib/budget.ts), and an ⓘ on the Grand

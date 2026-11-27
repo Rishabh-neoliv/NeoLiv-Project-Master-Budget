@@ -52,17 +52,17 @@ export async function setupStatus(): Promise<Check[]> {
     : auth.microsoftInSupabase
       ? { label: "Microsoft sign-in is set up but hidden", level: "warn", detail: "Supabase has it on; the login page doesn't show the button yet.", fix: "Vercel → Settings → Environment Variables → NEXT_PUBLIC_MICROSOFT_SIGNIN = on → Redeploy." }
       : button
-        ? { label: "Microsoft button shown, but not set up", level: "bad", detail: "The login page shows the button, but Supabase's Azure provider is off, so it fails.", fix: "Finish part A and B of docs/Microsoft sign-in.md, or remove NEXT_PUBLIC_MICROSOFT_SIGNIN." }
-        : { label: "Microsoft sign-in is off", level: "info", detail: "People sign in with email and password.", fix: "docs/Microsoft sign-in.md (needs an Entra app registration)." });
+        ? { label: "Microsoft button shown, but not set up", level: "bad", detail: "The login page shows the button, but Supabase's Azure provider is off, so it fails.", fix: "Finish setting up Microsoft sign-in in Supabase (ask your developer), or turn off NEXT_PUBLIC_MICROSOFT_SIGNIN in Vercel." }
+        : { label: "Microsoft sign-in is off", level: "info", detail: "People sign in with email and password.", fix: "To turn it on, IT needs to register the app in Microsoft Entra; your developer has the steps." });
 
   checks.push(mail === "microsoft365"
     ? { label: "Email: Microsoft 365", level: "good", detail: `Sent straight away from ${process.env.MAIL_FROM}.` }
     : mail === "powerautomate"
       ? { label: "Email: Power Automate", level: "good", detail: `Your flow sends them from Outlook within about 2 minutes. ${outbox.count ?? 0} email(s) queued in the last 3 days.`,
-          fix: online ? "If they don't arrive, check the flow's Run history (docs/Email via Power Automate.md)." : "The flow can only reach the online app, not this computer." }
+          fix: online ? "If they don't arrive, check the flow's Run history in Power Automate." : "The flow can only reach the online app, not this computer." }
       : mail === "resend"
         ? { label: "Email: Resend", level: "good", detail: "Sent through Resend." }
-        : { label: "Email is off", level: "warn", detail: "Nothing is emailed: copy sign-up links and send them yourself.", fix: "docs/Email via Power Automate.md" });
+        : { label: "Email is off", level: "warn", detail: "Nothing is emailed: copy sign-up links and send them yourself.", fix: "Set up the Power Automate email flow (your developer has the steps)." });
 
   checks.push(online && (!appUrl || /localhost|127\.0\.0\.1/.test(appUrl))
     ? { label: "App address isn't set", level: "bad", detail: "Links in emails would point to the wrong address.", fix: "Vercel → Settings → Environment Variables → APP_URL = this site's address → Redeploy." }

@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useArmed } from "@/components/use-armed";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { MoreHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fmtDay } from "@/lib/dates";
@@ -22,6 +24,26 @@ const MicrosoftMark = () => (
   <svg aria-hidden viewBox="0 0 21 21" className="size-3.5"><path fill="#f25022" d="M1 1h9v9H1z" /><path fill="#7fba00" d="M11 1h9v9h-9z" /><path fill="#00a4ef" d="M1 11h9v9H1z" /><path fill="#ffb900" d="M11 11h9v9h-9z" /></svg>
 );
 
+// A row's less frequent actions (role changes, Remove) behind "⋯", so they aren't pressed by mistake. Remove is last,
+// in red, after a line. Each item asks to confirm before it acts.
+function RowMenu({ name, items, disabled }: { name: string; items: { label: string; run: () => void; danger?: boolean }[]; disabled: boolean }) {
+  if (!items.length) return null;
+  const safe = items.filter((i) => !i.danger), danger = items.filter((i) => i.danger);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger disabled={disabled} aria-label={`More actions for ${name}`}
+        className="inline-flex size-8 items-center justify-center rounded-md text-soft hover:bg-well hover:text-ink focus-visible:outline-2 focus-visible:outline-brand disabled:opacity-50">
+        <MoreHorizontal className="size-4" aria-hidden />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-auto min-w-44">
+        {safe.map((i) => <DropdownMenuItem key={i.label} onClick={i.run}>{i.label}</DropdownMenuItem>)}
+        {safe.length > 0 && danger.length > 0 && <DropdownMenuSeparator />}
+        {danger.map((i) => <DropdownMenuItem key={i.label} variant="destructive" onClick={i.run}>{i.label}</DropdownMenuItem>)}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // The members table and "Add a member" form (Admin panel → Team members, and the Members page). What each person
 // can do follows lib/roles.ts: admins get every button; sub-admins get the sign-up links and remove/restore for
 // ordinary members; other members can add people and resend an invite to someone who hasn't signed in yet (the
@@ -32,8 +54,11 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
   const staff = role !== "member";
   // whom this person manages (links back, remove/restore): admins everyone, sub-admins ordinary members
   const manages = (m: Member) => isAdmin || (role === "subadmin" && !m.isAdmin && !m.isSubadmin);
-  // "Make admin" / "Remove admin" ask for a second press, like the app's other one-way steps
+  // moving a sub-admin to another region asks for a second press, like the app's other one-way steps
   const [armed, setArmed] = useArmed<string | null>(null);
+  // search the list by name, email or department
+  const [q, setQ] = useState("");
+  const shown = members.filter((m) => !q.trim() || `${m.name} ${m.email} ${m.department}`.toLowerCase().includes(q.trim().toLowerCase()));
   // "Make sub-admin" first asks which region they'll handle (one each; user, 2026-11-26); a click elsewhere cancels
   const [pick, setPick] = useArmed<{ id: string; region: string | null } | null>(null, 120000);
   const admins = members.filter((m) => m.isAdmin && m.status !== "removed").length;
@@ -65,18 +90,18 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
     else toast.success(`${name} is added. ${out.via === "powerautomate" ? "Their invite email goes out within about 2 minutes" : "Their invite has been emailed"}.`);
     setName(""); setEmail("");
   }
+  // role changes and Remove sit in the row's "⋯" menu, which closes on a click: each asks to confirm first
   async function setAdmin(m: Member, make: boolean) {
-    const key = (make ? "make:" : "unmake:") + m.id;
-    if (armed !== key) { setArmed(key); return; }
-    setArmed(null);
+    const q = make ? `Make ${m.name} an admin? They get the whole Admin panel too; you stay admin.`
+      : m.id === meId ? "Stop being admin? You become an ordinary member, without the Admin panel."
+        : `Remove ${m.name} as admin? They become an ordinary member, without the Admin panel.`;
+    if (!window.confirm(q)) return;
     if (!(await call(`/api/admin/users/${m.id}`, "POST", { action: make ? "make_admin" : "remove_admin" }))) return;
     if (!make && m.id === meId) { toast.success("You're no longer an admin."); router.replace("/overview"); return; }
     toast.success(make ? `${m.name} is now an admin too.` : `${m.name} is no longer an admin.`);
   }
   async function removeSubadmin(m: Member) {
-    const key = "unsub:" + m.id;
-    if (armed !== key) { setArmed(key); return; }
-    setArmed(null);
+    if (!window.confirm(`Remove ${m.name} as sub-admin? They become an ordinary member.`)) return;
     if (await call(`/api/admin/users/${m.id}`, "POST", { action: "remove_subadmin" })) toast.success(`${m.name} is no longer a sub-admin.`);
   }
   async function makeSubadmin(m: Member, region: string) {
@@ -137,13 +162,19 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-3">
+        <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, email or department" aria-label="Search members" className="max-w-sm bg-sheet" />
+        <span className="text-sm text-soft">{q.trim() ? `${shown.length} of ${members.length}` : `${members.length} member(s)`}</span>
+      </div>
+
       <div className="overflow-x-auto rounded-xl border border-line bg-sheet">
         <table className="w-full text-sm">
           <thead className="bg-well text-left text-xs uppercase tracking-wide text-soft">
             <tr><th className="px-4 py-2.5">Name</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5 text-right">Projects</th><th className="px-4 py-2.5"><span className="sr-only">Actions</span></th></tr>
           </thead>
           <tbody>
-            {members.map((m) => (
+            {!shown.length && <tr><td colSpan={4} className="px-4 py-6 text-center text-soft">Nobody matches “{q}”.</td></tr>}
+            {shown.map((m) => (
               <tr key={m.id} className="border-t border-line">
                 <td className="px-4 py-3">
                   <div className="font-medium">{m.name}{m.isAdmin && <span className="ml-2 rounded bg-info-soft px-1.5 py-0.5 text-xs text-info">Admin</span>}{m.isSubadmin && <span className="ml-2 rounded bg-brand-soft px-1.5 py-0.5 text-xs text-brand">Sub-admin</span>}</div>
@@ -189,23 +220,17 @@ export function UsersAdmin({ members, microsoft, meId, role }: { members: Member
                 <td className="px-4 py-3 text-right">{m.projects}</td>
                 {/* the buttons wrap onto a second line on narrow screens instead of widening the table */}
                 <td className="px-4 py-3 text-right">
-                  {manages(m) ? <div className="flex flex-wrap justify-end gap-1">
-                    {isAdmin && (m.isAdmin
-                      ? admins > 1 && <Button data-armable size="sm" variant={armed === "unmake:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setAdmin(m, false)}
-                          title="They become an ordinary member, without the Admin panel">{armed === "unmake:" + m.id ? "Confirm: remove admin" : m.id === meId ? "Stop being admin" : "Remove admin"}</Button>
-                      : m.status !== "removed" && <>
-                        <Button data-armable size="sm" variant={armed === "make:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => setAdmin(m, true)}
-                          title="They get the whole Admin panel too; you stay admin">{armed === "make:" + m.id ? "Confirm: make admin" : "Make admin"}</Button>
-                        {m.isSubadmin
-                          ? <Button data-armable size="sm" variant={armed === "unsub:" + m.id ? "default" : "ghost"} disabled={busy} onClick={() => removeSubadmin(m)}
-                              title="They become an ordinary member">{armed === "unsub:" + m.id ? "Confirm: remove sub-admin" : "Remove sub-admin"}</Button>
-                          : <Button data-armable size="sm" variant={pick?.id === m.id ? "default" : "ghost"} disabled={busy} onClick={() => setPick(pick?.id === m.id ? null : { id: m.id, region: null })}
-                              title="Pick the region they'll handle: they can create Live projects there, open and act on its Live projects, and remove or restore ordinary members">Make sub-admin</Button>}
-                      </>)}
+                  {manages(m) ? <div className="flex flex-wrap items-center justify-end gap-1">
                     {m.id !== meId && m.status !== "removed" && <Button size="sm" variant="outline" disabled={busy} onClick={() => newLink(m)}>New link</Button>}
-                    {!m.isAdmin && m.id !== meId && (m.status === "removed"
-                      ? <Button size="sm" variant="outline" disabled={busy} onClick={() => setRemoved(m, false)}>Restore</Button>
-                      : <Button size="sm" variant="ghost" className="text-bad" disabled={busy} onClick={() => setRemoved(m, true)}>Remove</Button>)}
+                    {!m.isAdmin && m.id !== meId && m.status === "removed" && <Button size="sm" variant="outline" disabled={busy} onClick={() => setRemoved(m, false)}>Restore</Button>}
+                    <RowMenu name={m.name} disabled={busy} items={[
+                      ...(isAdmin && m.isAdmin && admins > 1 ? [{ label: m.id === meId ? "Stop being admin" : "Remove admin", run: () => setAdmin(m, false) }] : []),
+                      ...(isAdmin && !m.isAdmin && m.status !== "removed" ? [
+                        { label: "Make admin", run: () => setAdmin(m, true) },
+                        m.isSubadmin ? { label: "Remove sub-admin", run: () => removeSubadmin(m) } : { label: "Make sub-admin…", run: () => setPick({ id: m.id, region: null }) },
+                      ] : []),
+                      ...(!m.isAdmin && m.id !== meId && m.status !== "removed" ? [{ label: "Remove…", run: () => setRemoved(m, true), danger: true }] : []),
+                    ]} />
                   </div>
                     : m.status === "invited" && <div className="flex justify-end"><Button size="sm" variant="outline" disabled={busy} onClick={() => newLink(m)} title="Emails them a fresh link to set their password">Resend invite</Button></div>}
                 </td>

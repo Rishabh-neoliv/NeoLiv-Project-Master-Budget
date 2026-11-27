@@ -46,7 +46,7 @@ export function ActivityTab({ activity, names, model, people, empty }: { activit
         </select>
         <select className="h-9 min-w-48 rounded-lg border border-input bg-sheet px-2.5" value={who} onChange={(e) => setWho(e.target.value)} aria-label="Show one person's activity">
           <option value="">Everyone</option>
-          {authors.map((id) => <option key={id} value={id}>{names[id] || "Someone"}</option>)}
+          {authors.map((id) => <option key={id} value={id}>{names[id] || "Former member"}</option>)}
         </select>
         {(field || who) && <span className="text-sm text-soft">{rows.length} entr{rows.length === 1 ? "y" : "ies"}</span>}
       </div>
@@ -57,7 +57,7 @@ export function ActivityTab({ activity, names, model, people, empty }: { activit
           return (
             <li key={a.id} className="rounded-lg border border-line bg-sheet px-4 py-3" style={colourOf(a.by) ? { boxShadow: `inset 3px 0 0 ${colourOf(a.by)}` } : undefined}>
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="flex items-center gap-2"><Initials name={(a.by && names[a.by]) || "?"} colour={colourOf(a.by)} /><span><b style={colourOf(a.by) ? { color: colourOf(a.by) } : undefined}>{(a.by && names[a.by]) || "Someone"}</b>{a.dept ? <span className="text-soft"> ({a.dept})</span> : ""}: {a.action}</span></span>
+                <span className="flex items-center gap-2"><Initials name={(a.by && names[a.by]) || "?"} colour={colourOf(a.by)} /><span><b style={colourOf(a.by) ? { color: colourOf(a.by) } : undefined}>{(a.by && names[a.by]) || "Former member"}</b>{a.dept ? <span className="text-soft"> ({a.dept})</span> : ""}: {a.action}</span></span>
                 <span className="text-sm text-soft">{fmtDate(a.at)}</span>
               </div>
               {a.comment && <p className="mt-1 pl-9 text-soft">{a.comment}</p>}

@@ -17,10 +17,11 @@ async function Nav() {
 async function Who() {
   const me = await staffOrRedirect();
   return (
-    <div className="grid gap-3 border-t border-white/10 pt-4">
-      <div className="flex items-center gap-2.5">
+    // narrow screens: one line (initials, name, sign out); md+: the full card with email and role
+    <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-3 md:grid md:pt-4">
+      <div className="flex min-w-0 items-center gap-2.5">
         <Initials name={me.name || me.email} />
-        <Link href="/profile" title="My profile" className="min-w-0 text-sm hover:underline"><div className="truncate font-medium text-white">{me.name}</div><div className="truncate text-white/60">{me.email}</div><div className="text-xs text-[#7fd9c6]">{ROLE_NAME[me.role]}</div></Link>
+        <Link href="/profile" title="My profile" className="min-w-0 text-sm hover:underline"><div className="truncate font-medium text-white">{me.name}</div><div className="hidden truncate text-white/60 md:block">{me.email}</div><div className="hidden text-xs text-[#7fd9c6] md:block">{ROLE_NAME[me.role]}</div></Link>
       </div>
       <div className="[&_button]:text-white/80 [&_button:hover]:bg-white/10 [&_button:hover]:text-white"><SignOutButton /></div>
     </div>
@@ -30,14 +31,15 @@ async function Who() {
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
-      <aside className="flex shrink-0 flex-col gap-6 bg-[#10302a] px-4 py-5 text-white md:sticky md:top-0 md:h-screen md:w-64">
-        <div>
+      {/* narrow screens: a compact header (title, menu in one row, small links); md+: the sidebar */}
+      <aside className="flex shrink-0 flex-col gap-3 bg-[#10302a] px-4 py-3 text-white md:sticky md:top-0 md:h-screen md:w-64 md:gap-6 md:py-5">
+        {/* the version is for whoever supports the app: on hover, not printed under the title */}
+        <div title={APP_VERSION}>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#7fd9c6]">Admin panel</div>
-          <div className="mt-1 text-lg font-semibold">NeoLiv Master Budget</div>
-          <div className="text-xs text-white/50">{APP_VERSION}</div>
+          <div className="text-base font-semibold md:mt-1 md:text-lg">NeoLiv Master Budget</div>
         </div>
         <Suspense><Nav /></Suspense>
-        <Link href="/overview" className="rounded-lg border border-white/15 px-3 py-2 text-sm text-white/85 hover:bg-white/10">Open the app as a team member →</Link>
+        <Link href="/overview" className="w-fit rounded-lg text-xs text-white/85 hover:underline md:w-auto md:border md:border-white/15 md:px-3 md:py-2 md:text-sm md:hover:bg-white/10 md:hover:no-underline">Open the app as a team member →</Link>
         <div className="mt-auto"><Suspense><Who /></Suspense></div>
       </aside>
       <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
