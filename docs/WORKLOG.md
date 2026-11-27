@@ -72,6 +72,14 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-27
 
+- **The app gets the Admin panel's look** (user chose "A and B"): every signed-in page now has a dark green sidebar
+  (`app/(app)/layout.tsx`, `components/app-nav.tsx`) with icons for My overview, Projects, Members, My profile and
+  (admins, sub-admins) Admin panel; the current template and the user card with Sign out at its foot; search and the
+  bell at the top right of each page; a compact header on phones. **My overview**: icon cards (waiting, my projects,
+  in progress, changes by others), a slimmer admin note, "Last step" cut to two lines (full text on hover), and
+  "Created <date, time> by <name>" under each project. Trade-off: the sidebar takes about 240 px, so wide project
+  tables scroll a little more on small laptops. tsc, eslint, build clean; not checked in a browser.
+
 - **Downloads dated today** (user: a previous master template or frozen revision downloaded today showed its upload
   date in File Explorer, so "Group by date" never put it under Today). Cause: those downloads redirected to a storage
   link, which sends the upload date (Last-Modified) and the browser dates the saved file with it. Now the master

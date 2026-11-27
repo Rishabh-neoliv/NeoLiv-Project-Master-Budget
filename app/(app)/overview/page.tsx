@@ -3,17 +3,18 @@
 // signed-in person's own session, so row-level security decides what's visible (migration 0006). Base Line's work on
 // R0 isn't listed or counted (lib/changes.ts afterBaseLine).
 import Link from "next/link";
+import { CircleCheck, FolderKanban, Hourglass, Info, PencilLine, type LucideIcon } from "lucide-react";
 import { ClickableRow } from "@/components/clickable-row";
 import { Initials } from "@/components/initials";
 import { RevTag, StatusBadge } from "@/components/status-badge";
 import { buttonVariants } from "@/components/ui/button";
 import { colours, withoutBaseLine } from "@/lib/changes";
-import { fmtShortDateTime } from "@/lib/dates";
+import { fmtDateTime, fmtShortDateTime } from "@/lib/dates";
 import { isStaff, kindOf, regionsOf, ROLE_NAME, roleOf } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, nextRev, revLabel, STATUS, type Status } from "@/lib/workflow";
 
-interface Project { id: string; name: string; status: Status; last_rev: number | null; location: string | null; region: string; updated_at: string; kind?: string }
+interface Project { id: string; name: string; status: Status; last_rev: number | null; location: string | null; region: string; updated_at: string; created_at: string; created_by: string | null; kind?: string }
 interface Activity { id: string; at: string; by: string | null; dept: string | null; action: string; comment: string | null; project_id: string; rev: number | null; kind: string | null }
 
 // what the department whose turn it is has to do next
@@ -46,7 +47,7 @@ export default async function MyOverview() {
 
   const [{ data: projects }, { data: teams }, { data: recent }, { data: week }, { data: r0 }] = ids.length
     ? await Promise.all([
-      supabase.from("projects").select("id, name, region, status, last_rev, location, updated_at, kind").in("id", ids).order("updated_at", { ascending: false }),
+      supabase.from("projects").select("id, name, region, status, last_rev, location, updated_at, created_at, created_by, kind").in("id", ids).order("updated_at", { ascending: false }),
       supabase.from("project_members").select("project_id, user_id").in("project_id", ids),
       supabase.from("activity").select("id, at, by, dept, action, comment, project_id, rev, kind:details->>kind").in("project_id", ids).order("at", { ascending: false }).limit(150),
       supabase.from("activity").select("at, project_id, rev, kind:details->>kind").in("project_id", ids).neq("by", uid).gte("at", weekAgo()).limit(2000),
@@ -64,7 +65,7 @@ export default async function MyOverview() {
   for (const a of activity) if (!lastStep.has(a.project_id)) lastStep.set(a.project_id, a);
 
   // names, and each person's colour per project (team order first, as on the project screen)
-  const personIds = [...new Set([...(teams ?? []).map((t) => t.user_id), ...activity.map((a) => a.by)].filter(Boolean))] as string[];
+  const personIds = [...new Set([...(teams ?? []).map((t) => t.user_id), ...activity.map((a) => a.by), ...rows.map((p) => p.created_by)].filter(Boolean))] as string[];
   const { data: ppl } = personIds.length ? await supabase.from("profiles").select("id, name").in("id", personIds) : { data: [] };
   const names = Object.fromEntries((ppl ?? []).map((p) => [p.id, p.name as string]));
   const colourOf = new Map(ids.map((pid) => {
@@ -75,7 +76,6 @@ export default async function MyOverview() {
   const projectName = new Map(rows.map((p) => [p.id, p.name]));
   const first = (me?.name || "").trim().split(/\s+/)[0];
 
-  const card = "rounded-xl border border-line bg-sheet p-5";
   return (
     <div className="grid gap-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -89,34 +89,30 @@ export default async function MyOverview() {
         </div>
       </div>
       {isStaff(role) && (
-        <p className="rounded-xl border border-info/30 bg-info-soft px-4 py-3 text-sm text-info">
-          <b>{ROLE_NAME[role]}.</b> {role === "admin"
+        <p className="flex items-start gap-2 rounded-lg border border-info/30 bg-info-soft px-3 py-2 text-sm text-info">
+          <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span><b>{ROLE_NAME[role]}.</b> {role === "admin"
             ? "Below are only the projects you're on the team of. You can open and act on every project, Live and Test: see Projects or the Admin panel."
-            : `Below are only the projects you're on the team of. You can also open and act on the Live projects of your region (${regionsOf(me).join(", ") || "none yet: ask an admin"}): see Projects or the Admin panel.`}
+            : `Below are only the projects you're on the team of. You can also open and act on the Live projects of your region (${regionsOf(me).join(", ") || "none yet: ask an admin"}): see Projects or the Admin panel.`}</span>
         </p>
       )}
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className={`${card} ${waiting.length ? "border-brand/50" : ""}`}>
-          <div className="text-sm text-soft">Waiting for you</div>
-          <div className={`mt-1 text-3xl font-semibold ${waiting.length ? "text-brand" : ""}`}>{waiting.length}</div>
-          <div className="mt-1 text-sm text-soft">{waiting.length ? "your department's turn" : "nothing to do right now"}</div>
-        </div>
-        <div className={card}>
-          <div className="text-sm text-soft">My projects</div>
-          <div className="mt-1 text-3xl font-semibold">{rows.length}</div>
-          <div className="mt-1 text-sm text-soft">{rows.length - tests} Live{tests ? ` · ${tests} Test` : ""}</div>
-        </div>
-        <div className={card}>
-          <div className="text-sm text-soft">In progress</div>
-          <div className="mt-1 text-3xl font-semibold">{rows.length - approved}</div>
-          <div className="mt-1 text-sm text-soft">{approved} approved</div>
-        </div>
-        <div className={card}>
-          <div className="text-sm text-soft">Changes by others</div>
-          <div className="mt-1 text-3xl font-semibold">{weekCount ?? 0}</div>
-          <div className="mt-1 text-sm text-soft">on your projects, last 7 days</div>
-        </div>
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {([
+          [Hourglass, waiting.length, "Waiting for you", waiting.length ? "your department's turn" : "nothing to do right now", waiting.length ? "bg-brand text-accent-ink" : "bg-brand-soft text-brand", waiting.length > 0],
+          [FolderKanban, rows.length, "My projects", `${rows.length - tests} Live${tests ? ` · ${tests} Test` : ""}`, "bg-info-soft text-info", false],
+          [PencilLine, rows.length - approved, "In progress", `${approved} approved`, "bg-amber-soft text-amber", false],
+          [CircleCheck, weekCount ?? 0, "Changes by others", "on your projects, last 7 days", "bg-good-soft text-good", false],
+        ] as [LucideIcon, number, string, string, string, boolean][]).map(([Icon, value, label, note, tone, hot]) => (
+          <div key={label} className={`flex items-center gap-3 rounded-xl border bg-sheet p-4 ${hot ? "border-brand/50" : "border-line"}`}>
+            <span className={`grid size-11 shrink-0 place-items-center rounded-lg ${tone}`}><Icon className="size-5" aria-hidden /></span>
+            <div className="min-w-0">
+              <div className={`text-2xl font-semibold leading-tight ${hot ? "text-brand" : ""}`}>{value}</div>
+              <div className="text-sm">{label}</div>
+              <div className="truncate text-xs text-soft">{note}</div>
+            </div>
+          </div>
+        ))}
       </section>
 
       {!rows.length && <p className="rounded-xl border border-line bg-sheet p-5 text-soft">You&apos;re not on any project&apos;s team yet. When someone adds you to one, it shows here.</p>}
@@ -135,7 +131,11 @@ export default async function MyOverview() {
                       <td className="px-4 py-3"><Name p={p} /><div className="text-sm text-soft">as {dn(STATUS[p.status][1]!)}</div></td>
                       <td className="px-4 py-3"><RevTag>{revLabel(p.status, p.last_rev)}</RevTag></td>
                       <td className="px-4 py-3 font-medium">{NEXT[p.status](nextRev(p.last_rev))}</td>
-                      <td className="px-4 py-3 text-sm text-soft">{a ? <>{(a.by && names[a.by]) || "Former member"}: {a.action} · {fmtShortDateTime(a.at)}{a.comment && <div className="text-ink">“{a.comment}”</div>}</> : fmtShortDateTime(p.updated_at)}</td>
+                      <td className="max-w-xl px-4 py-3 text-sm text-soft">{a ? <>
+                        <div className="line-clamp-2" title={`${(a.by && names[a.by]) || "Former member"}: ${a.action}`}>{(a.by && names[a.by]) || "Former member"}: {a.action}</div>
+                        <div className="text-xs">{fmtShortDateTime(a.at)}</div>
+                        {a.comment && <div className="line-clamp-2 text-ink" title={a.comment}>“{a.comment}”</div>}
+                      </> : fmtShortDateTime(p.updated_at)}</td>
                     </ClickableRow>
                   );
                 })}
@@ -156,7 +156,7 @@ export default async function MyOverview() {
                   const a = lastStep.get(p.id);
                   return (
                     <ClickableRow key={p.id} href={`/projects/${p.id}`} label={`Open ${p.name}`} className="border-t border-line">
-                      <td className="px-4 py-3"><Name p={p} /><div className="text-sm text-soft">{p.location || p.region} rates</div></td>
+                      <td className="px-4 py-3"><Name p={p} /><div className="text-sm text-soft">{p.location || p.region} rates</div><div className="text-xs text-soft">Created {fmtDateTime(p.created_at)}{p.created_by ? ` by ${names[p.created_by] || "a former member"}` : ""}</div></td>
                       <td className="px-4 py-3 text-soft">{(deptsOf.get(p.id) ?? []).map(dn).join(" + ")}</td>
                       <td className="px-4 py-3"><RevTag>{revLabel(p.status, p.last_rev)}</RevTag></td>
                       <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
