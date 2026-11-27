@@ -75,7 +75,7 @@ export function readRef(eng: InstanceType<typeof BudgetEngine>, ref: string, inp
 }
 
 /** Sheets renamed between master workbooks (old name → new name), so project rates and comparisons follow them. */
-export const SHEET_RENAMES: Record<string, string> = { Roadwork: "Roadworks" };
+export const SHEET_RENAMES: Record<string, string> = { Roadwork: "Roadworks", "Water Supply": "PHE" };
 export const sheetNow = (s: string) => SHEET_RENAMES[s] ?? s;
 
 // Master Budget landmarks are found by their labels: row numbers differ between template versions. Version 2 added

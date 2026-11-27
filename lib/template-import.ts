@@ -5,6 +5,7 @@
 // Plain TypeScript (JSZip and the engine only), so scripts can run it too.
 import JSZip from "jszip";
 import engineApi from "./engine/budget-engine.js";
+import { SHEET_RENAMES } from "./budget";
 
 export type CellV = string | number | boolean | { e: string };
 export interface RawCell { v?: CellV; f?: string }
@@ -248,8 +249,16 @@ export interface Built { model: TplModel; errors: string[]; warnings: string[] }
 
 /** Builds the model for a new master workbook. The input form (sections and their options) and the rate tables'
  *  columns come from the current template, since those were set up by hand; everything else comes from the workbook. */
-export function buildModel(prev: TplModel, wb: ParsedWorkbook, source: string): Built {
+export function buildModel(prev0: TplModel, wb: ParsedWorkbook, source: string): Built {
   const errors: string[] = [], warnings: string[] = [];
+  // a sheet renamed in the new workbook (SHEET_RENAMES: Water Supply → PHE) is the same sheet under its new name
+  const renamed: Record<string, string> = {};
+  for (const s of Object.keys(prev0.cells)) if (!wb.cells[s] && SHEET_RENAMES[s] && wb.cells[SHEET_RENAMES[s]]) renamed[s] = SHEET_RENAMES[s];
+  const prev: TplModel = Object.keys(renamed).length ? {
+    ...prev0,
+    cells: Object.fromEntries(Object.entries(prev0.cells).map(([s, c]) => [renamed[s] ?? s, c])),
+    rates: ((prev0.rates ?? []) as RateBlock[]).map((b) => ({ ...b, sheet: renamed[b.sheet] ?? b.sheet })),
+  } : prev0;
   const missing = Object.keys(prev.cells).filter((s) => !wb.cells[s]);
   if (missing.length) errors.push(`Sheet(s) missing from this workbook: ${missing.join(", ")}. The budget needs them.`);
   const { stamp, label } = templateStamp(wb.modified);
@@ -341,7 +350,8 @@ export function buildModel(prev: TplModel, wb: ParsedWorkbook, source: string): 
 /** Version 2's form is defined in code (lib/template-forms.ts) with the label it expects beside each input. A
  *  workbook whose labels there differ has moved rows, so the form would write into the wrong cells. */
 export function anchorChanges(anchors: Record<string, string>, wb: ParsedWorkbook) {
-  const norm = (s: unknown) => String(s ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+  // a unit added in brackets ("CCTV" → "CCTV (Nos)") is the same row, not a moved one
+  const norm = (s: unknown) => String(s ?? "").replace(/\s+/g, " ").trim().replace(/\s*\([^()]*\)$/, "").toLowerCase();
   const out: string[] = [];
   for (const [key, want] of Object.entries(anchors)) {
     const i = key.lastIndexOf("!"), got = wb.cells[key.slice(0, i)]?.[key.slice(i + 1)]?.v;

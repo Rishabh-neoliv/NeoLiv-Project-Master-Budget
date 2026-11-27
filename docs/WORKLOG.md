@@ -5,6 +5,9 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
+- **Upload master workbook version 3.1** (Downloads) in Admin panel → Master templates once the 2026-11-27 fix
+  (Water Supply → PHE, "CCTV (Nos)") is pushed and deployed. Expected: one warning (5 mixed-unit lines).
+
 - **Master template version 2 goes in as it is** (user's decision 2026-11-25; corrections are for Parth to make in
   the master Excel, emailed to him). Upload `D:DownloadsNeoLiv_Master_Budget_template_20261102-1146_version_2.xlsx`
   in Admin panel → Master templates after this change is pushed: it passes with one warning (5 mixed-unit lines,
@@ -51,6 +54,15 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - **AI reading of documents** needs `ANTHROPIC_API_KEY` (user: "not now"). Waiting to be read: the
   (09-09-2026) MOM xlsx and the Guidelines PDF (partly scanned). `6071422233.PDF` is an SAP invoice, not a project doc.
 - Projects without a team (10, mostly the imported NCR ones): assign when needed.
+
+## 2026-11-27
+
+- **Master workbook version 3 / 3.1 refused on upload, fixed in code.** Two layout changes against the template of
+  2026-11-25: the "Water Supply" sheet is now **"PHE"** (same columns), and Project Inputs!B64 reads "CCTV (Nos)".
+  `SHEET_RENAMES` gains Water Supply → PHE (project rates follow it); `buildModel` uses a renamed sheet's new name
+  when the old one is missing; the label check ignores a trailing unit in brackets. check-template-v2 on 3.1: labels
+  ok, 1366 formulas as Excel, sample ₹38.1929 Cr = Excel, PHE 28 rate rows; same 5 mixed-unit warning as before.
+  tsc + eslint clean. Not yet committed/pushed or uploaded.
 
 ## 2026-11-26
 
