@@ -53,7 +53,7 @@ export async function setupStatus(): Promise<Check[]> {
       ? { label: "Microsoft sign-in is set up but hidden", level: "warn", detail: "Supabase has it on; the login page doesn't show the button yet.", fix: "Vercel → Settings → Environment Variables → NEXT_PUBLIC_MICROSOFT_SIGNIN = on → Redeploy." }
       : button
         ? { label: "Microsoft button shown, but not set up", level: "bad", detail: "The login page shows the button, but Supabase's Azure provider is off, so it fails.", fix: "Finish setting up Microsoft sign-in in Supabase (ask your developer), or turn off NEXT_PUBLIC_MICROSOFT_SIGNIN in Vercel." }
-        : { label: "Microsoft sign-in is off", level: "info", detail: "People sign in with email and password.", fix: "To turn it on, IT needs to register the app in Microsoft Entra; your developer has the steps." });
+        : { label: "Microsoft sign-in is off", level: "info", detail: "People sign in with email and password.", fix: "IT registers the app in Microsoft Entra; your developer has the steps." });
 
   checks.push(mail === "microsoft365"
     ? { label: "Email: Microsoft 365", level: "good", detail: `Sent straight away from ${process.env.MAIL_FROM}.` }

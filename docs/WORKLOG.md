@@ -76,6 +76,16 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-27
 
+- **Settings in tabs** (user picked the "worth doing" suggestions): General (version, environment, address, current
+  template, currency and time, contingency, sign-in, email), Security & access (sign-up / sign-in status, who has
+  which role, links to Roles & access and Role activity; password and session settings stay in Supabase), Notifications
+  (email status, which events send an email, delivery history from the Power Automate outbox: last 50 with To, Cc,
+  subject), Master templates (current one, recent uploads), System health (the setup checks), Data export (projects,
+  members, role activity as CSV). Not done, on purpose: Supabase sign-in settings, configurable workflow, budget
+  rules (they come from the master Excel), backups, audit retention, new email toggles.
+  **Fixed:** "Current master template: none" (the page asked for a `source` column; file name and adder are in the
+  model) and the doubled "To turn on: To turn it on". tsc, eslint, build clean; not checked in a browser.
+
 - **Roles & access from the user's four designs (features, adapted to the app's rules; user's choices: all four,
   levels Edit / View only / Manage, no role email, two pages with charts on the admin dashboard):**
   - **Access levels** per project and department (migration 0008): View only = sees and downloads only; Manage = Edit +
