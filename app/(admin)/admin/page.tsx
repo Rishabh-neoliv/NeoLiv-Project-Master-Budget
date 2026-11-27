@@ -1,5 +1,5 @@
 // Admin panel → Overview: people, where every project stands, and the latest activity. Admins see every project and
-// the Security and setup checks; sub-admins see Live projects only, without the setup checks (lib/roles.ts).
+// a note when a Security and setup check needs attention (the checks are on Settings); sub-admins see Live projects only, without the setup checks (lib/roles.ts).
 import Link from "next/link";
 import { ClickableRow } from "@/components/clickable-row";
 import { Initials } from "@/components/initials";
@@ -12,11 +12,7 @@ import { staffOrRedirect } from "@/lib/server/admin-guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEPTS, dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 import { fmtShortDateTime } from "@/lib/dates";
-import { setupStatus, type Level } from "@/lib/server/setup-status";
-
-const LEVEL: Record<Level, [string, string]> = {
-  good: ["✓", "bg-good-soft text-good"], bad: ["!", "bg-bad-soft text-bad"], warn: ["!", "bg-amber-soft text-amber"], info: ["i", "bg-info-soft text-info"],
-};
+import { setupStatus } from "@/lib/server/setup-status";
 
 const fmtDate = fmtShortDateTime;
 
@@ -88,24 +84,12 @@ export default async function AdminOverview() {
         </div>
       </section>
 
-      {isAdmin && <section className="grid gap-2">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-soft">
-          Security and setup{checks.some((c) => c.level === "bad") && <span className="ml-2 rounded bg-bad-soft px-1.5 py-0.5 text-xs normal-case tracking-normal text-bad">needs attention</span>}
-        </h2>
-        <ul className="grid gap-px overflow-hidden rounded-xl border border-line bg-line">
-          {checks.map((c) => (
-            <li key={c.label} className="flex gap-3 bg-sheet px-4 py-3">
-              <span className={`mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold ${LEVEL[c.level][1]}`} aria-hidden>{LEVEL[c.level][0]}</span>
-              <div className="min-w-0">
-                <div className="font-medium">{c.label}</div>
-                <div className="text-sm text-soft">{c.detail}</div>
-                {c.fix && c.level !== "good" && <div className="mt-0.5 text-sm">{c.level === "info" ? "To turn on: " : "Fix: "}{c.fix}</div>}
-                {c.fix && c.level === "good" && <div className="mt-0.5 text-sm text-soft">{c.fix}</div>}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>}
+      {/* the checks themselves are on Settings (user, 2026-11-27); here only a note when one needs attention */}
+      {isAdmin && checks.some((c) => c.level === "bad" || c.level === "warn") && (
+        <Link href="/admin/settings" className="flex flex-wrap items-center gap-2 rounded-xl border border-amber/40 bg-amber-soft px-4 py-3 text-amber hover:underline">
+          <b>Security and setup needs attention:</b> {checks.filter((c) => c.level === "bad" || c.level === "warn").map((c) => c.label).join(", ")} → Settings
+        </Link>
+      )}
 
       <section className="grid gap-2">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-soft">Recently changed projects</h2>

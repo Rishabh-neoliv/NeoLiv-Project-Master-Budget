@@ -1,22 +1,34 @@
 // Onboarding people into the app. Which projects they work on, and in which department, is set on each
 // project by its Base Line team, not here.
 //
-// POST  /api/admin/users  { name, email }   any member: adds a member and emails them their sign-up link.
-//                                            Admins and sub-admins also get the link back (to send it themselves); for anyone
-//                                            else it goes only to the new member's email, so email must be set up.
-// PATCH /api/admin/users  { id, name }      admins: renames a member
+// POST  /api/admin/users  { name, email, role?, region?, department?, projects?, sendEmail? }
+//        any member: adds a member and emails them their sign-up link. Admins and sub-admins also get the link back
+//        (to send it themselves) and may skip the email; for anyone else it goes only to the new member's email, so
+//        email must be set up. Optional, as on the invite form:
+//          role        "admin" / "subadmin" (with region): admins only; default an ordinary member
+//          department  their company department (lib/departments.ts)
+//          projects    [{ projectId, dept }]: put them on those projects' teams, as Base Line / Design / ... (admins
+//                      any project, sub-admins Live projects of their region: the same rule as acting for every department)
+// PATCH /api/admin/users  { id, name?, department? }   admins (anyone) and sub-admins (ordinary members): edit a member
 import { z } from "zod";
-import { requireAdmin } from "@/lib/server/admin";
-import { isStaff } from "@/lib/roles";
+import { DEPARTMENTS } from "@/lib/departments";
+import { actsForAll, isStaff, kindOf, REGIONS, roleOf } from "@/lib/roles";
+import { DEPTS, dn } from "@/lib/workflow";
 import { errorResponse, HttpError, readJson, requireUser } from "@/lib/server/data";
 import { sendInvite } from "@/lib/server/email";
 import { appUrlFor, linkFor } from "@/lib/server/links";
 import { mailProvider } from "@/lib/server/mailer";
 import { authSettings, microsoftReady } from "@/lib/server/setup-status";
 
+const Department = z.string().trim().max(60).refine((d) => d === "" || (DEPARTMENTS as readonly string[]).includes(d), "Pick a department from the list.");
 const Invite = z.object({
   name: z.string().trim().min(1, "Enter their name.").max(80),
   email: z.email("Enter a valid email address.").transform((s) => s.trim().toLowerCase()),
+  role: z.enum(["member", "subadmin", "admin"]).default("member"),
+  region: z.enum(REGIONS).optional(),
+  department: Department.optional(),
+  projects: z.array(z.object({ projectId: z.uuid(), dept: z.enum(DEPTS) })).max(50).default([]),
+  sendEmail: z.boolean().default(true),
 });
 
 export async function POST(req: Request) {
@@ -27,6 +39,18 @@ export async function POST(req: Request) {
     if (!staff && !mailProvider()) throw new HttpError(400, "Email isn't set up yet, so an admin has to add them.");
     const { data: existing } = await db.from("profiles").select("id").eq("email", body.email).maybeSingle();
     if (existing) throw new HttpError(409, `${body.email} is already a member. Use “${staff ? "New link" : "Resend invite"}” on their row to send another sign-up link.`);
+    // the extras on the invite form, each with the same rule as where it's done later (lib/roles.ts)
+    if (body.role !== "member" && me.role !== "admin") throw new HttpError(403, "Only an admin can make someone an admin or sub-admin.");
+    if (body.role === "subadmin" && !body.region) throw new HttpError(400, "Pick the region they'll handle as sub-admin.");
+    if (!body.sendEmail && !staff) throw new HttpError(403, "Your invites always go by email.");
+    const joins = [...new Map(body.projects.map((t) => [`${t.projectId}|${t.dept}`, t])).values()];
+    const projectIds = [...new Set(joins.map((t) => t.projectId))];
+    const { data: projs } = projectIds.length ? await db.from("projects").select("id, name, kind, region").in("id", projectIds) : { data: [] };
+    for (const id of projectIds) {
+      const pr = projs?.find((x) => x.id === id);
+      if (!pr) throw new HttpError(404, "One of the projects wasn't found.");
+      if (!actsForAll(me.role, kindOf(pr), pr.region, me.regions)) throw new HttpError(403, `You can't add people to the team of ${pr.name}. Its Base Line team can, on the project's Team tab.`);
+    }
 
     // With Microsoft sign-in on, the account is created with its (company) email already confirmed, so their
     // NeoLiv Microsoft account joins it on first sign-in; the link is only a fallback to set a password.
@@ -46,9 +70,21 @@ export async function POST(req: Request) {
       userId = data.user.id;
       link = linkFor(appUrlFor(req), data.properties.hashed_token, "invite");
     }
-    await db.from("profiles").upsert({ id: userId, name: body.name, email: body.email, is_admin: false });
+    await db.from("profiles").upsert({
+      id: userId, name: body.name, email: body.email, is_admin: body.role === "admin", is_subadmin: body.role === "subadmin",
+      regions: body.role === "subadmin" ? [body.region] : [], ...(body.department ? { department: body.department } : {}),
+    });
+    // their projects: on each team, recorded in the project's history like a change on its Team tab
+    for (const id of projectIds) {
+      const mine = joins.filter((t) => t.projectId === id);
+      const { error } = await db.from("project_members").insert(mine.map((t) => ({ project_id: id, user_id: userId, dept: t.dept })));
+      if (error) throw new HttpError(400, `${body.name} is added, but couldn't be put on a project's team: ${error.message}`);
+      await db.from("activity").insert({ project_id: id, by: me.id, dept: me.role === "admin" ? "Admin" : "Sub-admin",
+        action: "Changed the team: " + mine.map((t) => `added ${body.name} (${dn(t.dept)})`).join(", "), rev: null });
+    }
 
-    const emailed = await sendInvite({ to: body.email, name: body.name, from: me.name, link, microsoft, appUrl: appUrlFor(req) });
+    // the approved invite email (lib/server/email.ts), unless an admin or sub-admin chose to send the link themselves
+    const emailed = body.sendEmail ? await sendInvite({ to: body.email, name: body.name, from: me.name, link, microsoft, appUrl: appUrlFor(req) }) : false;
     if (!staff && !emailed) throw new HttpError(500, `${body.name} is added, but the invite email couldn't be sent. Ask an admin to send them a link.`);
     // a sign-up link signs whoever opens it in as the new member, so only admins and sub-admins see it
     return Response.json({ id: userId, link: staff ? link : undefined, emailed, via: mailProvider(), microsoft });
@@ -58,13 +94,21 @@ export async function POST(req: Request) {
   }
 }
 
-const Rename = z.object({ id: z.uuid(), name: z.string().trim().min(1).max(80) });
+const Edit = z.object({ id: z.uuid(), name: z.string().trim().min(1, "Enter their name.").max(80).optional(), department: Department.optional() });
 
 export async function PATCH(req: Request) {
   try {
-    const { db } = await requireAdmin();
-    const { id, name } = Rename.parse(await readJson(req));
-    const { error } = await db.from("profiles").update({ name }).eq("id", id);
+    const { db, me } = await requireUser();
+    const { id, name, department } = Edit.parse(await readJson(req));
+    const { data: person } = await db.from("profiles").select("*").eq("id", id).single();
+    if (!person) throw new HttpError(404, "Member not found.");
+    // whom you manage: admins everyone, sub-admins ordinary members (lib/roles.ts); your own details are on My profile
+    const theirs = roleOf(person);
+    if (!(me.role === "admin" || (me.role === "subadmin" && theirs === "member")))
+      throw new HttpError(403, me.role === "subadmin" ? "Only an admin can edit an admin or sub-admin." : "Only an admin or sub-admin can edit members.");
+    const upd = { ...(name !== undefined ? { name } : {}), ...(department !== undefined ? { department } : {}) };
+    if (!Object.keys(upd).length) return Response.json({ ok: true });
+    const { error } = await db.from("profiles").update(upd).eq("id", id);
     if (error) throw new HttpError(400, error.message);
     return Response.json({ ok: true });
   } catch (err) {

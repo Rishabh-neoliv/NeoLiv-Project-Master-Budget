@@ -5,6 +5,7 @@ import Link from "next/link";
 import { AdminNav } from "@/components/admin-nav";
 import { Initials } from "@/components/initials";
 import { SignOutButton } from "@/components/sign-out-button";
+import { TopTools } from "@/components/top-tools";
 import { ROLE_NAME } from "@/lib/roles";
 import { staffOrRedirect } from "@/lib/server/admin-guard";
 import { APP_VERSION } from "@/lib/version";
@@ -42,7 +43,9 @@ export default function AdminLayout({ children }: LayoutProps<"/admin">) {
         <Link href="/overview" className="w-fit rounded-lg text-xs text-white/85 hover:underline md:w-auto md:border md:border-white/15 md:px-3 md:py-2 md:text-sm md:hover:bg-white/10 md:hover:no-underline">Open the app as a team member →</Link>
         <div className="mt-auto"><Suspense><Who /></Suspense></div>
       </aside>
-      <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">
+      <main className="min-w-0 flex-1 px-4 py-4 md:px-8 md:py-6">
+        {/* search and the bell, as in the app's top bar */}
+        <div className="mb-4 flex justify-end md:mb-6"><TopTools /></div>
         <Suspense fallback={<p className="text-soft">Loading…</p>}>{children}</Suspense>
       </main>
     </div>

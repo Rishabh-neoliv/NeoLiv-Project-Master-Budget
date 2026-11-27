@@ -72,6 +72,32 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-27
 
+- **People and admin pages rebuilt from the user's reference design (features only, not a copy; user's choices on
+  the open parts: Reports = budget + workflow + rates, bell from activity with no table, Settings = setup + app info,
+  quick actions = explain + link).** No database migration.
+  - **Team members / Members** (`users-admin.tsx`): summary cards (members, active, pending invites with expired
+    links, admins & sub-admins), tabs (all, admins & sub-admins, members, invited, removed), search + department /
+    role / status filters, table (#, initials in a steady person colour, role badge with the sub-admin's region,
+    department, projects, status incl. "Link expired" (sent > 1 h ago, from Supabase's invited/recovery time), last
+    active), view 👁, edit ✏️ (name, department), ⋯ (role changes, move region, Remove), paging of 15, an
+    Invitations panel (pending / expired, send again), Quick links, and an **invite pop-up**.
+  - **Invite** (`POST /api/admin/users`): also department; role (admins; sub-admin needs a region); projects with
+    their project department (admins any, sub-admins their region's Live projects; each logged as a team change on
+    the project); "send the invitation email" can be unticked by admins and sub-admins (they get the link). The
+    email wording is unchanged. **Edit** (`PATCH`): name and department, admins anyone, sub-admins ordinary members.
+  - **Member page** (`/admin/members/[id]`): details, sign-in status and link times, their projects (department,
+    revision, status, total; only projects the viewer can see) and recent activity.
+  - **Reports** (`/admin/reports`): budget summary (totals, R0, change, cost/acre, Live totals by region), workflow
+    (waiting for whom and for how many days, steps per person in 30 days), project rates vs master; each as CSV.
+  - **Roles & access** (`/admin/access`): the fixed rules explained, with links to where each is changed.
+  - **Settings** (`/admin/settings`, admins): Security and setup checks (moved from the Overview, which now only shows
+    a note when one needs attention) and app info (version, current template, email and sign-in method).
+  - **Top bar** (app and Admin panel): search (projects you can see, people, pages; `/api/search`) and a bell
+    (`/api/notifications`: waiting for your department + others' changes on your projects in 14 days; "seen" kept in
+    the browser). Admin sidebar has icons. Version web v5.
+  - Build, tsc, eslint clean. **Not checked in a browser or against the database** (no .env.local here): the invite
+    with role/projects, edit, and the new pages need trying after the push, ideally on a Test project first.
+
 - **UI review of the live site, changes the user approved one by one (no Excel or data changes):**
   - **Rate analysis summary fixed** (`lib/rate-analysis.ts`, used by `components/rate-analysis.tsx`): Sonipat 1 showed
     Quantities +₹4.96 Cr and contingency −₹4.45 Cr for a +₹0.51 Cr change. Two causes: lines were paired by name, so a

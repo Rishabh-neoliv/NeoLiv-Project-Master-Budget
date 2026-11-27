@@ -62,14 +62,19 @@ node --env-file=.env.local scripts/test-email.mjs
   Alibaug, Nagpur) is picked at creation and never changes (the Location input only picks rates).
 - **Who acts for every department without being on the team** (`actsForAll`): admins on any project, sub-admins on
   Live ones of their region (recorded as "Admin" / "Sub-admin"). Sub-admins create Live projects only in their region. Everyone else acts as their own departments on their team.
-- **Admin panel** (`app/(admin)/admin/`): admins see Overview (+ Security and setup), Team members, Live projects,
-  Test projects, Master templates; sub-admins see Overview (Live only), Team members, Live projects
-  (`staffOrRedirect` / `adminOrRedirect` in `lib/server/admin-guard.ts`). **My overview** (`/overview`) is everyone's
-  landing page.
+- **Admin panel** (`app/(admin)/admin/`): admins see Overview, Team members (+ a page per member,
+  `members/[id]`), Live projects, Test projects, Master templates, Reports, Roles & access, Settings (Security and
+  setup + app info); sub-admins see Overview (Live only), Team members, Live projects, Reports (their region's Live
+  projects), Roles & access (`staffOrRedirect` / `adminOrRedirect` in `lib/server/admin-guard.ts`). **My overview**
+  (`/overview`) is everyone's landing page. Every top bar has a search box (`/api/search`) and a bell
+  (`/api/notifications`, from activity; "seen" is remembered per browser, no table: user, 2026-11-27).
 - **Any member can add people** (`/members`, same `UsersAdmin` component; API `POST /api/admin/users` takes any
   signed-in user). Only admins and sub-admins get the sign-up link back (a link signs whoever opens it in);
   members' invites go only by email, and they can resend only to people who haven't signed in yet. Sub-admins
-  get links for, and remove/restore, ordinary members only; admin and sub-admin roles are changed by admins only.
+  get links for, edit (name, department), and remove/restore, ordinary members only; admin and sub-admin roles are
+  changed by admins only. The invite form can also set the department (anyone), the role (admins), the projects
+  and their department on each (admins any project, sub-admins Live ones of their region: `actsForAll`), and skip the
+  email (admins and sub-admins; the approved wording never changes).
 - **Sign-in:** email + password, and "Sign in with Microsoft" (Supabase Azure provider, single-tenant NeoLiv,
   shown when `NEXT_PUBLIC_MICROSOFT_SIGNIN=on`; docs/Microsoft sign-in.md). Only people the admin added can get
   in: Supabase's "Allow new users to sign up" must stay **off** (check-access.mjs checks it).
@@ -127,8 +132,12 @@ app/(app)/projects/...         member app: list, project page (project-view.tsx 
 app/(app)/profile, members     My profile (name, department, password, my projects); Members (add people)
 lib/departments.ts             company departments for My profile (PROVISIONAL list until the user confirms it)
 lib/roles.ts                   admin / sub-admin / member, Live / Test: who sees, creates, deletes, acts for all
-app/(admin)/admin/...          admin panel: overview, members, live/ and test/ (lists + new), templates
-app/api/...                    projects, drafts, actions, team, rates, files, extract, admin users, auth, email feed
+app/(admin)/admin/...          admin panel: overview, members (+ [id]), live/ and test/ (lists + new), templates,
+                               reports, access (roles explained), settings
+app/api/...                    projects, drafts, actions, team, rates, files, extract, admin users, auth, email feed,
+                               search, notifications
+lib/members.ts                 a member as the people pages show them (status, link expiry); lib/server/members.ts builds it
+lib/rate-analysis.ts           the Rate analysis tab's calculation (pairs lines by row on the same layout)
 lib/budget.ts, lib/workflow.ts shared logic (browser and server)
 lib/template-import.ts         reads a master .xlsx into a model (Admin panel → Master templates); lib/server/templates.ts checks it
 lib/template-forms.ts          the version-2 input form (Project Inputs), its expected labels and rate tables

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Initials } from "@/components/initials";
 import { SignOutButton } from "@/components/sign-out-button";
+import { TopTools } from "@/components/top-tools";
 import { isStaff, ROLE_NAME, roleOf } from "@/lib/roles";
 import { APP_VERSION } from "@/lib/version";
 import { createClient } from "@/lib/supabase/server";
@@ -31,6 +32,7 @@ async function UserBar() {
         {isStaff(role) && <Link href="/admin" className="font-medium text-brand hover:underline">Admin panel</Link>}
       </nav>
       <div className="ml-auto flex items-center gap-2.5 text-sm">
+        <TopTools />
         <Link href="/profile" title="My profile" className="flex items-center gap-2.5 rounded-lg px-1.5 py-1 hover:bg-well">
           <Initials name={me?.name || me?.email || "?"} />
           <span className="hidden sm:inline"><b className="font-medium">{me?.name}</b> <span className="text-soft">{me?.email}</span>{isStaff(role) && <span className="ml-1.5 rounded bg-info-soft px-1.5 py-0.5 text-xs text-info">{ROLE_NAME[role]}</span>}</span>
