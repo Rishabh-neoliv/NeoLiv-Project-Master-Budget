@@ -2,9 +2,9 @@
 // project by its Base Line team, not here.
 //
 // POST  /api/admin/users  { name, email, role?, region?, department?, projects?, sendEmail? }
-//        any member: adds a member and emails them their sign-up link. Admins and sub-admins also get the link back
-//        (to send it themselves) and may skip the email; for anyone else it goes only to the new member's email, so
-//        email must be set up. Optional, as on the invite form:
+//        admins and sub-admins (user, 2026-11-27: ordinary members no longer invite people): adds a member and
+//        emails them their sign-up link; they also get the link back (to send it themselves) and may skip the email.
+//        Optional, as on the invite form:
 //          role        "admin" / "subadmin" (with region): admins only; default an ordinary member
 //          department  their company department (lib/departments.ts)
 //          projects    [{ projectId, dept }]: put them on those projects' teams, as Base Line / Design / ... (admins
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     const { db, me } = await requireUser();
     const body = Invite.parse(await readJson(req));
     const staff = isStaff(me.role);
-    if (!staff && !mailProvider()) throw new HttpError(400, "Email isn't set up yet, so an admin has to add them.");
+    if (!staff) throw new HttpError(403, "Only an admin or sub-admin can invite people. Ask one of them to add your colleague.");
     const { data: existing } = await db.from("profiles").select("id").eq("email", body.email).maybeSingle();
     if (existing) throw new HttpError(409, `${body.email} is already a member. Use “${staff ? "New link" : "Resend invite"}” on their row to send another sign-up link.`);
     // the extras on the invite form, each with the same rule as where it's done later (lib/roles.ts)

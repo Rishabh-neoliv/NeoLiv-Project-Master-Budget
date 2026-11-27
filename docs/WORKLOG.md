@@ -72,6 +72,17 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-27
 
+- **One sidebar, no separate Admin panel** (user picked option 1): every page has the same sidebar
+  (`components/side-bar.tsx` + `side-nav.tsx`, replacing app-nav and admin-nav) with **My work** (My overview,
+  Projects, My profile) and, for admins and sub-admins, **Administration** (Admin dashboard, Team members, Live
+  projects, Reports, Roles & access; admins also Test projects, Master templates, Settings). The admin "Overview" is
+  now **Admin dashboard**; "Open the app as a team member" and the "ADMIN PANEL" label are gone; on-screen "Admin
+  panel" wording updated. Page addresses and access checks are unchanged.
+- **Only admins and sub-admins invite people** (user, reversing 2026-11-18): Members is gone from ordinary members'
+  menu; `/members` forwards (staff → Team members, others → My overview); `POST /api/admin/users` and the "link"
+  action refuse ordinary members; search shows people only to staff. Roles & access, Team members, README and
+  CLAUDE.md say so. tsc, eslint, build clean; not checked in a browser.
+
 - **The app gets the Admin panel's look** (user chose "A and B"): every signed-in page now has a dark green sidebar
   (`app/(app)/layout.tsx`, `components/app-nav.tsx`) with icons for My overview, Projects, Members, My profile and
   (admins, sub-admins) Admin panel; the current template and the user card with Sign out at its foot; search and the

@@ -96,9 +96,9 @@ export function UsersAdmin({ members, microsoft, meId, role, projects = [] }: { 
     } finally { setBusy(false); }
   }
   async function setAdmin(m: Member, make: boolean) {
-    const ask = make ? `Make ${m.name} an admin? They get the whole Admin panel too; you stay admin.`
-      : m.id === meId ? "Stop being admin? You become an ordinary member, without the Admin panel."
-        : `Remove ${m.name} as admin? They become an ordinary member, without the Admin panel.`;
+    const ask = make ? `Make ${m.name} an admin? They get the whole Administration section too; you stay admin.`
+      : m.id === meId ? "Stop being admin? You become an ordinary member, without the Administration section."
+        : `Remove ${m.name} as admin? They become an ordinary member, without the Administration section.`;
     if (!window.confirm(ask)) return;
     if (!(await call(`/api/admin/users/${m.id}`, "POST", { action: make ? "make_admin" : "remove_admin" }))) return;
     if (!make && m.id === meId) { toast.success("You're no longer an admin."); router.replace("/overview"); return; }

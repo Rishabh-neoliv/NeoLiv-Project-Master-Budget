@@ -1,4 +1,4 @@
-// Admin panel → Overview: people, where every project stands, and the latest activity. Admins see every project and
+// Administration → Admin dashboard (it was "Overview"; renamed so it isn't confused with My overview, user 2026-11-27): people, where every project stands, and the latest activity. Admins see every project and
 // a note when a Security and setup check needs attention (the checks are on Settings); sub-admins see Live projects only, without the setup checks (lib/roles.ts).
 import Link from "next/link";
 import { ClickableRow } from "@/components/clickable-row";
@@ -51,7 +51,7 @@ export default async function AdminOverview() {
     <div className="grid max-w-6xl gap-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Overview</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">Admin dashboard</h1>
           <p className="text-soft">{isAdmin ? "Where every project stands, and who has access." : `Where the Live projects of your region (${me.regions.join(", ") || "none yet: ask an admin"}) stand.`}</p>
         </div>
         <div className="flex gap-2">

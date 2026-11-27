@@ -60,9 +60,9 @@ export default async function ProjectsPage() {
           <h1 className="text-3xl font-semibold tracking-tight">Projects</h1>
           <p className="text-soft">{INTRO[role]}</p>
         </div>
-        {isStaff(role) && <Link href="/admin/live" className={buttonVariants({ variant: "outline" })}>Admin panel</Link>}
+        {isStaff(role) && <Link href="/admin/live" className={buttonVariants({ variant: "outline" })}>Manage Live projects</Link>}
       </div>
-      {!rows.length && <p className="rounded-xl border border-line bg-sheet p-5 text-soft">{isStaff(role) ? "No projects yet. New projects are made in the Admin panel → Live projects." : "You're not on any project's team yet. When someone adds you to one, it shows here."}</p>}
+      {!rows.length && <p className="rounded-xl border border-line bg-sheet p-5 text-soft">{isStaff(role) ? "No projects yet. New projects are made in Administration → Live projects." : "You're not on any project's team yet. When someone adds you to one, it shows here."}</p>}
       <ProjectGroups groups={groups} />
     </div>
   );

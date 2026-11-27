@@ -1,10 +1,8 @@
-// Members: everyone in the app, and a form any member can use to add someone (they get an email with a link to
-// set their password). Admins and sub-admins get their usual buttons here too (lib/roles.ts).
+// /members: the people list now lives in Administration → Team members, for admins and sub-admins only (user,
+// 2026-11-27: ordinary members no longer see the list or invite people). Old links and bookmarks land in the right
+// place: admins and sub-admins on Team members, everyone else on My overview.
 import { redirect } from "next/navigation";
-import { UsersAdmin } from "@/app/(admin)/admin/members/users-admin";
-import { regionsOf, roleOf } from "@/lib/roles";
-import { inviteProjects, listMembers } from "@/lib/server/members";
-import { authSettings, microsoftReady } from "@/lib/server/setup-status";
+import { isStaff, roleOf } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function MembersPage() {
@@ -12,21 +10,6 @@ export default async function MembersPage() {
   const { data: claims } = await supabase.auth.getClaims();
   const uid = claims?.claims?.sub as string | undefined;
   if (!uid) redirect("/login");
-  const [{ data: me }, members, settings] = await Promise.all([
-    supabase.from("profiles").select("*").eq("id", uid).single(),
-    listMembers(),
-    authSettings(),
-  ]);
-
-  const projects = await inviteProjects({ role: roleOf(me), regions: regionsOf(me) });
-
-  return (
-    <div className="grid gap-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight">Members</h1>
-        <p className="text-soft">Everyone who can sign in to the app. Add a colleague here: they get an email with a link to set their password. Who works on which project is set on each project&apos;s Team tab.</p>
-      </div>
-      <UsersAdmin members={members} microsoft={microsoftReady(settings)} meId={uid} role={roleOf(me)} projects={projects} />
-    </div>
-  );
+  const { data: me } = await supabase.from("profiles").select("*").eq("id", uid).single();
+  redirect(isStaff(roleOf(me)) ? "/admin/members" : "/overview");
 }

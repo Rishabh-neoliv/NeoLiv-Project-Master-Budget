@@ -62,16 +62,19 @@ node --env-file=.env.local scripts/test-email.mjs
   Alibaug, Nagpur) is picked at creation and never changes (the Location input only picks rates).
 - **Who acts for every department without being on the team** (`actsForAll`): admins on any project, sub-admins on
   Live ones of their region (recorded as "Admin" / "Sub-admin"). Sub-admins create Live projects only in their region. Everyone else acts as their own departments on their team.
-- **Admin panel** (`app/(admin)/admin/`): admins see Overview, Team members (+ a page per member,
-  `members/[id]`), Live projects, Test projects, Master templates, Reports, Roles & access, Settings (Security and
-  setup + app info); sub-admins see Overview (Live only), Team members, Live projects, Reports (their region's Live
-  projects), Roles & access (`staffOrRedirect` / `adminOrRedirect` in `lib/server/admin-guard.ts`). **My overview**
-  (`/overview`) is everyone's landing page. Every top bar has a search box (`/api/search`) and a bell
+- **One sidebar on every page** (`components/side-bar.tsx`, `side-nav.tsx`; user, 2026-11-27: no separate "app" and
+  "Admin panel"): **My work** (My overview, Projects, My profile) for everyone, and **Administration**
+  (`app/(admin)/admin/`) for staff: admins see Admin dashboard (`/admin`, was "Overview"), Team members (+ a page per
+  member, `members/[id]`), Live projects, Test projects, Master templates, Reports, Roles & access, Settings (Security
+  and setup + app info); sub-admins see Admin dashboard (Live only), Team members, Live projects, Reports (their
+  region's Live projects), Roles & access (`staffOrRedirect` / `adminOrRedirect` in `lib/server/admin-guard.ts`).
+  **My overview** (`/overview`) is everyone's landing page. Every top bar has a search box (`/api/search`) and a bell
   (`/api/notifications`, from activity; "seen" is remembered per browser, no table: user, 2026-11-27).
-- **Any member can add people** (`/members`, same `UsersAdmin` component; API `POST /api/admin/users` takes any
-  signed-in user). Only admins and sub-admins get the sign-up link back (a link signs whoever opens it in);
-  members' invites go only by email, and they can resend only to people who haven't signed in yet. Sub-admins
-  get links for, edit (name, department), and remove/restore, ordinary members only; admin and sub-admin roles are
+- **Only admins and sub-admins invite people** (user, 2026-11-27, reversing "any member can add people" of
+  2026-11-18): Administration → Team members (`UsersAdmin`); `POST /api/admin/users` and the "link" action refuse
+  ordinary members; `/members` forwards staff to Team members and everyone else to My overview. They get the sign-up
+  link back (a link signs whoever opens it in). Sub-admins get links for, edit (name, department), and
+  remove/restore, ordinary members only; admin and sub-admin roles are
   changed by admins only. The invite form can also set the department (anyone), the role (admins), the projects
   and their department on each (admins any project, sub-admins Live ones of their region: `actsForAll`), and skip the
   email (admins and sub-admins; the approved wording never changes).
@@ -129,7 +132,8 @@ node --env-file=.env.local scripts/test-email.mjs
 ```
 app/(app)/overview             My overview: everyone's landing page (waiting for you, my projects, recent changes)
 app/(app)/projects/...         member app: list, project page (project-view.tsx holds the tabs)
-app/(app)/profile, members     My profile (name, department, password, my projects); Members (add people)
+app/(app)/profile, members     My profile (name, department, password, my projects); /members only forwards (see above)
+components/side-bar.tsx        the one sidebar (My work + Administration), used by both layouts
 lib/departments.ts             company departments for My profile (PROVISIONAL list until the user confirms it)
 lib/roles.ts                   admin / sub-admin / member, Live / Test: who sees, creates, deletes, acts for all
 app/(admin)/admin/...          admin panel: overview, members (+ [id]), live/ and test/ (lists + new), templates,

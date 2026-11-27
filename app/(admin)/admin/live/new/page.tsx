@@ -15,7 +15,7 @@ export default async function NewLiveProject() {
         <p className="text-soft">A real project. Pick who works on it in each department; only that team, admins and the sub-admins of its region will see it. The region is fixed once it&apos;s created. It stays a Live project and can&apos;t be deleted.</p>
       </div>
       {regions.length ? <NewProjectForm people={await activeMembers()} kind="live" regions={regions} />
-        : <p className="rounded-xl border border-line bg-sheet p-5 text-soft">You don&apos;t have a region yet, so you can&apos;t create projects. Ask an admin to give you one (Admin panel → Team members).</p>}
+        : <p className="rounded-xl border border-line bg-sheet p-5 text-soft">You don&apos;t have a region yet, so you can&apos;t create projects. Ask an admin to give you one (Administration → Team members).</p>}
     </div>
   );
 }

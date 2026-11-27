@@ -58,8 +58,8 @@ set when it is created and never changes.
   revision, status, last change), recent changes on them (each person in their colour) and a few counts.
 - **My profile** (click your name in the top bar): change your name, department and password, see your username
   and your projects with your role in each. The department list is in lib/departments.ts.
-- **Any member can add people** from **Members** in the top bar. A member never sees the sign-up link (it signs
-  whoever opens it in): it goes to the new person by email only, and members can **Resend invite** to someone who
+- **Only admins and sub-admins add people** (Administration → Team members; since 27 Nov 2026). Ordinary members
+  don't see the people list. (Before: any member could add people, by email only, and **Resend invite** to someone who
   hasn't signed in yet.
 - **Sign-in:** email + password, and "Sign in with Microsoft" with a NeoLiv account once set up
   (docs/Microsoft sign-in.md). Only people who were added can get in.
@@ -89,7 +89,7 @@ app/
   auth/callback/                           end of "Sign in with Microsoft" (docs/Microsoft sign-in.md)
   (app)/overview/                          My overview (landing page)
   (app)/projects/                          project list, project page (tabs)
-  (app)/members, profile/                  Members (add people), My profile
+  (app)/members, profile/                  /members forwards to Team members (staff) or My overview; My profile
   (admin)/admin/                           admin panel: overview + setup status, members, live/, test/ (+ new), templates
   api/projects/...                         create, save/submit draft, workflow actions, team, rates, files, Excel
   api/admin/users                          add people, links, remove/restore, admin and sub-admin roles

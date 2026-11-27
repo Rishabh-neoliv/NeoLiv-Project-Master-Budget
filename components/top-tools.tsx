@@ -59,7 +59,7 @@ function SearchBox({ tone }: { tone: "light" | "dark" }) {
     <div ref={box} className="relative">
       <label className={`flex h-9 items-center gap-2 rounded-lg border px-2.5 ${tone === "dark" ? "border-white/15 bg-white/10 text-white" : "border-line bg-paper text-ink"}`}>
         <Search className="size-4 shrink-0 opacity-60" aria-hidden />
-        <input type="search" value={q} placeholder="Search projects, people…" aria-label="Search projects, people and pages"
+        <input type="search" value={q} placeholder="Search…" aria-label="Search projects, people and pages"
           className="w-28 bg-transparent text-sm outline-none placeholder:opacity-60 sm:w-48"
           onChange={(e) => { setQ(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)}
           onKeyDown={(e) => {

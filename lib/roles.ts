@@ -20,7 +20,7 @@ export const roleOf = (p: { is_admin?: boolean | null; is_subadmin?: boolean | n
   p?.is_admin ? "admin" : p?.is_subadmin ? "subadmin" : "member";
 export const kindOf = (p: { kind?: string | null } | null | undefined): Kind => (p?.kind === "test" ? "test" : "live");
 
-/** Admins and sub-admins: the Admin panel, sign-up links handed back, removing members. */
+/** Admins and sub-admins: the Administration pages, inviting people (with the sign-up link handed back), removing members. */
 export const isStaff = (role: Role) => role !== "member";
 /** A sub-admin's reach: Live projects in one of their regions. */
 const subadminReach = (role: Role, kind: Kind, region: string, regions: string[]) => role === "subadmin" && kind === "live" && regions.includes(region);

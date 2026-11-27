@@ -9,16 +9,15 @@ interface SearchHit { kind: "project" | "person" | "page"; title: string; detail
 const PAGES: [title: string, href: string, who: "all" | "staff" | "admin", words: string][] = [
   ["My overview", "/overview", "all", "home dashboard waiting"],
   ["Projects", "/projects", "all", "list"],
-  ["Members", "/members", "all", "people team add invite"],
   ["My profile", "/profile", "all", "password department name"],
-  ["Admin panel – Overview", "/admin", "staff", "dashboard"],
-  ["Admin panel – Team members", "/admin/members", "staff", "people invite roles"],
-  ["Admin panel – Live projects", "/admin/live", "staff", "new project"],
-  ["Admin panel – Reports", "/admin/reports", "staff", "budget workflow rates csv excel"],
-  ["Admin panel – Roles & access", "/admin/access", "staff", "permissions rules"],
-  ["Admin panel – Test projects", "/admin/test", "admin", "new project delete"],
-  ["Admin panel – Master templates", "/admin/templates", "admin", "workbook upload excel"],
-  ["Admin panel – Settings", "/admin/settings", "admin", "security setup email sign-in"],
+  ["Admin dashboard", "/admin", "staff", "overview administration"],
+  ["Team members", "/admin/members", "staff", "people members invite roles"],
+  ["Live projects", "/admin/live", "staff", "new project"],
+  ["Reports", "/admin/reports", "staff", "budget workflow rates csv excel"],
+  ["Roles & access", "/admin/access", "staff", "permissions rules"],
+  ["Test projects", "/admin/test", "admin", "new project delete"],
+  ["Master templates", "/admin/templates", "admin", "workbook upload excel"],
+  ["Settings", "/admin/settings", "admin", "security setup email sign-in"],
 ];
 
 export async function GET(req: Request) {
@@ -41,7 +40,8 @@ export async function GET(req: Request) {
   const ql = q.toLowerCase();
   const hits: SearchHit[] = [
     ...(projects ?? []).map((p) => ({ kind: "project" as const, title: p.name as string, detail: `${p.location ?? ""} rates · ${STATUS[p.status as Status]?.[0] ?? p.status}`, href: `/projects/${p.id}` })),
-    ...(people ?? []).map((p) => ({ kind: "person" as const, title: p.name as string, detail: [p.email, p.department].filter(Boolean).join(" · "), href: staff ? `/admin/members/${p.id}` : `/members?q=${encodeURIComponent(p.name as string)}` })),
+    // people open their member page, which only admins and sub-admins have (user, 2026-11-27)
+    ...(staff ? people ?? [] : []).map((p) => ({ kind: "person" as const, title: p.name as string, detail: [p.email, p.department].filter(Boolean).join(" · "), href: `/admin/members/${p.id}` })),
     ...PAGES.filter(([title, , who, words]) => (who === "all" || (who === "staff" && staff) || (who === "admin" && role === "admin")) && `${title} ${words}`.toLowerCase().includes(ql))
       .slice(0, 4).map(([title, href]) => ({ kind: "page" as const, title, detail: "Page", href })),
   ];

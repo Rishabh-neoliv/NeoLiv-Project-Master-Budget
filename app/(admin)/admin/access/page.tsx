@@ -20,7 +20,7 @@ const ROLES: [role: string, what: string[]][] = [
   ["Member", [
     "Sees only the projects they're on the team of, in the department(s) they have there.",
     "Anyone on the team can edit the open draft, rates and files; Submit and workflow steps stay with whose turn it is.",
-    "Can add people: the sign-up link goes to the new person by email only.",
+    "Doesn't invite people: an admin or sub-admin adds new colleagues.",
   ]],
 ];
 
@@ -31,7 +31,7 @@ export default async function AccessPage() {
   const actions: [href: string, Icon: typeof Users, title: string, text: string][] = [
     ["/admin/members", Users, "Change someone's role", isAdmin ? "Team members → ⋯ on their row: Make admin, Make sub-admin (pick the region), Remove admin." : "Only admins change roles. You can edit, remove and restore ordinary members on Team members."],
     ["/admin/live", FolderKanban, "Project access", "Who works on a project, and in which department (Base Line, Design, Operations, Management), is set on the project's Team tab by its Base Line team, an admin, or the region's sub-admin."],
-    [isAdmin ? "/admin/settings" : "/admin/members", Mail, "Invites", "Invite people from Team members. Admins and sub-admins can also set their department and projects, and get the sign-up link to send themselves. How emails are sent is on Settings."],
+    [isAdmin ? "/admin/settings" : "/admin/members", Mail, "Invites", "Admins and sub-admins invite people from Team members, set their department and projects, and get the sign-up link to send themselves. How emails are sent is on Settings."],
   ];
 
   return (

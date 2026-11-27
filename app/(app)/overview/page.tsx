@@ -84,7 +84,7 @@ export default async function MyOverview() {
           <p className="text-soft">What&apos;s waiting for you, the projects you&apos;re on, and what changed on them.</p>
         </div>
         <div className="flex gap-2">
-          {isStaff(role) && <Link href="/admin" className={buttonVariants({ variant: "outline" })}>Admin panel</Link>}
+          {isStaff(role) && <Link href="/admin" className={buttonVariants({ variant: "outline" })}>Admin dashboard</Link>}
           <Link href="/projects" className={buttonVariants({ variant: isStaff(role) ? "default" : "outline" })}>{role === "member" ? "My projects" : "All projects"}</Link>
         </div>
       </div>
@@ -92,8 +92,8 @@ export default async function MyOverview() {
         <p className="flex items-start gap-2 rounded-lg border border-info/30 bg-info-soft px-3 py-2 text-sm text-info">
           <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span><b>{ROLE_NAME[role]}.</b> {role === "admin"
-            ? "Below are only the projects you're on the team of. You can open and act on every project, Live and Test: see Projects or the Admin panel."
-            : `Below are only the projects you're on the team of. You can also open and act on the Live projects of your region (${regionsOf(me).join(", ") || "none yet: ask an admin"}): see Projects or the Admin panel.`}</span>
+            ? "Below are only the projects you're on the team of. You can open and act on every project, Live and Test: see Projects or the Administration section of the menu."
+            : `Below are only the projects you're on the team of. You can also open and act on the Live projects of your region (${regionsOf(me).join(", ") || "none yet: ask an admin"}): see Projects or the Administration section of the menu.`}</span>
         </p>
       )}
 

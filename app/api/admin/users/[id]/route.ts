@@ -43,6 +43,8 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
     const removed = !!user.banned_until && new Date(user.banned_until) > new Date();
 
     if (action === "link") {
+      // links are sent by admins and sub-admins only (user, 2026-11-27: ordinary members no longer invite people)
+      if (me.role === "member") throw new HttpError(403, "Only an admin or sub-admin can send sign-up links.");
       if (removed) throw new HttpError(400, `${person.name} is removed. An admin can restore them.`);
       // everyone else can only have it emailed to the person themselves, and only before they've signed in
       if (!manages) {
