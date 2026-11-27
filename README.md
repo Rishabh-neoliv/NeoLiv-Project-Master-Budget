@@ -72,6 +72,12 @@ set when it is created and never changes.
 - **On a project's team**, anyone from any department can change the open draft (inputs, rates, files) at any
   stage; **Submit** and the workflow steps stay with the department whose turn it is, and Management approves.
 
+- **Access level on each project** (since 27 Nov 2026, migration 0008): **Edit** (the default), **View only** (looks and
+  downloads, changes nothing) or **Manage** (Edit, plus changes the team). Each department keeps someone at Edit or
+  Manage. Set it on the Team tab or Team members → ⋯ → **Project access…**; roles change in **Change role…**, with a
+  preview. Every role and access change, refused ones too, is in **Roles & access → Role activity** (admins), which
+  nobody can edit or delete.
+
 ## Workflow (same rules as the original app)
 
 - Base Line → Design → Operations → Management.

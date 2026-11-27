@@ -3,7 +3,7 @@
 import { notFound } from "next/navigation";
 import type { Model } from "@/lib/budget";
 import { afterBaseLine } from "@/lib/changes";
-import { actsForAll, kindOf, regionsOf, ROLE_NAME, roleOf } from "@/lib/roles";
+import { accessOf, actsForAll, kindOf, regionsOf, ROLE_NAME, roleOf } from "@/lib/roles";
 import { activeMembers } from "@/lib/server/people";
 import { createClient } from "@/lib/supabase/server";
 import { ProjectView, type ProjectData } from "./project-view";
@@ -17,7 +17,8 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   const { data: project } = await supabase.from("projects").select("*").eq("id", id).maybeSingle();
   if (!project) notFound();
   const [{ data: team }, { data: versions }, { data: activity }, { data: tpl }, { data: me }, { data: currentTpl }, { data: files, error: filesError }, { data: changes }] = await Promise.all([
-    supabase.from("project_members").select("user_id, dept, profiles(name, email)").eq("project_id", id),
+    // "*": the access level exists only after migration 0008
+    supabase.from("project_members").select("*, profiles(name, email)").eq("project_id", id),
     supabase.from("versions").select("rev, inputs, rates, master, calc, grand_total, reason, dept, template, xlsx_path, frozen_by, frozen_at").eq("project_id", id).order("rev"),
     supabase.from("activity").select("id, at, by, dept, action, comment, rev, details").eq("project_id", id).order("at", { ascending: false }).limit(200),
     supabase.from("templates").select("stamp, model, modified").eq("stamp", project.template).maybeSingle(),
@@ -36,12 +37,13 @@ export default async function ProjectPage(props: PageProps<"/projects/[id]">) {
   const { data: ppl } = ids.length ? await supabase.from("profiles").select("id, name").in("id", ids) : { data: [] };
   const teamRows = (team ?? []).map((t) => {
     const p = (Array.isArray(t.profiles) ? t.profiles[0] : t.profiles) as { name: string; email: string } | null;
-    return { user_id: t.user_id, dept: t.dept, name: p?.name ?? "", email: p?.email ?? "" };
+    return { user_id: t.user_id, dept: t.dept, access: accessOf(t), name: p?.name ?? "", email: p?.email ?? "" };
   });
   // Base Line (and the admin) may change the team, so they get the list of onboarded members to pick from
   // an admin acts for every department on any project, a sub-admin on Live projects
   const role = roleOf(me), kind = kindOf(project), all = actsForAll(role, kind, project.region, regionsOf(me));
-  const isBaseLine = teamRows.some((t) => t.user_id === uid && t.dept === "BD");
+  // Base Line (not View only) and anyone with Manage change the team, so they get the list of members too
+  const isBaseLine = teamRows.some((t) => t.user_id === uid && ((t.dept === "BD" && t.access !== "view") || t.access === "manage"));
 
   const data: ProjectData = {
     project,

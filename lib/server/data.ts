@@ -4,7 +4,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { currentUserId } from "@/lib/supabase/server";
 import type { MasterRow, Model } from "@/lib/budget";
-import { actsForAll, canSeeProject, kindOf, regionsOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
+import { accessOf, actsForAll, canSeeProject, kindOf, regionsOf, ROLE_NAME, roleOf, type Access, type Kind, type Role } from "@/lib/roles";
 import { DEPTS, dn, type Dept, type Status } from "@/lib/workflow";
 
 export class HttpError extends Error {
@@ -43,24 +43,32 @@ export async function requireViewer(projectId: string) {
   const { data: row } = await db.from("projects").select("*").eq("id", projectId).single();
   if (!row) throw new HttpError(404, "Project not found.");
   const project = { ...row, kind: kindOf(row) } as ProjectRow;
-  const { data: rows } = await db.from("project_members").select("user_id, dept").eq("project_id", projectId);
-  const team = (rows ?? []) as { user_id: string; dept: Dept }[];
+  // "*": the access level exists only after migration 0008 (accessOf reads a missing one as "edit")
+  const { data: rows } = await db.from("project_members").select("*").eq("project_id", projectId);
+  const team = ((rows ?? []) as { user_id: string; dept: Dept; access?: string }[]).map((r) => ({ user_id: r.user_id, dept: r.dept, access: accessOf(r) as Access }));
   const ownDepts = team.filter((r) => r.user_id === me.id).map((r) => r.dept);
   if (!canSeeProject(me.role, project.kind, ownDepts.length > 0, project.region, me.regions)) throw new HttpError(404, "Project not found.");
   return { db, me, project, team, ownDepts };
 }
 
-/** For changes: the project and this person's departments on it. The team changes a project; an admin acts for
- *  every department on any project, a sub-admin on any Live project. */
+/** For changes: the project and this person's departments on it. The team changes a project, in the departments
+ *  where their level is Edit or Manage (a View-only row changes nothing: migration 0008); an admin acts for every
+ *  department on any project, a sub-admin on any Live project of their region. */
 export async function requireMember(projectId: string) {
   const { db, me, project, team, ownDepts } = await requireViewer(projectId);
   const all = actsForAll(me.role, project.kind, project.region, me.regions);
-  if (!ownDepts.length && !all) throw new HttpError(403, "Only the project's team can change it. Ask Base Line to add you to the team.");
-  const myDepts: Dept[] = all ? [...DEPTS] : ownDepts;
+  const mine = team.filter((r) => r.user_id === me.id);
+  const editDepts = mine.filter((r) => r.access !== "view").map((r) => r.dept);
+  if (!editDepts.length && !all) throw new HttpError(403, ownDepts.length
+    ? "You have view-only access to this project: you can look at it and download it, but not change it. Ask its Base Line or an admin for Edit access."
+    : "Only the project's team can change it. Ask Base Line to add you to the team.");
+  const myDepts: Dept[] = all ? [...DEPTS] : editDepts;
+  // who may change the team: Base Line, anyone with Manage, an admin, the region's sub-admin
+  const canManageTeam = all || editDepts.includes("BD") || mine.some((r) => r.access === "manage");
   // how the person is named in the history and in emails: their own departments, or "Admin" / "Sub-admin"
-  const actorDepts: string[] = all && !ownDepts.length ? [ROLE_NAME[me.role]] : ownDepts;
-  const deptLabel = actorDepts.map(dn).join(" + ") + (all && ownDepts.length ? ` (${ROLE_NAME[me.role].toLowerCase()})` : "");
-  return { db, me, project, team, myDepts, ownDepts, actorDepts, deptLabel };
+  const actorDepts: string[] = all && !editDepts.length ? [ROLE_NAME[me.role]] : editDepts;
+  const deptLabel = actorDepts.map(dn).join(" + ") + (all && editDepts.length ? ` (${ROLE_NAME[me.role].toLowerCase()})` : "");
+  return { db, me, project, team, myDepts, ownDepts, actorDepts, deptLabel, canManageTeam };
 }
 
 const modelCache = new Map<string, Model>();

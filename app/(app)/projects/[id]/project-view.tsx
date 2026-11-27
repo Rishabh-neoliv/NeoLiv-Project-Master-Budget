@@ -21,7 +21,7 @@ import { InfoTip, SumLines } from "@/components/info-tip";
 import { crore, grandTotalLines, isNum, marks, missingInputs, numCell, problems, snapFromVersion, snapshot, type CellValue, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
 import { authorship, colours, type Authored, type ChangeRow } from "@/lib/changes";
 import { createClient } from "@/lib/supabase/client";
-import type { Kind } from "@/lib/roles";
+import { ACCESS_HELP, ACCESS_NAME, type Access, type Kind } from "@/lib/roles";
 import { actionLabel, availableActions, canEditDraft, canEditRates, canSubmit, DEPTS, dn, EDITABLE, editDept, hasDraft, nextRev, revLabel, STATUS, SUBMIT_TO, type Action, type Dept, type Status } from "@/lib/workflow";
 import { fmtDateTime } from "@/lib/dates";
 
@@ -31,7 +31,7 @@ export interface ProjectData {
     last_rev: number | null; revision_reason: string; grand_total: number | null; location: string | null; acre: number | null;
     created_at: string; created_by: string | null;
   };
-  team: { user_id: string; dept: string; name: string; email: string }[];
+  team: { user_id: string; dept: string; access?: Access; name: string; email: string }[];
   versions: { rev: number; inputs: Record<string, CellValue>; rates: Record<string, unknown> | null; template: string | null; master: MasterRow[]; calc: Record<string, CellValue> | null; grand_total: number | null; reason: string; dept: string; xlsx_path: string | null; frozen_by: string | null; frozen_at: string }[];
   activity: ActivityRow[];
   /** every recorded field change (activity rows with details), for who-changed-what colours */
@@ -58,13 +58,17 @@ type Tab = "assumptions" | "budget" | "rates" | "analysis" | "files" | "revision
 export function ProjectView({ data }: { data: ProjectData }) {
   const { project: p, team, versions, activity, names, model: m, meId } = data;
   const router = useRouter();
-  const ownDepts = team.filter((t) => t.user_id === meId).map((t) => t.dept);
-  // the admin can do everything a team member can, in every department
-  const myDepts: string[] = data.actsForAll ? [...DEPTS] : ownDepts;
+  const mine = team.filter((t) => t.user_id === meId);
+  const ownDepts = mine.map((t) => t.dept);
+  // a View-only row changes nothing (migration 0008); the admin can do everything a team member can, in every department
+  const editDepts = mine.filter((t) => (t.access ?? "edit") !== "view").map((t) => t.dept);
+  const myDepts: string[] = data.actsForAll ? [...DEPTS] : editDepts;
   // anyone on the team can change the open draft; only the department whose turn it is submits it
   const editable = canEditDraft(p.status, myDepts);
   const submittable = canSubmit(p.status, myDepts);
-  const viewOnly = !ownDepts.length && !data.actsForAll;
+  const viewOnly = !editDepts.length && !data.actsForAll;
+  // on the team, but at View only
+  const levelViewOnly = viewOnly && ownDepts.length > 0;
   const actions = availableActions(p.status, myDepts);
   const r0 = versions.find((v) => v.rev === 0) ?? null;
   const rev = nextRev(p.last_rev);
@@ -133,7 +137,8 @@ export function ProjectView({ data }: { data: ProjectData }) {
   const shownTemplate = shownVersion ? shownVersion.template : p.template;
   const formBase: Baseline | null = useMemo(() => (r0 && shownRev !== 0
     ? { inputs: r0.inputs as Record<string, CellValue>, calc: r0.calc ?? {}, master: r0.master ?? [], sameTemplate: r0.template === shownTemplate } : null), [r0, shownRev, shownTemplate]);
-  const canChangeTeam = myDepts.includes("BD");
+  // Base Line, anyone with Manage, admins and the region's sub-admin
+  const canChangeTeam = myDepts.includes("BD") || mine.some((t) => t.access === "manage");
 
   // who changed what in the revision on screen, each person in their own colour (lib/changes.ts)
   const people = useMemo(() => colours([...new Set(team.map((t) => t.user_id))], data.changes.map((c) => c.by).filter((x): x is string => !!x).concat(meId), names), [team, data.changes, names, meId]);
@@ -247,6 +252,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
     {!draftOpen && shownVersion.rev === p.last_rev && <> Base Line, Design or Operations can press <b>Create new version R{rev}</b> when the drawings change.</>}
     {recalcs.map((a) => <span key={a.id} className="block text-sm text-soft">{a.action} on {fmtDate(a.at)}{a.by && names[a.by] ? ` by ${names[a.by]}` : ""}: {a.comment}</span>)}
   </>;
+  else if (levelViewOnly) notice = <><b>View only.</b> Your access on this project is View only: you can look at everything and download it, but not change it or take steps. Ask its Base Line or an admin for Edit access.</>;
   else if (viewOnly) notice = <><b>View only.</b> You aren&apos;t on this project&apos;s team, so you can look at everything and download it, but not change it. Base Line can add you to the team.</>;
   else if (editable && !submittable && holder) notice = p.status === "WITH_MGMT"
     ? <><b>The R{rev} draft is with Management</b>{holderNames && ` (${holderNames})`} for approval. Anyone on the team can still change it; it is frozen as it stands when Management approves it.</>
@@ -277,7 +283,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
             {data.kind === "test" && <span className="rounded bg-amber-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-amber" title="A project for trying things out: only its team (and admins) can see it, and it can be deleted">Test project</span>}
             <StatusBadge status={p.status} />
             {ownDepts.length > 0 && <span className="flex flex-wrap items-center gap-1.5">You&apos;re on this project as {ownDepts.map((d) => <span key={d} className="rounded bg-brand-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-brand">{dn(d)}</span>)}</span>}
-            {viewOnly && <span className="rounded bg-well px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-soft" title="You aren't on this project's team">View only</span>}
+            {viewOnly && <span className="rounded bg-well px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-soft" title={levelViewOnly ? "Your access level on this project is View only" : "You aren't on this project's team"}>View only</span>}
             {data.actsForAll && <span className="rounded bg-info-soft px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-info" title={`As ${data.roleName.toLowerCase()} you can take every step and change the team`}>{data.roleName} · can act for every department</span>}
           </div>
           <p className="flex flex-wrap items-center gap-x-1.5 text-soft">
@@ -493,7 +499,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
                 <h3 className="mb-2 font-semibold">{dn(d)}</h3>
                 <ul className="grid gap-2">
                   {team.filter((t) => t.dept === d).map((t) => (
-                    <li key={t.user_id} className="flex items-center gap-2"><Initials name={t.name || t.email} /><span>{t.name || t.email}</span><span className="text-sm text-soft">{t.email}</span></li>
+                    <li key={t.user_id} className="flex flex-wrap items-center gap-2"><Initials name={t.name || t.email} /><span>{t.name || t.email}</span><span className="text-sm text-soft">{t.email}</span>{t.access && t.access !== "edit" && <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${t.access === "manage" ? "bg-brand-soft text-brand" : "bg-well text-soft"}`} title={ACCESS_HELP[t.access]}>{ACCESS_NAME[t.access]}</span>}</li>
                   ))}
                   {!team.some((t) => t.dept === d) && <li className="text-bad">Nobody yet</li>}
                 </ul>

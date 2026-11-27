@@ -5,6 +5,10 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
+- **Run `supabase/migrations/0008_access_levels_audit.sql`** in Supabase → SQL Editor (written 2026-11-27): adds the
+  project access level (everyone starts at Edit) and the read-only role activity log. Until it is run, levels other
+  than Edit can't be saved and nothing is logged; everything else works as before.
+
 - **Current master template: 3.4 saved 15:39** (OSBL fixed, G90 = G91; checked 2026-11-27: no errors or warnings,
   NCR 43.5498 / MMR 41.8177 Cr). Two earlier 3.4 saves with the OSBL bug (G90 = G91/10000000 → OSBL ₹0, about
   ₹1.27 Cr short) are also loaded: **13:56 ("3.4f", 1 open draft) and 14:09 (3 open drafts, 1 frozen revision)**.
@@ -71,6 +75,27 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - Projects without a team (10, mostly the imported NCR ones): assign when needed.
 
 ## 2026-11-27
+
+- **Roles & access from the user's four designs (features, adapted to the app's rules; user's choices: all four,
+  levels Edit / View only / Manage, no role email, two pages with charts on the admin dashboard):**
+  - **Access levels** per project and department (migration 0008): View only = sees and downloads only; Manage = Edit +
+    changes the team. Enforced in `requireMember` (all write routes), the project page (badge, note, no controls), the
+    team route (Base Line or Manage may change the team; each department keeps an Edit/Manage person) and "waiting
+    for you". Emails unchanged.
+  - **Change role pop-up** (Team members → ⋯ → Change role…): current → new role, region, live permission preview,
+    reason; one `set_role` API step (admin → sub-admin too; at least one admin stays). Replaces Make/Remove admin,
+    Make/Remove sub-admin and Move region in the menu ("Stop being admin" stays on your own row).
+  - **Manage project access pop-up** (⋯ → Project access…): searchable projects you manage with a department each,
+    assigned projects with level select, bulk level / remove, confirmation before removing, access history (admins),
+    effective permissions. `GET/PUT /api/admin/users/[id]/projects`.
+  - **Role activity** (`/admin/access/activity`, admins): read-only audit log (database triggers block edits and
+    deletes) of role, access, invite and member changes incl. refused attempts; cards (30 days, with trend), search,
+    filters, tabs, details with before → after, CSV export and print to PDF.
+  - **Roles & access page**: role cards, permission matrix (`PERMISSIONS`), quick actions (change role, project access,
+    send invites → opens the invite pop-up, role activity), access levels, workflow.
+  - **Admin dashboard**: budget by region (Live; Test until there are Live ones), projects by stage, waiting longest
+    (days since the last step), team status (active / invited / links expired / removed). My overview unchanged.
+  - tsc, eslint, build clean. Not checked in a browser or against the database; migration 0008 not run yet.
 
 - **One sidebar, no separate Admin panel** (user picked option 1): every page has the same sidebar
   (`components/side-bar.tsx` + `side-nav.tsx`, replacing app-nav and admin-nav) with **My work** (My overview,

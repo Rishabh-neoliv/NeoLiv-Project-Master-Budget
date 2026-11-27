@@ -25,14 +25,17 @@ export default async function ProjectsPage() {
   const [{ data: projects }, { data: mine }, { data: me }] = await Promise.all([
     // newest first by when the project was created (user, 2026-11-27)
     supabase.from("projects").select("id, name, region, status, last_rev, grand_total, location, acre, updated_at, created_at, created_by, kind").order("created_at", { ascending: false }),
-    supabase.from("project_members").select("project_id, dept").eq("user_id", uid),
+    supabase.from("project_members").select("*").eq("user_id", uid),
     supabase.from("profiles").select("*").eq("id", uid).single(),
   ]);
   const role = roleOf(me);
   const deptsOf = new Map<string, string[]>();
   for (const m of mine ?? []) deptsOf.set(m.project_id, [...(deptsOf.get(m.project_id) ?? []), m.dept]);
+  // "your turn" only where you can act: View-only rows (migration 0008) aren't counted
+  const actsIn = new Map<string, string[]>();
+  for (const m of mine ?? []) if ((m as { access?: string }).access !== "view") actsIn.set(m.project_id, [...(actsIn.get(m.project_id) ?? []), m.dept]);
   const rows = (projects ?? []).map((p) => ({ ...p, kind: kindOf(p) })) as Row[];
-  const waiting = rows.filter((p) => { const d = STATUS[p.status][1]; return d && deptsOf.get(p.id)?.includes(d); });
+  const waiting = rows.filter((p) => { const d = STATUS[p.status][1]; return d && actsIn.get(p.id)?.includes(d); });
   const live = rows.filter((p) => !waiting.includes(p) && p.kind === "live");
   const test = rows.filter((p) => !waiting.includes(p) && p.kind === "test");
   const roleIn = (p: Row) => (deptsOf.get(p.id) ?? []).map(dn).join(" + ") || (actsForAll(role, p.kind, p.region, regionsOf(me)) ? ROLE_NAME[role] : "View only");

@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { Crown, Eye, Mail, MoreHorizontal, Pencil, Send, ShieldCheck, UserCheck, UserPlus, Users, ChevronLeft, ChevronRight, X, Settings, FolderKanban } from "lucide-react";
 import { Initials } from "@/components/initials";
+import { ProjectAccessDialog, RoleDialog } from "@/components/member-access-dialogs";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -52,9 +53,12 @@ export function UsersAdmin({ members, microsoft, meId, role, projects = [] }: { 
   // the latest sign-up link, shown so it can be copied and sent on Teams, WhatsApp or mail
   const [link, setLink] = useState<{ who: string; url: string; emailed: boolean; queued?: boolean; microsoft?: boolean } | null>(null);
   const sentNote = (l: NonNullable<typeof link>) => !l.emailed ? "" : l.queued ? " (queued for your Power Automate flow, which emails it within about 2 minutes)" : " (also emailed to them)";
-  const [inviting, setInviting] = useState(false);
+  // Roles & access → "Send invites" opens the invite pop-up straight away (?invite=1)
+  const [inviting, setInviting] = useState(params.get("invite") === "1");
   const [editing, setEditing] = useState<Member | null>(null);
-  const [regionFor, setRegionFor] = useState<{ m: Member; move: boolean } | null>(null);
+  // the role and project-access pop-ups (components/member-access-dialogs.tsx)
+  const [roleFor, setRoleFor] = useState<Member | null>(null);
+  const [accessFor, setAccessFor] = useState<Member | null>(null);
 
   // tabs, filters, paging
   const [tab, setTab] = useState<Tab>("all");
@@ -103,14 +107,6 @@ export function UsersAdmin({ members, microsoft, meId, role, projects = [] }: { 
     if (!(await call(`/api/admin/users/${m.id}`, "POST", { action: make ? "make_admin" : "remove_admin" }))) return;
     if (!make && m.id === meId) { toast.success("You're no longer an admin."); router.replace("/overview"); return; }
     toast.success(make ? `${m.name} is now an admin too.` : `${m.name} is no longer an admin.`);
-  }
-  async function removeSubadmin(m: Member) {
-    if (!window.confirm(`Remove ${m.name} as sub-admin? They become an ordinary member.`)) return;
-    if (await call(`/api/admin/users/${m.id}`, "POST", { action: "remove_subadmin" })) toast.success(`${m.name} is no longer a sub-admin.`);
-  }
-  async function setRegion(m: Member, region: string, move: boolean) {
-    setRegionFor(null);
-    if (await call(`/api/admin/users/${m.id}`, "POST", move ? { action: "set_region", region } : { action: "make_subadmin", region })) toast.success(move ? `${m.name} now handles ${region}.` : `${m.name} is now the sub-admin for ${region}.`);
   }
   async function newLink(m: Member) {
     const out = await call(`/api/admin/users/${m.id}`, "POST", { action: "link" });
@@ -228,11 +224,10 @@ export function UsersAdmin({ members, microsoft, meId, role, projects = [] }: { 
                               {m.id !== meId && m.status !== "removed" && <Button size="sm" variant="outline" disabled={busy} onClick={() => newLink(m)} className="ml-1">New link</Button>}
                               {!m.isAdmin && m.id !== meId && m.status === "removed" && <Button size="sm" variant="outline" disabled={busy} onClick={() => setRemoved(m, false)} className="ml-1">Restore</Button>}
                               <RowMenu name={m.name} disabled={busy} items={[
-                                ...(isAdmin && m.isAdmin && admins > 1 ? [{ label: m.id === meId ? "Stop being admin" : "Remove admin", run: () => setAdmin(m, false) }] : []),
-                                ...(isAdmin && !m.isAdmin && m.status !== "removed" ? [
-                                  { label: "Make admin", run: () => setAdmin(m, true) },
-                                  ...(m.isSubadmin ? [{ label: "Move to another region…", run: () => setRegionFor({ m, move: true }) }, { label: "Remove sub-admin", run: () => removeSubadmin(m) }] : [{ label: "Make sub-admin…", run: () => setRegionFor({ m, move: false }) }]),
-                                ] : []),
+                                // roles in one pop-up with a preview (admins); your own admin role you can only give up
+                                ...(isAdmin && m.id !== meId && m.status !== "removed" ? [{ label: "Change role…", run: () => setRoleFor(m) }] : []),
+                                ...(m.status !== "removed" ? [{ label: "Project access…", run: () => setAccessFor(m) }] : []),
+                                ...(isAdmin && m.id === meId && admins > 1 ? [{ label: "Stop being admin", run: () => setAdmin(m, false) }] : []),
                                 ...(!m.isAdmin && m.id !== meId && m.status !== "removed" ? [{ label: "Remove…", run: () => setRemoved(m, true), danger: true }] : []),
                               ]} />
                             </>
@@ -309,7 +304,8 @@ export function UsersAdmin({ members, microsoft, meId, role, projects = [] }: { 
         }} />
       {editing && <EditDialog member={editing} onClose={() => setEditing(null)} busy={busy}
         onSave={async (upd) => { if (await call("/api/admin/users", "PATCH", { id: editing.id, ...upd })) { toast.success(`${upd.name ?? editing.name} is updated.`); setEditing(null); } }} />}
-      {regionFor && <RegionDialog member={regionFor.m} move={regionFor.move} busy={busy} onClose={() => setRegionFor(null)} onPick={(r) => setRegion(regionFor.m, r, regionFor.move)} />}
+      {roleFor && <RoleDialog member={roleFor} onClose={() => setRoleFor(null)} onDone={() => { setRoleFor(null); router.refresh(); }} />}
+      {accessFor && <ProjectAccessDialog member={accessFor} isAdmin={isAdmin} onClose={() => setAccessFor(null)} onDone={() => { setAccessFor(null); router.refresh(); }} />}
     </div>
   );
 }
@@ -451,31 +447,6 @@ function EditDialog({ member, onClose, onSave, busy }: { member: Member; onClose
             <Button type="submit" disabled={busy || !name.trim()}>{busy ? "Saving…" : "Save"}</Button>
           </DialogFooter>
         </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// Which region a sub-admin handles (one each, user 2026-11-26): when making someone sub-admin, or moving them.
-function RegionDialog({ member, move, busy, onClose, onPick }: { member: Member; move: boolean; busy: boolean; onClose: () => void; onPick: (r: string) => void }) {
-  const [region, setRegion] = useState("");
-  return (
-    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-lg">{move ? `Move ${member.name} to another region` : `Make ${member.name} a sub-admin`}</DialogTitle>
-          <DialogDescription>{move ? `They now handle ${member.regions.join(", ") || "no region"}. They'll handle only the new one.` : "They'll see and act on that region's Live projects, create Live projects there, and add, edit, remove and restore ordinary members."}</DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Region">
-          {REGIONS.filter((r) => !move || !member.regions.includes(r)).map((r) => (
-            <button key={r} type="button" role="radio" aria-checked={region === r} onClick={() => setRegion(r)}
-              className={`rounded-full border px-3 py-1 text-sm ${region === r ? "border-brand bg-brand text-accent-ink" : "border-line text-soft hover:border-brand hover:text-brand"}`}>{region === r ? "✓ " : ""}{r}</button>
-          ))}
-        </div>
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={busy || !region} onClick={() => region && onPick(region)}>{region ? (move ? `Move to ${region}` : `Make sub-admin for ${region}`) : "Pick a region"}</Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

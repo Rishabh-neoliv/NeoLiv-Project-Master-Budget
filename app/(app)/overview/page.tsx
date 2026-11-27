@@ -38,11 +38,14 @@ export default async function MyOverview() {
   const uid = claims?.claims?.sub as string;
   const [{ data: me }, { data: mine }] = await Promise.all([
     supabase.from("profiles").select("*").eq("id", uid).single(),
-    supabase.from("project_members").select("project_id, dept").eq("user_id", uid),
+    supabase.from("project_members").select("*").eq("user_id", uid),
   ]);
   const role = roleOf(me);
   const deptsOf = new Map<string, string[]>();
   for (const m of mine ?? []) deptsOf.set(m.project_id, [...(deptsOf.get(m.project_id) ?? []), m.dept]);
+  // "your turn" only where you can act: View-only rows (migration 0008) aren't counted
+  const actsIn = new Map<string, string[]>();
+  for (const m of mine ?? []) if ((m as { access?: string }).access !== "view") actsIn.set(m.project_id, [...(actsIn.get(m.project_id) ?? []), m.dept]);
   const ids = [...deptsOf.keys()];
 
   const [{ data: projects }, { data: teams }, { data: recent }, { data: week }, { data: r0 }] = ids.length
@@ -58,7 +61,7 @@ export default async function MyOverview() {
 
   const rows = (projects ?? []) as Project[];
   const activity = withoutBaseLine((recent ?? []) as Activity[], r0 ?? []).slice(0, 40);
-  const waiting = rows.filter((p) => { const d = STATUS[p.status][1]; return d && deptsOf.get(p.id)?.includes(d); });
+  const waiting = rows.filter((p) => { const d = STATUS[p.status][1]; return d && actsIn.get(p.id)?.includes(d); });
   const approved = rows.filter((p) => !STATUS[p.status][1]).length;
   const tests = rows.filter((p) => kindOf(p) === "test").length;
   const lastStep = new Map<string, Activity>();

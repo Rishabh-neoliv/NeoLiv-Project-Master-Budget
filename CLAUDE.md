@@ -82,6 +82,17 @@ node --env-file=.env.local scripts/test-email.mjs
   shown when `NEXT_PUBLIC_MICROSOFT_SIGNIN=on`; docs/Microsoft sign-in.md). Only people the admin added can get
   in: Supabase's "Allow new users to sign up" must stay **off** (check-access.mjs checks it).
 - **Departments are per project** (`project_members.dept`), set by Base Line, an admin or (Live) a sub-admin.
+- **Access levels per project and department** (`project_members.access`, migration 0008, agreed 2026-11-27):
+  **edit** (default, as before), **view** (sees and downloads, changes nothing, takes no steps), **manage** (edit +
+  changes the team, like Base Line). `requireMember` counts only edit/manage rows (`canManageTeam` = Base Line, manage,
+  `actsForAll`); every department keeps at least one edit/manage person; workflow emails are unchanged (view-only
+  people still get them); "waiting for you" ignores view rows. Set on a project's Team tab or Team members → ⋯ →
+  Project access… (`/api/admin/users/[id]/projects`). `accessOf` reads a missing column as edit.
+- **Role activity** (`audit_log`, migration 0008): every role change (`set_role` and the older actions), project
+  access change, invite, member edit and remove/restore, refused attempts too, with before/after, actor, reason. Written
+  only by `lib/server/audit.ts` (best effort), read by admins (Administration → Roles & access → Role activity);
+  database triggers refuse any update or delete. Roles are changed in one pop-up with a permission preview
+  (`components/member-access-dialogs.tsx`, `PERMISSIONS` in lib/roles.ts); no role-change email (user, 2026-11-27).
 - Changes need a place on the team or `actsForAll` (`requireMember`): anyone on the team, any department, can edit the open draft,
   rates and files at any stage (`canEditDraft`); Submit and workflow steps stay with whose turn it is (`canSubmit`,
   `ACTIONS`). User's decision, 2026-11-13. The screen sends only changed fields, so parallel edits don't clash.
@@ -141,6 +152,8 @@ app/(admin)/admin/...          admin panel: overview, members (+ [id]), live/ an
 app/api/...                    projects, drafts, actions, team, rates, files, extract, admin users, auth, email feed,
                                search, notifications
 lib/members.ts                 a member as the people pages show them (status, link expiry); lib/server/members.ts builds it
+components/member-access-dialogs.tsx  Change role (preview) and Manage project access pop-ups
+lib/server/audit.ts            writes the read-only role activity log
 lib/rate-analysis.ts           the Rate analysis tab's calculation (pairs lines by row on the same layout)
 lib/budget.ts, lib/workflow.ts shared logic (browser and server)
 lib/template-import.ts         reads a master .xlsx into a model (Admin panel → Master templates); lib/server/templates.ts checks it
@@ -148,7 +161,7 @@ lib/template-forms.ts          the version-2 input form (Project Inputs), its ex
 lib/sheet-links.ts             from the template's formulas: what each input feeds (form descriptions), Consideration per rate line
 lib/server/                    data access, freeze, workbook, extract (Excel exact read + Claude), email
 lib/engine/                    original engine (see hard rules)
-supabase/migrations/           0001–0007 (all run)
+supabase/migrations/           0001–0007 run; 0008 (access levels + audit log) written 2026-11-27, to run
 scripts/                       setup, checks, test helpers
 docs/                          email guides, WORKLOG.md
 ```

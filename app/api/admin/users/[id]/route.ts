@@ -15,29 +15,50 @@
 //                                                         region each, picked when made: user, 2026-11-26)
 // POST /api/admin/users/:id  { action: "set_region", region: "MMR" }      move a sub-admin to another region
 // POST /api/admin/users/:id  { action: "remove_subadmin" }  they become an ordinary member
+// POST /api/admin/users/:id  { action: "set_role", role, region?, reason? }   the role pop-up: member / sub-admin (with
+//                                                         its region) / admin in one step; at least one admin stays
+// Every action, and every refused attempt, goes into the read-only audit log (lib/server/audit.ts, migration 0008).
 import { z } from "zod";
 import { errorResponse, HttpError, readJson, requireUser } from "@/lib/server/data";
 import { sendInvite } from "@/lib/server/email";
 import { mailProvider } from "@/lib/server/mailer";
 import { appUrlFor, linkFor } from "@/lib/server/links";
-import { REGIONS, roleOf } from "@/lib/roles";
+import { audit } from "@/lib/server/audit";
+import { REGIONS, regionsOf, roleOf, ROLE_NAME, type Role } from "@/lib/roles";
 
-const Body = z.object({ action: z.enum(["link", "remove", "restore", "make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_region"]), region: z.enum(REGIONS).optional() });
+const Body = z.object({
+  action: z.enum(["link", "remove", "restore", "make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_region", "set_role"]),
+  region: z.enum(REGIONS).optional(),
+  role: z.enum(["member", "subadmin", "admin"]).optional(),
+  reason: z.string().trim().max(300).optional(),
+});
+// a role as the audit log shows it: "Sub-admin (MMR)"
+const roleView = (role: Role, regions: string[]) => ({ role, label: ROLE_NAME[role] + (role === "subadmin" && regions.length ? ` (${regions.join(", ")})` : "") });
+const ACTION_NAME: Record<string, string> = {
+  link: "Sign-up link sent", remove: "Member removed", restore: "Member restored", make_admin: "Role changed", remove_admin: "Role changed",
+  make_subadmin: "Role changed", remove_subadmin: "Role changed", set_region: "Region changed", set_role: "Role changed",
+};
 
 export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id]">) {
+  // for recording a refused attempt
+  let tried: { db: Awaited<ReturnType<typeof requireUser>>["db"]; me: { id: string; name: string }; target: { id: string; name: string; email: string } | null; action: string; reason?: string } | null = null;
   try {
     const { id } = await ctx.params;
     const { db, me } = await requireUser();
-    const { action, region } = Body.parse(await readJson(req));
+    const { action, region, role, reason } = Body.parse(await readJson(req));
+    tried = { db, me, target: { id, name: "", email: "" }, action, reason };
     if (id === me.id && action !== "remove_admin") throw new HttpError(400, "That's your own account.");
     const { data: person } = await db.from("profiles").select("*").eq("id", id).single();
     if (!person) throw new HttpError(404, "Member not found.");
-    const theirs = roleOf(person);
+    tried.target = { id, name: person.name, email: person.email };
+    const theirs = roleOf(person), wasRole = roleView(theirs, regionsOf(person));
+    const target = tried.target;
+    const log = (kind: "role" | "member" | "invite", after: unknown, before: unknown = wasRole) => audit(db, { actor: me, target, kind, action: ACTION_NAME[action], before, after, reason });
     // a sub-admin manages ordinary members only; everything about admins and sub-admins stays with admins
     const manages = me.role === "admin" || (me.role === "subadmin" && theirs === "member");
     if (["remove", "restore"].includes(action) && !manages)
       throw new HttpError(403, me.role === "subadmin" ? `${person.name} is ${theirs === "admin" ? "an admin" : "a sub-admin"}. Only an admin can do this.` : "Only an admin or sub-admin can do this.");
-    if (["make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_region"].includes(action) && me.role !== "admin") throw new HttpError(403, "Only an admin can do this.");
+    if (["make_admin", "remove_admin", "make_subadmin", "remove_subadmin", "set_region", "set_role"].includes(action) && me.role !== "admin") throw new HttpError(403, "Only an admin can change roles.");
     const { data: { user } } = await db.auth.admin.getUserById(id);
     if (!user) throw new HttpError(404, "Member not found.");
     const removed = !!user.banned_until && new Date(user.banned_until) > new Date();
@@ -57,7 +78,23 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
       const link = linkFor(appUrlFor(req), data.properties.hashed_token, "recovery");
       const emailed = await sendInvite({ to: person.email, name: person.name, from: me.name, link, again: true });
       if (!manages && !emailed) throw new HttpError(500, "The email couldn't be sent. Ask an admin to send the link.");
+      await log("invite", { emailed }, null);
       return Response.json({ link: manages ? link : undefined, emailed, via: mailProvider() });
+    }
+    if (action === "set_role") {
+      if (!role) throw new HttpError(400, "Pick the new role.");
+      if (removed) throw new HttpError(400, `${person.name} is removed. Restore them first.`);
+      if (role === "subadmin" && !region) throw new HttpError(400, "Pick the region they'll handle as sub-admin.");
+      const regions = role === "subadmin" ? [region!] : [];
+      if (role === theirs && regions.join() === regionsOf(person).join()) return Response.json({ ok: true, unchanged: true });
+      if (theirs === "admin" && role !== "admin") {
+        const { count } = await db.from("profiles").select("id", { count: "exact", head: true }).eq("is_admin", true).neq("id", id);
+        if (!count) throw new HttpError(400, "There has to be at least one admin. Make someone else admin first.");
+      }
+      const { error } = await db.from("profiles").update({ is_admin: role === "admin", is_subadmin: role === "subadmin", regions }).eq("id", id);
+      if (error) throw new HttpError(400, error.message);
+      await log("role", roleView(role, regions));
+      return Response.json({ ok: true });
     }
     if (action === "make_admin" || action === "make_subadmin") {
       if (removed) throw new HttpError(400, `${person.name} is removed. Restore them first.`);
@@ -66,6 +103,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
       if (action === "make_subadmin" && !region) throw new HttpError(400, "Pick the region they'll handle.");
       const { error } = await db.from("profiles").update(action === "make_admin" ? { is_admin: true, is_subadmin: false, regions: [] } : { is_subadmin: true, regions: [region] }).eq("id", id);
       if (error) throw new HttpError(400, error.message);
+      await log("role", action === "make_admin" ? roleView("admin", []) : roleView("subadmin", [region!]));
       return Response.json({ ok: true });
     }
     if (action === "set_region") {
@@ -73,6 +111,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
       if (!region) throw new HttpError(400, "Pick a region.");
       const { error } = await db.from("profiles").update({ regions: [region] }).eq("id", id);
       if (error) throw new HttpError(400, error.message.includes("regions") ? "Run supabase/migrations/0007_subadmin_regions.sql in Supabase first." : error.message);
+      await log("role", roleView("subadmin", [region]));
       return Response.json({ ok: true });
     }
     if (action === "remove_subadmin") {
@@ -80,6 +119,7 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
       const { error } = await db.from("profiles").update({ is_subadmin: false }).eq("id", id);
       if (error) throw new HttpError(400, error.message);
       await db.from("profiles").update({ regions: [] }).eq("id", id); // a later sub-admin role starts with none
+      await log("role", roleView("member", []));
       return Response.json({ ok: true });
     }
     if (action === "remove_admin") {
@@ -88,14 +128,19 @@ export async function POST(req: Request, ctx: RouteContext<"/api/admin/users/[id
       if (!count) throw new HttpError(400, "There has to be at least one admin. Make someone else admin first.");
       const { error } = await db.from("profiles").update({ is_admin: false }).eq("id", id);
       if (error) throw new HttpError(400, error.message);
+      await log("role", roleView("member", []));
       return Response.json({ ok: true });
     }
     if (action === "remove" && theirs === "admin") throw new HttpError(400, `${person.name} is an admin. Remove their admin role first.`);
     const { error } = await db.auth.admin.updateUserById(id, { ban_duration: action === "remove" ? "876000h" : "none" });
     if (error) throw new HttpError(400, error.message);
+    await log("member", { status: action === "remove" ? "removed" : "active" }, { status: removed ? "removed" : "active" });
     return Response.json({ ok: true });
   } catch (err) {
     if (err instanceof z.ZodError) return Response.json({ error: "Invalid request" }, { status: 400 });
+    // a refused attempt (not allowed) is recorded too
+    if (tried && err instanceof HttpError && err.status === 403)
+      await audit(tried.db, { actor: tried.me, target: tried.target, kind: ["link"].includes(tried.action) ? "invite" : ["remove", "restore"].includes(tried.action) ? "member" : "role", action: ACTION_NAME[tried.action] ?? tried.action, reason: tried.reason, status: "failed", detail: err.message });
     return errorResponse(err);
   }
 }
