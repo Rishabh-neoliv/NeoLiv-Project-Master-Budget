@@ -3,16 +3,16 @@
 // (user, 2026-11-27). Each page checks who may open it (staffOrRedirect / adminOrRedirect, lib/server/admin-guard.ts).
 import { Suspense } from "react";
 import { SideBar } from "@/components/side-bar";
-import { TopTools } from "@/components/top-tools";
+import { TopBar } from "@/components/top-bar";
 
 export default function AdminLayout({ children }: LayoutProps<"/admin">) {
   return (
     <div className="flex min-h-full flex-1 flex-col md:flex-row">
       <SideBar />
-      <main className="min-w-0 flex-1 px-4 py-4 md:px-8 md:py-6">
-        <div className="mx-auto w-full max-w-[1400px]">
-          {/* search and the bell, as on every page */}
-          <div className="mb-4 flex justify-end md:mb-6"><TopTools /></div>
+      <main className="min-w-0 flex-1">
+        {/* the slim bar: page name, search and the bell (components/top-bar.tsx) */}
+        <Suspense fallback={<div className="sticky top-0 z-30 h-14 border-b border-line bg-sheet" />}><TopBar /></Suspense>
+        <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-8">
           <Suspense fallback={<p className="text-soft">Loading…</p>}>{children}</Suspense>
         </div>
       </main>

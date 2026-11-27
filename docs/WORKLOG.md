@@ -76,6 +76,12 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-27
 
+- **Slim top bar on every page** (user: search and the bell sat in a row of their own above each heading):
+  `components/top-bar.tsx`, used by both layouts: the page's name on the left ("Administration /" in front on admin
+  pages), search and the bell on the right; it stays at the top while scrolling (a same-height placeholder while it
+  loads). The Rates tab's total and the project page's summary now stick below it. tsc, eslint, build clean; not
+  checked in a browser.
+
 - **Settings in tabs** (user picked the "worth doing" suggestions): General (version, environment, address, current
   template, currency and time, contingency, sign-in, email), Security & access (sign-up / sign-in status, who has
   which role, links to Roles & access and Role activity; password and session settings stay in Supabase), Notifications

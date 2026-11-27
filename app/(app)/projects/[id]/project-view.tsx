@@ -381,7 +381,7 @@ export function ProjectView({ data }: { data: ProjectData }) {
             <AssumptionsForm model={m} draft={shownInputs} snap={snap} editable={editable && !shownVersion}
               base={formBase} authors={shownAuthors} onChange={(d) => { setDraft(d); setDirty(true); }} />
           </div>
-          <div className="order-first grid items-start gap-4 md:grid-cols-2 xl:order-none xl:sticky xl:top-4 xl:grid-cols-1">
+          <div className="order-first grid items-start gap-4 md:grid-cols-2 xl:order-none xl:sticky xl:top-[72px] xl:grid-cols-1">
             <Summary snap={snap} r0={shownRev !== 0 ? r0?.grand_total ?? null : null} label={shownVersion ? `R${shownRev}` : `R${rev} draft`} templateDate={data.templateDate} live={editable && !shownVersion} incomplete={missing.length} />
             {editable && !shownVersion && (
               <section className="grid gap-3 rounded-xl border border-line bg-sheet p-5">
