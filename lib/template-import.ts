@@ -251,7 +251,7 @@ export interface Built { model: TplModel; errors: string[]; warnings: string[] }
  *  columns come from the current template, since those were set up by hand; everything else comes from the workbook. */
 export function buildModel(prev0: TplModel, wb: ParsedWorkbook, source: string): Built {
   const errors: string[] = [], warnings: string[] = [];
-  // a sheet renamed in the new workbook (SHEET_RENAMES: Water Supply → PHE) is the same sheet under its new name
+  // a sheet renamed in the new workbook (SHEET_RENAMES: Water Supply → PHE, Landscape & Amenities → Signage + Furniture) is the same sheet under its new name
   const renamed: Record<string, string> = {};
   for (const s of Object.keys(prev0.cells)) if (!wb.cells[s] && SHEET_RENAMES[s] && wb.cells[SHEET_RENAMES[s]]) renamed[s] = SHEET_RENAMES[s];
   const prev: TplModel = Object.keys(renamed).length ? {

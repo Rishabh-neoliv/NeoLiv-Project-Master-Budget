@@ -5,8 +5,13 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## Open items
 
-- **Upload master workbook version 3.1** (Downloads) in Admin panel → Master templates once the 2026-11-27 fix
-  (Water Supply → PHE, "CCTV (Nos)") is pushed and deployed. Expected: one warning (5 mixed-unit lines).
+- **Upload master workbook version 3.2** (Downloads) in Admin panel → Master templates once the 2026-11-27 fixes
+  (Water Supply → PHE, Landscape & Amenities → Signage + Furniture, "CCTV (Nos)") are pushed and deployed. Expected:
+  one warning (5 mixed-unit lines). Read the changed-rates list before "Add and make current".
+- **3.2 has no total for Alibaug or Nagpur, in Excel too** (checked 2026-11-27 by recalculating a copy in Excel: NCR
+  43.055735 / MMR 41.817657 Cr = the app; Alibaug/Nagpur #VALUE! in both). PHE!I39/J39 (Storm Water, Alibaug/Nagpur)
+  = SUMPRODUCT(...)/F39 with F39 = FALSE → #DIV/0!, which reaches Master Budget G58 and the grand total. Alibaug/Nagpur
+  also have almost no rates (Roadworks, PHE, OSBL none; Electrical 1 Alibaug). For Parth to fix in Excel.
 
 - **Master template version 2 goes in as it is** (user's decision 2026-11-25; corrections are for Parth to make in
   the master Excel, emailed to him). Upload `D:DownloadsNeoLiv_Master_Budget_template_20261102-1146_version_2.xlsx`
@@ -56,6 +61,12 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - Projects without a team (10, mostly the imported NCR ones): assign when needed.
 
 ## 2026-11-27
+
+- **Master workbook version 3.2**: "Landscape & Amenities" renamed **"Signage + Furniture"** (same columns B/C/E–H),
+  added to `SHEET_RENAMES`. check-template-v2 on 3.2: labels ok, 1379 formulas as Excel, sample ₹43.0557 Cr = Excel,
+  rate rows on every sheet; same 5 mixed-unit warning (rows now 41/54/79/80/91). Offline move test (old sheet names →
+  3.2): 136 rate lines, none lost; a project's own rates on Water Supply / Landscape / Roadworks all carried, total
+  unchanged. Existing projects stay on their template until "Move to the new template".
 
 - **Master workbook version 3 / 3.1 refused on upload, fixed in code.** Two layout changes against the template of
   2026-11-25: the "Water Supply" sheet is now **"PHE"** (same columns), and Project Inputs!B64 reads "CCTV (Nos)".
