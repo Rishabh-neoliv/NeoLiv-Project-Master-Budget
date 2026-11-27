@@ -21,6 +21,8 @@ export function BudgetTable({ master, baseline, title = "Master Budget" }: { mas
   const toggle = (g: number) => setOpen((s) => { const n = new Set(s); if (n.has(g)) n.delete(g); else n.add(g); return n; });
 
   const money = (v: CellValue, dec = 2) => (isErrV(v) ? <span className="text-bad">{v.e}</span> : isNum(v) ? inr(v, dec) : numCell(v));
+  // the Total column is in ₹ crore, as in the master Excel (the app keeps line amounts in rupees)
+  const inCrore = (v: CellValue) => (isErrV(v) ? <span className="text-bad">{v.e}</span> : isNum(v) ? crTxt(v / 1e7) : numCell(v));
   const perAcre = (v: CellValue, inCrore = false) => (!isNum(v) || !isNum(acre) || !acre ? "" : `${crTxt((inCrore ? v : v / 1e7) / acre)} Cr`);
   const base = (r: MasterRow) => (bRows && mKey ? bRows[mKey[r.row]]?.c?.[5] : undefined);
   const vsBase = (r: MasterRow, onDark = false) => {
@@ -56,7 +58,7 @@ export function BudgetTable({ master, baseline, title = "Master Budget" }: { mas
       body.push(
         <tr key={r.row} className={kind}>
           <td colSpan={5} className="px-3 py-2">{String(c[0])}</td>
-          <td className="px-3 py-2 text-right tabular-nums">{isErrV(c[5]) ? c[5].e : inCr ? crore(c[5]) : "₹ " + inr(c[5], 2)}</td>
+          <td className="px-3 py-2 text-right tabular-nums">{isErrV(c[5]) ? c[5].e : crore(inCr || !isNum(c[5]) ? c[5] : c[5] / 1e7)}</td>
           <td className="px-3 py-2 text-right tabular-nums">{isErrV(c[5]) ? "" : perAcre(c[5], inCr)}</td>
           {vsBase(r, dark)}
         </tr>,
@@ -72,7 +74,7 @@ export function BudgetTable({ master, baseline, title = "Master Budget" }: { mas
           <td className="px-3 py-2">{String(c[2] ?? "")}</td>
           <td className="px-3 py-2 text-right tabular-nums">{money(c[3])}</td>
           <td className="px-3 py-2 text-right tabular-nums">{money(c[4])}</td>
-          <td className="px-3 py-2 text-right tabular-nums">{money(c[5])}</td>
+          <td className="px-3 py-2 text-right tabular-nums">{inCrore(c[5])}</td>
           <td className="px-3 py-2 text-right tabular-nums">{perAcre(c[5])}</td>
           {vsBase(r)}
         </tr>,
@@ -85,7 +87,7 @@ export function BudgetTable({ master, baseline, title = "Master Budget" }: { mas
           <td className="px-3 py-2 text-soft">{String(c[2] ?? "")}</td>
           <td className="px-3 py-2 text-right tabular-nums">{money(c[3])}</td>
           <td className="px-3 py-2 text-right tabular-nums">{isNum(c[4]) ? inr(c[4], 2) : ""}</td>
-          <td className="px-3 py-2 text-right tabular-nums">{money(c[5])}</td>
+          <td className="px-3 py-2 text-right tabular-nums">{inCrore(c[5])}</td>
           <td className="px-3 py-2 text-right tabular-nums">{perAcre(c[5])}</td>
           {vsBase(r)}
         </tr>,
@@ -104,7 +106,7 @@ export function BudgetTable({ master, baseline, title = "Master Budget" }: { mas
           <thead className="bg-mb-head text-left text-xs uppercase tracking-wide text-white">
             <tr>
               <th className="px-2 py-2">Sr No</th><th className="px-2 py-2">Description</th><th className="px-2 py-2">UOM</th>
-              <th className="px-2 py-2 text-right">Qty</th><th className="px-2 py-2 text-right">Cost / Unit (₹)</th><th className="px-2 py-2 text-right">Total (₹)</th>
+              <th className="px-2 py-2 text-right">Qty</th><th className="px-2 py-2 text-right">Cost / Unit (₹)</th><th className="px-2 py-2 text-right">Total (₹ Cr)</th>
               <th className="px-2 py-2 text-right">Cost / Acre (₹ Cr)</th>{bRows && <th className="px-2 py-2 text-right">Delta vs Base Line (R0)</th>}
             </tr>
           </thead>

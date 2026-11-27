@@ -8,6 +8,12 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - **Upload master workbook version 3.2** (Downloads) in Admin panel → Master templates once the 2026-11-27 fixes
   (Water Supply → PHE, Landscape & Amenities → Signage + Furniture, "CCTV (Nos)") are pushed and deployed. Expected:
   one warning (5 mixed-unit lines). Read the changed-rates list before "Add and make current".
+- **3.4 (checked offline 2026-11-27, not uploaded): don't upload yet.** The 5 unit fixes are in (no warning), but
+  Master Budget G90 = G91/10000000 now divides OSBL twice → OSBL ₹0 (fix: G90 = G91; total −1.27 Cr). Preliminaries
+  F48 (Survey rate) now links to a file on Parth's PC (Sonipat Infra ConceptCost …DataSheet!C8): Excel on any other PC
+  shows #REF! for the grand total; the app keeps the saved 17.97, which looks like an acreage, not a rate (fix: type the
+  rate). PHE!N18 = L16+#REF! (stray, not in the budget). PHE edits: Domestic Water Supply 0.74 → 1.21 Cr (NCR), 4 PHE
+  rate lines renamed (project rates on them won't carry). Sample: NCR 42.2793, MMR 40.5472 Cr.
 - **3.2 has no total for Alibaug or Nagpur, in Excel too** (checked 2026-11-27 by recalculating a copy in Excel: NCR
   43.055735 / MMR 41.817657 Cr = the app; Alibaug/Nagpur #VALUE! in both). PHE!I39/J39 (Storm Water, Alibaug/Nagpur)
   = SUMPRODUCT(...)/F39 with F39 = FALSE → #DIV/0!, which reaches Master Budget G58 and the grand total. Alibaug/Nagpur
@@ -61,6 +67,16 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - Projects without a team (10, mostly the imported NCR ones): assign when needed.
 
 ## 2026-11-27
+
+- **Totals display (user's 5 points, confirmed):** (1) Projects list: "Cost / acre (before 5%)" column = grand total
+  ÷ 1.05 ÷ area (only the grand total is stored per project; `CONTINGENCY` in lib/budget.ts), and an ⓘ on the Grand
+  total: Total COC + 5% contingencies = Grand total. (2) Master Budget table: Total column in ₹ Cr. (3) Grand Total
+  card: ⓘ beside Cost / acre with the per-acre lines from the Master Budget itself (`grandTotalLines`). (4) Upload
+  refuses a ₹ Cr amount divided by 1 crore twice (3.4's OSBL G90 = G91/10000000). (5) **Bug:** a new template kept
+  the previous template's mixed-unit rows (`...prev`), so 3.4 (live, rows fixed in Excel) showed Preliminaries /
+  Electrical / Water supply rates ×1 crore; fixed in buildModel, and the display now corrects a listed row only while
+  it still is quantity × rate (so the live 3.4 shows right without a re-upload). `components/info-tip.tsx` (base-ui
+  Popover). Tested offline on 3.1/3.2/3.4; tsc + eslint clean; not checked in the browser (no .env.local here).
 
 - **Master workbook version 3.2**: "Landscape & Amenities" renamed **"Signage + Furniture"** (same columns B/C/E–H),
   added to `SHEET_RENAMES`. check-template-v2 on 3.2: labels ok, 1379 formulas as Excel, sample ₹43.0557 Cr = Excel,

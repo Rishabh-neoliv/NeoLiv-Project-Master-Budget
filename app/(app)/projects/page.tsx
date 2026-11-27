@@ -6,13 +6,17 @@ import Link from "next/link";
 import { ClickableRow } from "@/components/clickable-row";
 import { RevTag, StatusBadge } from "@/components/status-badge";
 import { buttonVariants } from "@/components/ui/button";
-import { crore, numCell } from "@/lib/budget";
+import { InfoTip, SumLines } from "@/components/info-tip";
+import { CONTINGENCY, crore, isNum, numCell } from "@/lib/budget";
 import { actsForAll, isStaff, kindOf, regionsOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 
 interface Row { id: string; name: string; region: string; status: Status; last_rev: number | null; grand_total: number | null; location: string | null; acre: number | null; updated_at: string; kind: Kind }
 const placeOf = (p: Row) => (p.location || p.region).trim();
+// only the grand total is stored per project: the total before the master template's contingency is worked back from it
+const beforeContingency = (gt: number | null) => (isNum(gt) ? gt / (1 + CONTINGENCY) : null);
+const pct = `${+(CONTINGENCY * 100).toFixed(2)}%`;
 
 const INTRO: Record<Role, string> = {
   admin: "Every project, Live and Test. As admin you can open any of them and take any step. Click a row to open it.",
@@ -66,7 +70,7 @@ function Group({ title, rows, roleIn, highlight = false }: { title: string; rows
       <div className={`overflow-x-auto rounded-xl border bg-sheet ${highlight ? "border-brand/50" : "border-line"}`}>
         <table className="w-full">
           <thead className="bg-well text-left text-xs uppercase tracking-wide text-soft">
-            <tr><th className="px-4 py-2.5">Project</th><th className="px-4 py-2.5">Revision</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5">Your role</th><th className="px-4 py-2.5 text-right">Area (acre)</th><th className="px-4 py-2.5 text-right">Grand total</th></tr>
+            <tr><th className="px-4 py-2.5">Project</th><th className="px-4 py-2.5">Revision</th><th className="px-4 py-2.5">Status</th><th className="px-4 py-2.5">Your role</th><th className="px-4 py-2.5 text-right">Area (acre)</th><th className="px-4 py-2.5 text-right">Cost / acre <span className="font-normal normal-case">(before {pct})</span></th><th className="px-4 py-2.5 text-right">Grand total</th></tr>
           </thead>
           <tbody>
             {rows.map((p) => (
@@ -80,7 +84,21 @@ function Group({ title, rows, roleIn, highlight = false }: { title: string; rows
                 <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
                 <td className="px-4 py-3 text-soft">{roleIn(p)}</td>
                 <td className="px-4 py-3 text-right">{numCell(p.acre)}</td>
-                <td className="px-4 py-3 text-right font-semibold">{crore(p.grand_total)}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{(() => { const coc = beforeContingency(p.grand_total); return isNum(coc) && isNum(p.acre) && p.acre > 0 ? crore(coc / p.acre) : "–"; })()}</td>
+                <td className="px-4 py-3 text-right font-semibold tabular-nums">
+                  <span className="inline-flex items-center justify-end gap-1">
+                    {isNum(p.grand_total) && (
+                      <InfoTip label={`How the grand total of ${p.name} is made up`}>
+                        <SumLines lines={[
+                          ["Total COC (A + B)", crore(beforeContingency(p.grand_total))],
+                          [`+ ${pct} for contingencies`, crore(p.grand_total - (beforeContingency(p.grand_total) as number))],
+                          ["Grand total", crore(p.grand_total)],
+                        ]} />
+                      </InfoTip>
+                    )}
+                    {crore(p.grand_total)}
+                  </span>
+                </td>
               </ClickableRow>
             ))}
           </tbody>

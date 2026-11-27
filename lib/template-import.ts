@@ -322,6 +322,15 @@ export function buildModel(prev0: TplModel, wb: ParsedWorkbook, source: string):
       bad.push(`row ${row} (${String(mb["C" + row]?.v ?? mb["B" + row]?.v ?? "").trim()}: ${rupees ? "amount in ₹, should be ₹ Cr" : "rate in ₹ Cr, should be ₹"})`);
     }
     if (bad.length) warnings.push(`The Master Budget is in ₹ Cr, but ${bad.length} line(s) mix units: ${bad.join("; ")}. The app shows them in the right units; fix the formulas in Excel when you can.`);
+    // an amount under ₹100 in a ₹ Cr column is a figure already in crores divided by 1 crore again (3.4's OSBL:
+    // G90 = G91/10000000 with G91 in ₹ Cr): it drops out of the totals, so the workbook can't be used as it is
+    const tiny: string[] = [];
+    for (const { row } of layout) {
+      // only the formula that does the dividing, not the totals that are small because of it
+      const amt = num("G" + row), f = String(mb["G" + row]?.f ?? "").replace(/\s/g, "");
+      if (amt !== null && amt !== 0 && Math.abs(amt) < 1e-5 && /\/(10000000|10\^7|1E\+?7)\b/i.test(f)) tiny.push(`row ${row} (${String(mb["C" + row]?.v ?? mb["B" + row]?.v ?? "").trim()}: ${String(mb["G" + row]?.f ? "=" + mb["G" + row].f : amt)})`);
+    }
+    if (tiny.length) errors.push(`The Master Budget is in ₹ Cr, but ${tiny.length} amount(s) are divided by 1 crore twice, so they come out as almost ₹0 and drop out of the totals: ${tiny.join("; ")}. Fix the formula in Excel (e.g. G90 = G91) and upload again.`);
   }
 
   // version 2's "Assumptions" sheet is notes: what each item's cost considers ("Trees: every 9 m c/c on both sides")
@@ -341,8 +350,9 @@ export function buildModel(prev0: TplModel, wb: ParsedWorkbook, source: string):
   const model: TplModel = {
     ...prev, source, sections, defaults, layout, rates, exported: label, templateModified: label,
     external: wb.external.filter((k) => { const i = k.lastIndexOf("!"); return !!kept[k.slice(0, i)]?.[k.slice(i + 1)]; }), cells: kept, stamp,
-    ...(amounts ? { amounts } : {}), ...(notes ? { notes } : {}),
-    ...(rupeeAmountRows.length ? { rupeeAmountRows } : {}), ...(croreRateRows.length ? { croreRateRows } : {}),
+    ...(notes ? { notes } : {}),
+    // this workbook's own findings, never the previous template's (undefined keys are dropped when saved)
+    amounts, rupeeAmountRows: rupeeAmountRows.length ? rupeeAmountRows : undefined, croreRateRows: croreRateRows.length ? croreRateRows : undefined,
   };
   return { model, errors, warnings };
 }

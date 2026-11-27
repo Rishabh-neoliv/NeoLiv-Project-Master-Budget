@@ -17,7 +17,8 @@ import { RevTag, StatusBadge } from "@/components/status-badge";
 import { TeamEditor, teamFromRows, teamToRows, type Person, type Team } from "@/components/team-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { crore, isNum, missingInputs, numCell, problems, snapFromVersion, snapshot, type CellValue, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
+import { InfoTip, SumLines } from "@/components/info-tip";
+import { crore, grandTotalLines, isNum, marks, missingInputs, numCell, problems, snapFromVersion, snapshot, type CellValue, type MasterRow, type Model, type Snapshot } from "@/lib/budget";
 import { authorship, colours, type Authored, type ChangeRow } from "@/lib/changes";
 import { createClient } from "@/lib/supabase/client";
 import type { Kind } from "@/lib/roles";
@@ -512,6 +513,11 @@ function Summary({ snap, r0, label, templateDate, live, incomplete }: { snap: Sn
     ["Infra", cr(snap.infra)],
     ["Non-infra", cr(snap.nonInfra)],
   ];
+  // Cost / acre: Total COC per acre + contingencies per acre = grand total per acre
+  const perAcre = grandTotalLines(snap.master, true);
+  const tips: Record<string, React.ReactNode> = perAcre ? {
+    "Cost / acre": <><p className="mb-2 text-soft">Per acre (÷ {numCell(marks(snap.master).acre)} acres):</p><SumLines lines={perAcre.map(([k, v]) => [k, crore(v)])} /></>,
+  } : {};
   return (
     <aside className="grid gap-4 rounded-xl border border-line bg-sheet p-5">
       <div>
@@ -526,7 +532,12 @@ function Summary({ snap, r0, label, templateDate, live, incomplete }: { snap: Sn
         )}
       </div>
       <dl className="grid gap-2 border-t border-line pt-3">
-        {rows.map(([k, v]) => <div key={k} className="flex justify-between gap-3"><dt className="text-soft">{k}</dt><dd className="font-medium tabular-nums">{incomplete > 0 ? "–" : v}</dd></div>)}
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-3">
+            <dt className="flex items-center gap-1 text-soft">{k}{incomplete === 0 && tips[k] && <InfoTip label={`How the ${k.toLowerCase()} is worked out`}>{tips[k]}</InfoTip>}</dt>
+            <dd className="font-medium tabular-nums">{incomplete > 0 ? "–" : v}</dd>
+          </div>
+        ))}
       </dl>
       <p className="border-t border-line pt-3 text-sm text-soft">{live ? "Updates as you type. " : ""}Rates: master template of {templateDate}.</p>
     </aside>

@@ -82,7 +82,7 @@ export const sheetNow = (s: string) => SHEET_RENAMES[s] ?? s;
 // letters to some ("INFRA COST - TOTAL (A)", "TOTAL COC (A + B)"); they're ignored when matching.
 const CRORE_LABELS = new Set(["Infra Cost/ Acre", "Non Infra Cost/ Acre", "Retaining Wall + Plot Levelling Cost/ Acre", "OSBL Cost/ Acre", "TOTAL COC", "Cost/ Acre", "ADD: 5% for Contingencies", "GRAND TOTAL - COC"]);
 const landmark = (s: string) => s.replace(/\s*\([A-Z](?:\s*\+\s*[A-Z])*\)\s*$/, "").trim();
-export interface Marks { gt: number | null; infra: number | null; noninfra: number | null; coc: number | null; cpa: number | null; crore: Set<number>; divider: number | null; acre: CellValue | null }
+export interface Marks { gt: number | null; infra: number | null; noninfra: number | null; coc: number | null; cont: number | null; cpa: number | null; crore: Set<number>; divider: number | null; acre: CellValue | null }
 const marksCache = new WeakMap<MasterRow[], Marks>();
 
 export function rowKind(r: MasterRow): "skip" | "total" | "head" | "item" {
@@ -103,6 +103,7 @@ export function marks(master: MasterRow[]): Marks {
   const gt = find("GRAND TOTAL - COC"), infra = find("INFRA COST - TOTAL"), noninfra = find("Non Infra - TOTAL"), coc = find("TOTAL COC");
   const out: Marks = {
     gt, infra, noninfra, coc,
+    cont: master.find((r) => rowKind(r) === "total" && /contingenc/i.test(lab(r)))?.row ?? null,
     cpa: gt === null ? null : master.find((r) => r.row > gt && lab(r) === "Cost/ Acre")?.row ?? null,
     crore: new Set(master.filter((r) => rowKind(r) === "total" && CRORE_LABELS.has(lab(r))).map((r) => r.row)),
     divider: infra === null ? null : master.find((r) => r.row > infra && rowKind(r) === "head")?.row ?? null,
@@ -119,9 +120,13 @@ export function marks(master: MasterRow[]): Marks {
 function amountsInRupees(m: Model, master: MasterRow[]) {
   const crore = marks(master).crore;
   const rupeeRows = new Set((m.rupeeAmountRows as number[] | undefined) ?? []), croreRates = new Set((m.croreRateRows as number[] | undefined) ?? []);
+  // a listed line is put right only while its amount is still quantity × rate: a template that carried an earlier
+  // template's list (fixed in Excel since, as 3.4 did) must not have its rates multiplied by a crore again
+  const mixed = (r: MasterRow) => { const [, , , q, rate, amt] = r.c; return isNum(q) && isNum(rate) && isNum(amt) && q * rate !== 0 && Math.abs(amt / (q * rate) - 1) < 0.01; };
   for (const r of master) {
-    if (isNum(r.c[5]) && r.c[5] !== 0 && !crore.has(r.row) && !rupeeRows.has(r.row)) r.c[5] = r.c[5] * 1e7;
-    if (croreRates.has(r.row) && isNum(r.c[4])) r.c[4] = r.c[4] * 1e7;
+    const fix = (rupeeRows.has(r.row) || croreRates.has(r.row)) && mixed(r);
+    if (croreRates.has(r.row) && fix && isNum(r.c[4])) r.c[4] = r.c[4] * 1e7;
+    if (isNum(r.c[5]) && r.c[5] !== 0 && !crore.has(r.row) && !(rupeeRows.has(r.row) && fix)) r.c[5] = r.c[5] * 1e7;
   }
   marksCache.delete(master);
 }
@@ -154,6 +159,19 @@ export function snapshot(m: Model, inputs: Record<string, unknown>, rates: Recor
   const nonInfra = mk.noninfra !== null ? (g(mk.noninfra) as number) : isNum(coc) && isNum(inf) ? coc * 1e7 - inf : null;
   return { master, calc, grandTotal: isNum(gtv) ? gtv : null, costPerAcre: g(mk.cpa), infra: inf, nonInfra };
 }
+
+/** How the grand total is made up, from the Master Budget's own lines (₹ Cr): Total COC (A + B) + contingencies =
+ *  Grand total; with perAcre, each divided by the project area, as the Cost / Acre column shows them. */
+export function grandTotalLines(master: MasterRow[], perAcre = false): [string, number][] | null {
+  const mk = marks(master), row = (r: number | null) => master.find((x) => x.row === r);
+  const parts = [mk.coc, mk.cont, mk.gt].map(row), acre = mk.acre;
+  if (parts.some((r) => !r || !isNum(r.c[5])) || (perAcre && !(isNum(acre) && acre > 0))) return null;
+  return parts.map((r) => [String(r!.c[0]).trim(), (r!.c[5] as number) / (perAcre ? (acre as number) : 1)]);
+}
+
+/** The contingency the master template adds on the cost of construction ("ADD: 5% for Contingencies"). Used where
+ *  only a project's grand total is stored (the project list) to show the total before it. */
+export const CONTINGENCY = 0.05;
 
 /** A frozen revision as a Snapshot, from the values stored when it froze (never recalculated). */
 export function snapFromVersion(v: { master: MasterRow[]; calc?: Record<string, CellValue> | null; grand_total: number | null }): Snapshot {
