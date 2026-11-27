@@ -2,6 +2,7 @@
 // frozen revisions, with a "draft" row in its Revision History).
 import { snapshot } from "@/lib/budget";
 import { errorResponse, HttpError, loadModel, requireViewer, type VersionRow } from "@/lib/server/data";
+import { fileResponse } from "@/lib/server/download";
 import { buildDraftWorkbook } from "@/lib/server/workbook";
 import { hasDraft, nextRev, STATUS } from "@/lib/workflow";
 
@@ -22,13 +23,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/projects/[id]/d
       live: { label: `R${rev} draft`, status: `Draft - ${STATUS[p.status][0]}`, reason: p.revision_reason, total: snap.grandTotal, by: me.name },
     }, (versions ?? []) as VersionRow[], Object.fromEntries((ppl ?? []).map((x) => [x.id, x.name])));
     const file = `${p.name} - Master Budget R${rev} draft.xlsx`;
-    return new Response(bytes as BodyInit, {
-      headers: {
-        "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "content-disposition": `attachment; filename="${file.replace(/[^\w .()-]/g, "_")}"; filename*=UTF-8''${encodeURIComponent(file)}`,
-        "cache-control": "no-store",
-      },
-    });
+    return fileResponse(bytes as BodyInit, file);
   } catch (err) {
     return errorResponse(err);
   }

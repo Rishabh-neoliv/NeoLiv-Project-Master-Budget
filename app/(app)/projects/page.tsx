@@ -5,11 +5,11 @@
 import Link from "next/link";
 import { ProjectGroups, type ProjectGroup, type ProjectRow } from "@/components/project-groups";
 import { buttonVariants } from "@/components/ui/button";
-import { actsForAll, isStaff, kindOf, regionsOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
+import { actsForAll, isStaff, kindOf, REGIONS, regionsOf, ROLE_NAME, roleOf, type Kind, type Role } from "@/lib/roles";
 import { createClient } from "@/lib/supabase/server";
 import { dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 
-interface Row { id: string; name: string; region: string; status: Status; last_rev: number | null; grand_total: number | null; location: string | null; acre: number | null; updated_at: string; kind: Kind }
+interface Row { id: string; name: string; region: string; status: Status; last_rev: number | null; grand_total: number | null; location: string | null; acre: number | null; updated_at: string; created_at: string; created_by: string | null; kind: Kind }
 const placeOf = (p: Row) => (p.location || p.region).trim();
 
 const INTRO: Record<Role, string> = {
@@ -23,7 +23,8 @@ export default async function ProjectsPage() {
   const { data: claims } = await supabase.auth.getClaims();
   const uid = claims?.claims?.sub as string;
   const [{ data: projects }, { data: mine }, { data: me }] = await Promise.all([
-    supabase.from("projects").select("id, name, region, status, last_rev, grand_total, location, acre, updated_at, kind").order("updated_at", { ascending: false }),
+    // newest first by when the project was created (user, 2026-11-27)
+    supabase.from("projects").select("id, name, region, status, last_rev, grand_total, location, acre, updated_at, created_at, created_by, kind").order("created_at", { ascending: false }),
     supabase.from("project_members").select("project_id, dept").eq("user_id", uid),
     supabase.from("profiles").select("*").eq("id", uid).single(),
   ]);
@@ -35,13 +36,21 @@ export default async function ProjectsPage() {
   const live = rows.filter((p) => !waiting.includes(p) && p.kind === "live");
   const test = rows.filter((p) => !waiting.includes(p) && p.kind === "test");
   const roleIn = (p: Row) => (deptsOf.get(p.id) ?? []).map(dn).join(" + ") || (actsForAll(role, p.kind, p.region, regionsOf(me)) ? ROLE_NAME[role] : "View only");
-  const view = (p: Row): ProjectRow => ({ id: p.id, name: p.name, status: p.status, rev: revLabel(p.status, p.last_rev), grand_total: p.grand_total, location: p.location, acre: p.acre, kind: p.kind, role: roleIn(p) });
+  // who created each project, for the "Created … by …" line (everyone signed in can read names)
+  const creators = [...new Set(rows.map((p) => p.created_by).filter(Boolean))] as string[];
+  const { data: ppl } = creators.length ? await supabase.from("profiles").select("id, name").in("id", creators) : { data: [] };
+  const nameOf = new Map((ppl ?? []).map((x) => [x.id as string, x.name as string]));
+  const view = (p: Row): ProjectRow => ({ id: p.id, name: p.name, status: p.status, rev: revLabel(p.status, p.last_rev), grand_total: p.grand_total, location: p.location, acre: p.acre, kind: p.kind, role: roleIn(p),
+    createdAt: p.created_at, createdBy: p.created_by ? nameOf.get(p.created_by) || "a former member" : null });
+  // NCR, MMR, Alibaug, Nagpur first, then any other place
+  const placesOf = (list: Row[]) => [...new Set([...REGIONS, ...list.map(placeOf).sort()])].filter((pl) => list.some((p) => placeOf(p) === pl));
 
   const groups: ProjectGroup[] = [
     ...(waiting.length ? [{ title: "Waiting for you", rows: waiting.map(view), highlight: true }] : []),
     // grouped by the rates location (the Location input), not the region picked when the project was set up
-    ...[...new Set(["NCR", "MMR", ...live.map(placeOf).sort()])].map((place) => ({ title: place, rows: live.filter((p) => placeOf(p) === place).map(view) })).filter((g) => g.rows.length),
-    ...(test.length ? [{ title: "Test projects", rows: test.map(view), test: true }] : []),
+    ...placesOf(live).map((place) => ({ title: place, rows: live.filter((p) => placeOf(p) === place).map(view) })),
+    // Test projects split by region too, so NCR and MMR aren't mixed (user, 2026-11-27)
+    ...placesOf(test).map((place) => ({ title: `Test projects · ${place}`, rows: test.filter((p) => placeOf(p) === place).map(view), test: true })),
   ];
 
   return (

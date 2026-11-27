@@ -72,6 +72,16 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 
 ## 2026-11-27
 
+- **Downloads dated today** (user: a previous master template or frozen revision downloaded today showed its upload
+  date in File Explorer, so "Group by date" never put it under Today). Cause: those downloads redirected to a storage
+  link, which sends the upload date (Last-Modified) and the browser dates the saved file with it. Now the master
+  template, frozen revision and Files-tab downloads go through the app (`lib/server/download.ts`: same bytes and file
+  name, `Last-Modified` = now, no caching); the draft Excel uses the same helper. Check after the push in Explorer.
+- **Project lists by region, newest first** (user): Admin panel → Live / Test projects and the app's Projects page
+  show one table per region (the rates location: NCR, MMR, Alibaug, Nagpur, then others), Test projects split by
+  region too ("Test projects · NCR"), each sorted by when the project was created (newest first), with "Created
+  <date, time> by <name>" under each name. tsc, eslint and build clean; not checked in a browser.
+
 - **People and admin pages rebuilt from the user's reference design (features only, not a copy; user's choices on
   the open parts: Reports = budget + workflow + rates, bell from activity with no table, Settings = setup + app info,
   quick actions = explain + link).** No database migration.

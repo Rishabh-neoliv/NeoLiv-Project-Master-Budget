@@ -8,10 +8,11 @@ import { InfoTip, SumLines } from "@/components/info-tip";
 import { RevTag, StatusBadge } from "@/components/status-badge";
 import { Input } from "@/components/ui/input";
 import { CONTINGENCY, crore, isNum, numCell } from "@/lib/budget";
+import { fmtDateTime } from "@/lib/dates";
 import type { Kind } from "@/lib/roles";
 import { STATUS, type Status } from "@/lib/workflow";
 
-export interface ProjectRow { id: string; name: string; status: Status; rev: string; grand_total: number | null; location: string | null; acre: number | null; kind: Kind; role: string }
+export interface ProjectRow { id: string; name: string; status: Status; rev: string; grand_total: number | null; location: string | null; acre: number | null; kind: Kind; role: string; createdAt: string; createdBy: string | null }
 export interface ProjectGroup { title: string; rows: ProjectRow[]; highlight?: boolean; test?: boolean }
 
 // only the grand total is stored per project: the total before the master template's contingency is worked back from it
@@ -56,6 +57,7 @@ function Group({ group: { title, rows, highlight = false, test = false } }: { gr
                   {/* the Test tag only where Test projects sit among others (Waiting for you); the Test projects section says it already */}
                   {p.kind === "test" && !test && <span className="ml-2 rounded bg-amber-soft px-1.5 py-0.5 text-xs font-medium text-amber">Test</span>}
                   <div className="text-sm text-soft">{p.location ? `${p.location} rates` : "–"}</div>
+                  <div className="text-xs text-soft">Created {fmtDateTime(p.createdAt)}{p.createdBy ? ` by ${p.createdBy}` : ""}</div>
                 </td>
                 <td className="px-4 py-3"><RevTag>{p.rev}</RevTag></td>
                 <td className="px-4 py-3"><StatusBadge status={p.status} /></td>
