@@ -92,6 +92,7 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   listed in one line under Change vs R0 instead of empty rows; the dot chart zooms to where the dots are (average
   line kept, smaller outlined dots); Days waiting shows the 10 longest; Workflow puts stage and steps per person
   stacked beside Days waiting.
+- Grand total per project shows the **5 largest** (was 15; user, 2026-11-28); all stay in the table.
 
 ## 2026-11-27
 

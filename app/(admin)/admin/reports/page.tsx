@@ -92,7 +92,7 @@ export default async function ReportsPage() {
   }).filter((r) => r.count).sort((a, b) => b.total - a.total);
   const regionBars: HBar[] = regionStats.map((r) => ({ label: r.region, value: r.total, display: crore(r.total), tip: [r.region, `${r.count} project${r.count === 1 ? "" : "s"}: ${crore(r.total)}`, isNum(r.perAcre) ? `${crore(r.perAcre)} per acre` : "Area not filled in"] }));
   const withTotal = budget.filter((b) => isNum(b.p.grand_total)).sort((a, b) => (b.p.grand_total as number) - (a.p.grand_total as number));
-  const totalBars: HBar[] = withTotal.slice(0, 15).map(({ p, change }) => ({
+  const totalBars: HBar[] = withTotal.slice(0, 5).map(({ p, change }) => ({
     label: p.name, value: p.grand_total as number, display: crore(p.grand_total), href: `/projects/${p.id}`,
     marker: isNum(p.base_total) ? p.base_total : undefined,
     tip: [p.name, `Grand total ${crore(p.grand_total)}`, isNum(p.base_total) ? `R0 ${crore(p.base_total)} (${crore(change, true)})` : "No R0 yet", `${p.region} · ${revLabel(p.status, p.last_rev)}`],
@@ -156,7 +156,7 @@ export default async function ReportsPage() {
               ? <Stats items={[{ label: `${regionStats[0].region} total`, value: crore(regionStats[0].total) }, { label: "Projects", value: `${regionStats[0].count}` }, { label: "Cost per acre", value: crore(regionStats[0].perAcre) }]} />
               : <HBars data={regionBars} />}
           </ChartCard>
-          <ChartCard title="Grand total per project" note={withTotal.length > 15 ? `The 15 largest of ${withTotal.length}; all are in the table.` : "Largest first."}>
+          <ChartCard title="Grand total per project" note={withTotal.length > 5 ? `The 5 largest of ${withTotal.length}; all are in the table.` : "Largest first."}>
             <HBars data={totalBars} markerLabel="R0 total (frozen when Base Line submitted)" />
           </ChartCard>
           <ChartCard title="Change vs R0" note="Grand total now minus R0. Projects without a frozen R0 aren't shown.">
