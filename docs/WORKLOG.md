@@ -86,6 +86,12 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   master (20 biggest), project rates per sheet. Every bar/dot has a hover tip; tables and CSVs unchanged, under
   "Show table". Chart colours are tokens in `app/globals.css` (`--chart-*`), checked with the dataviz palette
   validator in light and dark (the brand green failed its checks, so bars use a brighter teal).
+- **Reports charts tidied** after seeing them with real data (user approved all 7): over/under values in their own
+  right column (they ran out of the card); rate bars name the item in full with project · location under it; cards
+  keep their own height, and one region shows as three figures (total, projects, cost per acre); unchanged projects
+  listed in one line under Change vs R0 instead of empty rows; the dot chart zooms to where the dots are (average
+  line kept, smaller outlined dots); Days waiting shows the 10 longest; Workflow puts stage and steps per person
+  stacked beside Days waiting.
 
 ## 2026-11-27
 

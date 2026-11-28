@@ -16,7 +16,7 @@ import { loadModel } from "@/lib/server/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEPTS, dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 import { PageHeader } from "@/components/page-header";
-import { ChartCard, DivergingBars, DotChart, HBars, ShowTable, Swatch, type DBar, type Dot, type HBar } from "@/components/report-charts";
+import { ChartCard, DivergingBars, DotChart, HBars, ShowTable, Stats, Swatch, type DBar, type Dot, type HBar } from "@/components/report-charts";
 
 interface P { id: string; name: string; region: string; location: string | null; kind: Kind; status: Status; last_rev: number | null; grand_total: number | null; base_total: number | null; acre: number | null; template: string | null; rates: Record<string, unknown> | null; created_at: string; updated_at: string }
 
@@ -83,19 +83,22 @@ export default async function ReportsPage() {
 
   // ---- chart data (components/report-charts.tsx; exact figures stay in the tables under "Show table")
   const liveOnly = projects.some((p) => p.kind === "live");
-  const regionBars: HBar[] = [...new Set(projects.map((p) => p.region))].sort().map((region) => {
+  const regionStats = [...new Set(projects.map((p) => p.region))].sort().map((region) => {
     const list = budget.filter((b) => b.p.region === region && (!liveOnly || b.p.kind === "live") && isNum(b.p.grand_total));
     const total = list.reduce((s, b) => s + (b.p.grand_total as number), 0);
-    const acres = list.reduce((s, b) => s + (isNum(b.p.acre) ? b.p.acre : 0), 0);
-    return { count: list.length, bar: { label: region, value: total, display: crore(total), tip: [region, `${list.length} project${list.length === 1 ? "" : "s"}: ${crore(total)}`, acres > 0 ? `${crore(total / acres)} per acre` : "Area not filled in"] } };
-  }).filter((r) => r.count).map((r) => r.bar).sort((a, b) => b.value - a.value);
+    const withArea = list.filter((b) => isNum(b.p.acre) && b.p.acre > 0);
+    const acres = withArea.reduce((s, b) => s + (b.p.acre as number), 0), areaTotal = withArea.reduce((s, b) => s + (b.p.grand_total as number), 0);
+    return { region, count: list.length, total, perAcre: acres > 0 ? areaTotal / acres : null };
+  }).filter((r) => r.count).sort((a, b) => b.total - a.total);
+  const regionBars: HBar[] = regionStats.map((r) => ({ label: r.region, value: r.total, display: crore(r.total), tip: [r.region, `${r.count} project${r.count === 1 ? "" : "s"}: ${crore(r.total)}`, isNum(r.perAcre) ? `${crore(r.perAcre)} per acre` : "Area not filled in"] }));
   const withTotal = budget.filter((b) => isNum(b.p.grand_total)).sort((a, b) => (b.p.grand_total as number) - (a.p.grand_total as number));
   const totalBars: HBar[] = withTotal.slice(0, 15).map(({ p, change }) => ({
     label: p.name, value: p.grand_total as number, display: crore(p.grand_total), href: `/projects/${p.id}`,
     marker: isNum(p.base_total) ? p.base_total : undefined,
     tip: [p.name, `Grand total ${crore(p.grand_total)}`, isNum(p.base_total) ? `R0 ${crore(p.base_total)} (${crore(change, true)})` : "No R0 yet", `${p.region} · ${revLabel(p.status, p.last_rev)}`],
   }));
-  const changeBars: DBar[] = budget.filter((b) => isNum(b.change)).sort((a, b) => (b.change as number) - (a.change as number)).map(({ p, change }) => ({
+  const unchanged = budget.filter((b) => isNum(b.change) && Math.abs(b.change) < 0.005).map((b) => b.p.name);
+  const changeBars: DBar[] = budget.filter((b) => isNum(b.change) && Math.abs(b.change) >= 0.005).sort((a, b) => (b.change as number) - (a.change as number)).map(({ p, change }) => ({
     label: p.name, value: change as number, display: crore(change, true), href: `/projects/${p.id}`,
     tip: [p.name, `Change ${crore(change, true)}`, `R0 ${crore(p.base_total)} → now ${crore(p.grand_total)}`],
   }));
@@ -108,7 +111,7 @@ export default async function ReportsPage() {
     const n = projects.filter((p) => (STATUS[p.status]?.[1] ?? null) === key).length;
     return { label, value: n, display: `${n}`, tip: [label, `${n} project${n === 1 ? "" : "s"}`] };
   });
-  const waitBars: HBar[] = waiting.map(({ p, dept, at, days }) => ({
+  const waitBars: HBar[] = waiting.slice(0, 10).map(({ p, dept, at, days }) => ({
     label: p.name, value: days, display: `${days} day${days === 1 ? "" : "s"}`, href: `/projects/${p.id}`,
     tone: days >= 7 ? "crit" : days >= 3 ? "warn" : undefined, tag: days >= 7 ? "7+ days" : days >= 3 ? "3+ days" : undefined,
     tip: [p.name, `Waiting for ${dn(dept)}`, `Since ${fmtShortDateTime(at)}`, STATUS[p.status]?.[0] ?? ""],
@@ -118,7 +121,7 @@ export default async function ReportsPage() {
   const diffRows = rateRows.filter((r) => isNum(r.diff));
   const diffBars: DBar[] = [...diffRows].sort((a, b) => Math.abs(b.diff as number) - Math.abs(a.diff as number)).slice(0, 20).sort((a, b) => (b.diff as number) - (a.diff as number)).map((r) => {
     const pct = `${(r.diff as number) > 0 ? "+" : ""}${((r.diff as number) * 100).toFixed(1)}%`;
-    return { label: `${r.p.name} · ${r.item.split(" – ").pop()}`, value: r.diff as number, display: pct, href: `/projects/${r.p.id}`, tip: [r.item, `${r.p.name} · ${r.loc}`, `Master ₹${money(r.master)} → project ₹${money(r.own)} (${pct})`] };
+    return { label: r.item.split(" – ").pop() ?? r.item, sub: `${r.p.name} · ${r.loc}`, value: r.diff as number, display: pct, href: `/projects/${r.p.id}`, tip: [r.item, `${r.p.name} · ${r.loc}`, `Master ₹${money(r.master)} → project ₹${money(r.own)} (${pct})`] };
   });
   const bySheet = new Map<string, { n: number; projects: Set<string> }>();
   for (const r of rateRows) { const s = r.item.includes(" – ") ? r.item.split(" – ")[0] : "Other"; const e = bySheet.get(s) ?? { n: 0, projects: new Set<string>() }; e.n++; e.projects.add(r.p.id); bySheet.set(s, e); }
@@ -147,15 +150,18 @@ export default async function ReportsPage() {
           <h2 className="text-xl font-semibold">Budget summary <span className="text-base font-normal text-soft">({projects.length} projects)</span></h2>
           <CsvDownload filename="budget-summary.csv" rows={budgetCsv} header={["Project", "Kind", "Region", "Rates location", "Status", "Revision", "Area (acre)", "R0 total (Rs Cr)", "Grand total (Rs Cr)", "Change vs R0 (Rs Cr)", "Cost per acre (Rs Cr)", "Last change"]} />
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid items-start gap-4 lg:grid-cols-2">
           <ChartCard title="Totals by region" note={liveOnly ? "Grand totals of Live projects, added up per region." : "No Live projects yet: all projects, added up per region."}>
-            <HBars data={regionBars} />
+            {regionStats.length === 1
+              ? <Stats items={[{ label: `${regionStats[0].region} total`, value: crore(regionStats[0].total) }, { label: "Projects", value: `${regionStats[0].count}` }, { label: "Cost per acre", value: crore(regionStats[0].perAcre) }]} />
+              : <HBars data={regionBars} />}
           </ChartCard>
           <ChartCard title="Grand total per project" note={withTotal.length > 15 ? `The 15 largest of ${withTotal.length}; all are in the table.` : "Largest first."}>
             <HBars data={totalBars} markerLabel="R0 total (frozen when Base Line submitted)" />
           </ChartCard>
           <ChartCard title="Change vs R0" note="Grand total now minus R0. Projects without a frozen R0 aren't shown.">
-            <DivergingBars data={changeBars} over="Over R0" under="Under R0" empty="No project has a frozen R0 yet." />
+            <DivergingBars data={changeBars} over="Over R0" under="Under R0" empty={unchanged.length ? "No project has changed since its R0." : "No project has a frozen R0 yet."} />
+            {unchanged.length > 0 && <p className="text-xs text-soft">{unchanged.length} project{unchanged.length === 1 ? "" : "s"} unchanged since R0: {unchanged.join(", ")}.</p>}
           </ChartCard>
           <ChartCard title="Area vs grand total" note="One dot per project with its area filled in. Click a dot to open the project.">
             <DotChart data={dots} xLabel="Area (acres)" yLabel="Grand total (₹ Cr)" ratio={avgPerAcre} ratioLabel={avgPerAcre ? `Average across these projects: ${crore(avgPerAcre)} per acre (dots above the line cost more per acre)` : undefined} empty="No project has both an area and a grand total yet." />
@@ -190,15 +196,17 @@ export default async function ReportsPage() {
           <h2 className="text-xl font-semibold">Workflow <span className="text-base font-normal text-soft">({waiting.length} open)</span></h2>
           <CsvDownload filename="workflow.csv" rows={waitCsv} header={["Project", "Kind", "Region", "Revision", "Status", "Waiting for", "Since", "Days waiting"]} />
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <ChartCard title="Projects by stage" note="Which department each project is with now.">
-            <HBars data={stageBars} empty="No projects yet." />
-          </ChartCard>
-          <ChartCard title="Days waiting" note="Open projects, longest wait first, counted from the last workflow step." legend={<><Swatch color="var(--chart-bar)" label="Under 3 days" /><Swatch color="var(--chart-warn)" label="3+ days" /><Swatch color="var(--chart-crit)" label="7+ days" /></>}>
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          <div className="grid gap-4">
+            <ChartCard title="Projects by stage" note="Which department each project is with now.">
+              <HBars data={stageBars} empty="No projects yet." />
+            </ChartCard>
+            <ChartCard title="Workflow steps per person" note="Last 30 days. A step is a submit, a start of work, a send-back, an approval or a new version; saving a draft isn't counted.">
+              <HBars data={peopleBars} empty="No workflow steps in the last 30 days." />
+            </ChartCard>
+          </div>
+          <ChartCard title="Days waiting" note={waiting.length > 10 ? `The 10 longest waits of ${waiting.length} open projects, counted from the last workflow step; all are in the table.` : "Open projects, longest wait first, counted from the last workflow step."} legend={<><Swatch color="var(--chart-bar)" label="Under 3 days" /><Swatch color="var(--chart-warn)" label="3+ days" /><Swatch color="var(--chart-crit)" label="7+ days" /></>}>
             <HBars data={waitBars} empty="No open projects." />
-          </ChartCard>
-          <ChartCard title="Workflow steps per person" note="Last 30 days. A step is a submit, a start of work, a send-back, an approval or a new version; saving a draft isn't counted.">
-            <HBars data={peopleBars} empty="No workflow steps in the last 30 days." />
           </ChartCard>
         </div>
         <ShowTable>
@@ -238,7 +246,7 @@ export default async function ReportsPage() {
           <h2 className="text-xl font-semibold">Project rates <span className="text-base font-normal text-soft">({rateRows.length} across {new Set(rateRows.map((r) => r.p.id)).size} projects)</span></h2>
           <CsvDownload filename="project-rates.csv" rows={rateCsv} header={["Project", "Kind", "Item", "Location", "Master rate (Rs)", "Project rate (Rs)", "Difference (%)"]} />
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid items-start gap-4 lg:grid-cols-2">
           <ChartCard title="Difference from the master rate" note={diffRows.length > 20 ? `The 20 biggest differences of ${diffRows.length}; all are in the table.` : "Each project rate against the master rate of its template."}>
             <DivergingBars data={diffBars} over="Above master" under="Below master" empty="No project has its own rates." />
           </ChartCard>
