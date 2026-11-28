@@ -10,7 +10,7 @@ import { CsvDownload, type CsvCell } from "@/components/csv-download";
 import { RevTag, StatusBadge } from "@/components/status-badge";
 import { crore, isNum, LOC_KEY, masterRate, rateIndex, type Model } from "@/lib/budget";
 import { fmtDay, fmtShortDateTime } from "@/lib/dates";
-import { kindOf, type Kind } from "@/lib/roles";
+import { kindOf, REGIONS, type Kind } from "@/lib/roles";
 import { staffOrRedirect } from "@/lib/server/admin-guard";
 import { loadModel } from "@/lib/server/data";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -83,14 +83,18 @@ export default async function ReportsPage() {
 
   // ---- chart data (components/report-charts.tsx; exact figures stay in the tables under "Show table")
   const liveOnly = projects.some((p) => p.kind === "live");
-  const regionStats = [...new Set(projects.map((p) => p.region))].sort().map((region) => {
+  // every region, even with no projects yet (user, 2026-11-28); sub-admins see only their own
+  const regionStats = (isAdmin ? [...REGIONS] : REGIONS.filter((r) => me.regions.includes(r))).map((region) => {
     const list = budget.filter((b) => b.p.region === region && (!liveOnly || b.p.kind === "live") && isNum(b.p.grand_total));
     const total = list.reduce((s, b) => s + (b.p.grand_total as number), 0);
     const withArea = list.filter((b) => isNum(b.p.acre) && b.p.acre > 0);
     const acres = withArea.reduce((s, b) => s + (b.p.acre as number), 0), areaTotal = withArea.reduce((s, b) => s + (b.p.grand_total as number), 0);
     return { region, count: list.length, total, perAcre: acres > 0 ? areaTotal / acres : null };
-  }).filter((r) => r.count).sort((a, b) => b.total - a.total);
-  const regionBars: HBar[] = regionStats.map((r) => ({ label: r.region, value: r.total, display: crore(r.total), tip: [r.region, `${r.count} project${r.count === 1 ? "" : "s"}: ${crore(r.total)}`, isNum(r.perAcre) ? `${crore(r.perAcre)} per acre` : "Area not filled in"] }));
+  });
+  const regionBars: HBar[] = regionStats.map((r) => ({
+    label: r.region, value: r.total, display: crore(r.total), tag: `${r.count} project${r.count === 1 ? "" : "s"}`,
+    tip: r.count ? [r.region, `${r.count} project${r.count === 1 ? "" : "s"}: ${crore(r.total)}`, isNum(r.perAcre) ? `${crore(r.perAcre)} per acre` : "Area not filled in"] : [r.region, "No projects yet"],
+  }));
   const withTotal = budget.filter((b) => isNum(b.p.grand_total)).sort((a, b) => (b.p.grand_total as number) - (a.p.grand_total as number));
   const totalBars: HBar[] = withTotal.slice(0, 5).map(({ p, change }) => ({
     label: p.name, value: p.grand_total as number, display: crore(p.grand_total), href: `/projects/${p.id}`,

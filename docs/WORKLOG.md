@@ -93,6 +93,8 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   line kept, smaller outlined dots); Days waiting shows the 10 longest; Workflow puts stage and steps per person
   stacked beside Days waiting.
 - Grand total per project shows the **5 largest** (was 15; user, 2026-11-28); all stay in the table.
+- Totals by region lists **all four regions** (NCR, MMR, Alibaug, Nagpur) even with no projects, each with its
+  project count (user, 2026-11-28). Sub-admins see their own region only.
 
 ## 2026-11-27
 
