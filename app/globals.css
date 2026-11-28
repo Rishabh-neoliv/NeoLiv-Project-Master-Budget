@@ -77,6 +77,10 @@
   /* one colour per person on a project: who changed what (lib/changes.ts) */
   --who-1: #2563c9; --who-2: #c2410c; --who-3: #7c3aed; --who-4: #15803d;
   --who-5: #be185d; --who-6: #0e7490; --who-7: #a16207; --who-8: #6d4c41;
+  /* charts (Reports, Admin dashboard), validated with the dataviz palette checks on --sheet, 2026-11-28:
+     one-series bars, over / under a base (red / blue, from a gray midline), status (with a label, never alone) */
+  --chart-bar: #0f8f78; --chart-over: #e34948; --chart-under: #2a78d6; --chart-mid: #c3c2b7;
+  --chart-grid: #e1e0d9; --chart-warn: #fab219; --chart-crit: #d03b3b;
   --amber: #7a4f00;
   --amber-soft: #fbedc8;
   --bad: #a3271b;
@@ -127,6 +131,8 @@
     --accent-ink: #0c1a17;
     --who-1: #6ea8ff; --who-2: #ff9a62; --who-3: #b79bff; --who-4: #5fd38a;
     --who-5: #ff7ab6; --who-6: #4fd1e0; --who-7: #f0c050; --who-8: #c9a38f;
+    --chart-bar: #2a9f88; --chart-over: #e66767; --chart-under: #3987e5; --chart-mid: #4a4a46;
+    --chart-grid: #2c2c2a; --chart-warn: #fab219; --chart-crit: #d03b3b;
     --amber: #f2c46b;
     --amber-soft: #3b2e12;
     --bad: #ff8a7a;

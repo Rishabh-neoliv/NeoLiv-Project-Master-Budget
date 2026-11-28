@@ -73,6 +73,19 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - **AI reading of documents** needs `ANTHROPIC_API_KEY` (user: "not now"). Waiting to be read: the
   (09-09-2026) MOM xlsx and the Guidelines PDF (partly scanned). `6071422233.PDF` is an SAP invoice, not a project doc.
 - Projects without a team (10, mostly the imported NCR ones): assign when needed.
+- **Reports charts:** not yet seen with real data (no `.env.local` on this PC); check Administration → Reports on
+  Vercel after pushing.
+
+## 2026-11-28
+
+- **Reports as charts** (user: "all statistics in charts, graph or diagram"; chose charts first, table on click, all
+  nine charts): `components/report-charts.tsx` (bars, over/under bars, dot chart, "Show table") on
+  Administration → Reports. Budget: totals by region (Live only, all if no Live), grand total per project (15
+  largest) with an R0 tick, change vs R0, area vs grand total with the average-per-acre line. Workflow: projects by
+  stage, days waiting (3+ amber, 7+ red, each with its label), steps per person (30 days). Rates: difference from
+  master (20 biggest), project rates per sheet. Every bar/dot has a hover tip; tables and CSVs unchanged, under
+  "Show table". Chart colours are tokens in `app/globals.css` (`--chart-*`), checked with the dataviz palette
+  validator in light and dark (the brand green failed its checks, so bars use a brighter teal).
 
 ## 2026-11-27
 
