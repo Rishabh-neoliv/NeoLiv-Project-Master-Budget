@@ -96,6 +96,9 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
 - Totals by region lists **all four regions** (NCR, MMR, Alibaug, Nagpur) even with no projects, each with its
   project count (user, 2026-11-28). Sub-admins see their own region only. Shown as three figures per region
   (total, projects, cost per acre; "–" with no projects) instead of bars (user preferred that format).
+- **Budget summary without gaps** (user: blank space beside cards): the four regions as one row of figures across
+  the top; Grand total per project and Change vs R0 side by side at the same height; Area vs grand total full width
+  (a wider, lower plot). Cards side by side in Workflow and Rates now share the same height too.
 
 ## 2026-11-27
 

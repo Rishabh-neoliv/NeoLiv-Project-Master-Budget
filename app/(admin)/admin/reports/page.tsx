@@ -16,7 +16,7 @@ import { loadModel } from "@/lib/server/data";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DEPTS, dn, revLabel, STATUS, type Status } from "@/lib/workflow";
 import { PageHeader } from "@/components/page-header";
-import { ChartCard, DivergingBars, DotChart, HBars, ShowTable, Stats, Swatch, type DBar, type Dot, type HBar } from "@/components/report-charts";
+import { ChartCard, DivergingBars, DotChart, HBars, ShowTable, Swatch, type DBar, type Dot, type HBar } from "@/components/report-charts";
 
 interface P { id: string; name: string; region: string; location: string | null; kind: Kind; status: Status; last_rev: number | null; grand_total: number | null; base_total: number | null; acre: number | null; template: string | null; rates: Record<string, unknown> | null; created_at: string; updated_at: string }
 
@@ -150,12 +150,20 @@ export default async function ReportsPage() {
           <h2 className="text-xl font-semibold">Budget summary <span className="text-base font-normal text-soft">({projects.length} projects)</span></h2>
           <CsvDownload filename="budget-summary.csv" rows={budgetCsv} header={["Project", "Kind", "Region", "Rates location", "Status", "Revision", "Area (acre)", "R0 total (Rs Cr)", "Grand total (Rs Cr)", "Change vs R0 (Rs Cr)", "Cost per acre (Rs Cr)", "Last change"]} />
         </div>
-        <div className="grid items-start gap-4 lg:grid-cols-2">
-          <ChartCard title="Totals by region" note={liveOnly ? "Grand totals of Live projects, added up per region." : "No Live projects yet: all projects, added up per region."}>
-            <div className="grid gap-3">
-              {regionStats.map((r) => <Stats key={r.region} items={[{ label: `${r.region} total`, value: crore(r.total) }, { label: "Projects", value: `${r.count}` }, { label: "Cost per acre", value: crore(r.perAcre) }]} />)}
-            </div>
-          </ChartCard>
+        {/* regions in one row across the top, then two charts of a similar height side by side, then the dot chart
+            full width, so no card leaves a gap beside it (user, 2026-11-28) */}
+        <ChartCard title="Totals by region" note={liveOnly ? "Grand totals of Live projects, added up per region." : "No Live projects yet: all projects, added up per region."}>
+          <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {regionStats.map((r) => (
+              <div key={r.region} className="grid gap-0.5 rounded-lg bg-well px-4 py-3">
+                <dt className="text-sm font-medium text-soft">{r.region}</dt>
+                <dd className="text-2xl font-semibold tabular-nums">{crore(r.total)}</dd>
+                <dd className="text-xs text-soft">{r.count ? `${r.count} project${r.count === 1 ? "" : "s"} · ${isNum(r.perAcre) ? `${crore(r.perAcre)} per acre` : "area not filled in"}` : "No projects yet"}</dd>
+              </div>
+            ))}
+          </dl>
+        </ChartCard>
+        <div className="grid gap-4 lg:grid-cols-2">
           <ChartCard title="Grand total per project" note={withTotal.length > 5 ? `The 5 largest of ${withTotal.length}; all are in the table.` : "Largest first."}>
             <HBars data={totalBars} markerLabel="R0 total (frozen when Base Line submitted)" />
           </ChartCard>
@@ -163,10 +171,10 @@ export default async function ReportsPage() {
             <DivergingBars data={changeBars} over="Over R0" under="Under R0" empty={unchanged.length ? "No project has changed since its R0." : "No project has a frozen R0 yet."} />
             {unchanged.length > 0 && <p className="text-xs text-soft">{unchanged.length} project{unchanged.length === 1 ? "" : "s"} unchanged since R0: {unchanged.join(", ")}.</p>}
           </ChartCard>
-          <ChartCard title="Area vs grand total" note="One dot per project with its area filled in. Click a dot to open the project.">
-            <DotChart data={dots} xLabel="Area (acres)" yLabel="Grand total (₹ Cr)" ratio={avgPerAcre} ratioLabel={avgPerAcre ? `Average across these projects: ${crore(avgPerAcre)} per acre (dots above the line cost more per acre)` : undefined} empty="No project has both an area and a grand total yet." />
-          </ChartCard>
         </div>
+        <ChartCard title="Area vs grand total" note="One dot per project with its area filled in. Click a dot to open the project.">
+          <DotChart wide data={dots} xLabel="Area (acres)" yLabel="Grand total (₹ Cr)" ratio={avgPerAcre} ratioLabel={avgPerAcre ? `Average across these projects: ${crore(avgPerAcre)} per acre (dots above the line cost more per acre)` : undefined} empty="No project has both an area and a grand total yet." />
+        </ChartCard>
         <ShowTable>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[900px] text-sm">
@@ -196,7 +204,7 @@ export default async function ReportsPage() {
           <h2 className="text-xl font-semibold">Workflow <span className="text-base font-normal text-soft">({waiting.length} open)</span></h2>
           <CsvDownload filename="workflow.csv" rows={waitCsv} header={["Project", "Kind", "Region", "Revision", "Status", "Waiting for", "Since", "Days waiting"]} />
         </div>
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <div className="grid gap-4">
             <ChartCard title="Projects by stage" note="Which department each project is with now.">
               <HBars data={stageBars} empty="No projects yet." />
@@ -246,7 +254,7 @@ export default async function ReportsPage() {
           <h2 className="text-xl font-semibold">Project rates <span className="text-base font-normal text-soft">({rateRows.length} across {new Set(rateRows.map((r) => r.p.id)).size} projects)</span></h2>
           <CsvDownload filename="project-rates.csv" rows={rateCsv} header={["Project", "Kind", "Item", "Location", "Master rate (Rs)", "Project rate (Rs)", "Difference (%)"]} />
         </div>
-        <div className="grid items-start gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           <ChartCard title="Difference from the master rate" note={diffRows.length > 20 ? `The 20 biggest differences of ${diffRows.length}; all are in the table.` : "Each project rate against the master rate of its template."}>
             <DivergingBars data={diffBars} over="Above master" under="Below master" empty="No project has its own rates." />
           </ChartCard>

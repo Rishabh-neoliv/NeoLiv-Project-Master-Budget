@@ -104,12 +104,13 @@ export interface Dot { label: string; x: number; y: number; href?: string; tip?:
 const short = (v: number) => (v >= 100 ? Math.round(v) : +v.toFixed(v >= 10 ? 1 : 2)).toLocaleString("en-IN");
 const xFmt = (v: number) => `${short(v)} ac`, yFmt = (v: number) => `₹${short(v)} Cr`;
 
-export function DotChart({ data, xLabel, yLabel, ratio, ratioLabel, empty = "Nothing to plot yet." }: {
-  data: Dot[]; xLabel: string; yLabel: string; ratio?: number; ratioLabel?: string; empty?: string;
+export function DotChart({ data, xLabel, yLabel, ratio, ratioLabel, wide, empty = "Nothing to plot yet." }: {
+  data: Dot[]; xLabel: string; yLabel: string; ratio?: number; ratioLabel?: string; wide?: boolean; empty?: string;
 }) {
   const { on, box } = useTip();
   if (!data.length) return <p className="text-sm text-soft">{empty}</p>;
-  const W = 520, H = 280, L = 56, B = 36, T = 12, R = 16;
+  // "wide" for a full-width card: a longer, lower plot so it doesn't grow tall
+  const W = wide ? 1000 : 520, H = wide ? 300 : 280, L = 56, B = 36, T = 12, R = 16;
   // axes zoomed to where the dots are (not from zero), on round steps
   const range = (vals: number[]) => {
     let lo = Math.min(...vals), hi = Math.max(...vals);
