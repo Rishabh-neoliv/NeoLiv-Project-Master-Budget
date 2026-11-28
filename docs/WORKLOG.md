@@ -94,7 +94,8 @@ What was built, fixed and decided, newest first. Add a dated line whenever somet
   stacked beside Days waiting.
 - Grand total per project shows the **5 largest** (was 15; user, 2026-11-28); all stay in the table.
 - Totals by region lists **all four regions** (NCR, MMR, Alibaug, Nagpur) even with no projects, each with its
-  project count (user, 2026-11-28). Sub-admins see their own region only.
+  project count (user, 2026-11-28). Sub-admins see their own region only. Shown as three figures per region
+  (total, projects, cost per acre; "–" with no projects) instead of bars (user preferred that format).
 
 ## 2026-11-27
 

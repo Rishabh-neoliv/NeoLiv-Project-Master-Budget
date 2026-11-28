@@ -91,10 +91,6 @@ export default async function ReportsPage() {
     const acres = withArea.reduce((s, b) => s + (b.p.acre as number), 0), areaTotal = withArea.reduce((s, b) => s + (b.p.grand_total as number), 0);
     return { region, count: list.length, total, perAcre: acres > 0 ? areaTotal / acres : null };
   });
-  const regionBars: HBar[] = regionStats.map((r) => ({
-    label: r.region, value: r.total, display: crore(r.total), tag: `${r.count} project${r.count === 1 ? "" : "s"}`,
-    tip: r.count ? [r.region, `${r.count} project${r.count === 1 ? "" : "s"}: ${crore(r.total)}`, isNum(r.perAcre) ? `${crore(r.perAcre)} per acre` : "Area not filled in"] : [r.region, "No projects yet"],
-  }));
   const withTotal = budget.filter((b) => isNum(b.p.grand_total)).sort((a, b) => (b.p.grand_total as number) - (a.p.grand_total as number));
   const totalBars: HBar[] = withTotal.slice(0, 5).map(({ p, change }) => ({
     label: p.name, value: p.grand_total as number, display: crore(p.grand_total), href: `/projects/${p.id}`,
@@ -156,9 +152,9 @@ export default async function ReportsPage() {
         </div>
         <div className="grid items-start gap-4 lg:grid-cols-2">
           <ChartCard title="Totals by region" note={liveOnly ? "Grand totals of Live projects, added up per region." : "No Live projects yet: all projects, added up per region."}>
-            {regionStats.length === 1
-              ? <Stats items={[{ label: `${regionStats[0].region} total`, value: crore(regionStats[0].total) }, { label: "Projects", value: `${regionStats[0].count}` }, { label: "Cost per acre", value: crore(regionStats[0].perAcre) }]} />
-              : <HBars data={regionBars} />}
+            <div className="grid gap-3">
+              {regionStats.map((r) => <Stats key={r.region} items={[{ label: `${r.region} total`, value: crore(r.total) }, { label: "Projects", value: `${r.count}` }, { label: "Cost per acre", value: crore(r.perAcre) }]} />)}
+            </div>
           </ChartCard>
           <ChartCard title="Grand total per project" note={withTotal.length > 5 ? `The 5 largest of ${withTotal.length}; all are in the table.` : "Largest first."}>
             <HBars data={totalBars} markerLabel="R0 total (frozen when Base Line submitted)" />
